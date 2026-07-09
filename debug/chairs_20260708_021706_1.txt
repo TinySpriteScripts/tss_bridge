@@ -1,8 +1,0 @@
-Chairs = {
-        label = Loc[Config.Lan].target["Chairs"],
-        icon = "fas fa-chair",
-        list = {
-            { coords = vec4(-248.397, 6202.615, 31.566, 46.087), stand = vec3(-249.868, 6204.745, 31.491) },
-            { coords = vec4(-247.730, 6203.318, 31.566, 46.087), stand = vec3(-249.868, 6204.745, 31.491) },
-        }
-    },
