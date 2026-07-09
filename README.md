@@ -118,19 +118,21 @@ Chair placement helper:
 
 ```text
 /tsschairdebug
-/tsslocdebug [chairs|washhands|poles]
+/tsslocdebug [chairs|washhands|poles|payments|shop|stash|publicstash|playerstash|crafting|bossmenus|outfit]
 ```
 
 Controls:
 
 ```text
-W/S/A/D move ghost ped in position mode
-W/S move along the red local axis in rotation mode
-A/D rotate ghost ped heading in rotation mode
+Chairs use the seated ghost ped preview
+Other tables use an editable target box/polyzone preview
+Position mode: W/S forward, A/D side
+Zone size mode: W/S length, A/D width
+Rotation mode: A/D rotate, W/S red local axis
 Mouse wheel move height or heading based on mode
-LShift switch between position and rotation mode
-Z toggle player movement for setting the stand position
-E save current chair and leave a preview ped behind
+LShift switch mode
+Z toggle player movement for setting chair stand positions
+E save current point or zone
 ESC/Backspace finish and save the selected location table to `tss_bridge/debug/`
 ```
 

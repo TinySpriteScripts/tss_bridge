@@ -103,12 +103,46 @@ local function drawAxisGizmo(coords, rotationMode)
     end
 end
 
+local function drawZoneBox(coords, length, width, minZ, maxZ, r, g, b, a)
+    if not coords then return end
+
+    local heading = math.rad(coords.w or 0.0)
+    local forward = vec3(-math.sin(heading), math.cos(heading), 0.0)
+    local right = vec3(math.cos(heading), math.sin(heading), 0.0)
+    local halfL = (length or 0.6) / 2.0
+    local halfW = (width or 0.6) / 2.0
+    local bottom = minZ or (coords.z - 0.5)
+    local top = maxZ or (coords.z + 0.5)
+    local colorR = r or 80
+    local colorG = g or 200
+    local colorB = b or 255
+    local alpha = a or 220
+
+    local corners = {
+        vec3(coords.x + (forward.x * halfL) + (right.x * halfW), coords.y + (forward.y * halfL) + (right.y * halfW), 0.0),
+        vec3(coords.x + (forward.x * halfL) - (right.x * halfW), coords.y + (forward.y * halfL) - (right.y * halfW), 0.0),
+        vec3(coords.x - (forward.x * halfL) - (right.x * halfW), coords.y - (forward.y * halfL) - (right.y * halfW), 0.0),
+        vec3(coords.x - (forward.x * halfL) + (right.x * halfW), coords.y - (forward.y * halfL) + (right.y * halfW), 0.0),
+    }
+
+    for i = 1, 4 do
+        local nextIndex = i == 4 and 1 or i + 1
+        local from = corners[i]
+        local to = corners[nextIndex]
+
+        DrawLine(from.x, from.y, bottom, to.x, to.y, bottom, colorR, colorG, colorB, alpha)
+        DrawLine(from.x, from.y, top, to.x, to.y, top, colorR, colorG, colorB, alpha)
+        DrawLine(from.x, from.y, bottom, from.x, from.y, top, colorR, colorG, colorB, alpha)
+    end
+end
+
 local function formatChairEntry(coords, stand)
     return ('            { coords = %s, stand = %s },'):format(formatVec4(coords), formatVec3(stand))
 end
 
 local locationTableProfiles = {
     Chairs = {
+        kind = 'chair',
         label = 'Loc[Config.Lan].target["Chairs"]',
         icon = 'fas fa-chair',
         entry = function(entry)
@@ -116,24 +150,66 @@ local locationTableProfiles = {
         end,
     },
     WashHands = {
+        kind = 'zone',
         label = 'Loc[Config.Lan].target["WashHands"]',
         icon = 'fas fa-sink',
         entry = function(entry)
-            return ('            { coords = %s, l=0.5, w=0.5 },'):format(formatVec4(entry.coords))
+            return ('            { coords = %s, l=%.1f, w=%.1f },'):format(formatVec4(entry.coords), entry.l or 0.6, entry.w or 0.6)
         end,
     },
     Poles = {
+        kind = 'zone',
         label = 'Loc[Config.Lan].target["Poles"]',
         icon = 'fas fa-child',
         entry = function(entry, index)
-            return ('            { coords = %s, l=0.7, w=0.7, pole = %s },'):format(formatVec4(entry.coords), entry.pole or index)
+            return ('            { coords = %s, l=%.1f, w=%.1f, pole = %s },'):format(formatVec4(entry.coords), entry.l or 0.7, entry.w or 0.7, entry.pole or index)
         end,
     },
 }
 
+local directZoneProfiles = {
+    Outfit = { label = 'Loc[Config.Lan].target["Outfit"]', icon = 'fas fa-list' },
+    BossMenus = { label = 'Loc[Config.Lan].target["BossMenus"]', icon = 'fas fa-list' },
+    Payments = { label = 'Loc[Config.Lan].target["Payments"]', icon = 'fas fa-credit-card', extra = 'maxZ=%.1f,' },
+    Shop = { label = 'Loc[Config.Lan].target["Shop"]', icon = 'fas fa-box-open', extra = 'maxZ=%.1f, shopName = "CHANGE_ME", items = Shops.CHANGE_ME,' },
+    Stash = { label = 'Loc[Config.Lan].target["Stash"]', icon = 'fas fa-temperature-low', extra = 'maxZ=%.1f, stashName = "CHANGE_ME", stashLabel = "CHANGE_ME", slots = 100, weight = 200000,' },
+    PublicStash = { label = 'Loc[Config.Lan].target["PublicStash"]', icon = 'fas fa-box-open', extra = 'maxZ=%.1f, stashName = "CHANGE_ME", stashLabel = "CHANGE_ME", slots = 10, weight = 20000,' },
+    PlayerStash = { label = 'Loc[Config.Lan].target["PlayerStash"]', icon = 'fas fa-box-open', extra = 'stashName = "CHANGE_ME", stashLabel = "CHANGE_ME", slots = 10, weight = 40000,' },
+    Crafting = { label = 'Loc[Config.Lan].target["Crafting"]', icon = 'fas fa-copy', extra = 'craftable = Crafting.CHANGE_ME,' },
+}
+
+for tableName, profile in pairs(directZoneProfiles) do
+    locationTableProfiles[tableName] = {
+        kind = 'directZone',
+        label = profile.label,
+        icon = profile.icon,
+        entry = function(entry)
+            local line = ('        { coords = %s, l=%.1f, w=%.1f, label = %s, icon = "%s",'):format(formatVec4(entry.coords), entry.l or 0.6, entry.w or 0.6, profile.label, profile.icon)
+            if profile.extra then
+                line = line .. ' ' .. profile.extra:format(entry.maxZ or ((entry.coords and entry.coords.z or 0.0) + 1.0))
+            end
+            return line .. ' },'
+        end,
+    }
+end
+
 function TSS.DebugTools.FormatLocationTable(entries, tableName)
     local profile = locationTableProfiles[tableName or 'Chairs'] or locationTableProfiles.Chairs
     tableName = locationTableProfiles[tableName] and tableName or 'Chairs'
+
+    if profile.kind == 'directZone' then
+        local output = {
+            ('%s = {'):format(tableName),
+        }
+
+        for i = 1, #entries do
+            output[#output + 1] = profile.entry(entries[i], i)
+        end
+
+        output[#output + 1] = '    },'
+
+        return table.concat(output, '\n')
+    end
 
     local output = {
         ('%s = {'):format(tableName),
@@ -183,7 +259,7 @@ if TSS.IsServer() then
             return
         end
 
-        local filename = ('debug/chairs_%s_%s.txt'):format(os.date('%Y%m%d_%H%M%S'), tostring(src))
+        local filename = ('debug/locations_%s_%s.txt'):format(os.date('%Y%m%d_%H%M%S'), tostring(src))
         local saved = SaveResourceFile('tss_bridge', filename, output, #output)
 
         TriggerClientEvent('tss_bridge:client:chairTableSaved', src, saved == true, filename)
@@ -192,7 +268,6 @@ if TSS.IsServer() then
 end
 
 if TSS.IsClient() then
-    local chairScenario = 'PROP_HUMAN_SEAT_CHAIR_MP_PLAYER'
     local chairAnimDict = 'amb@prop_human_seat_chair_mp@male@generic@base'
     local chairAnimName = 'base'
 
@@ -207,15 +282,40 @@ if TSS.IsClient() then
         freePlayer = false,
         mode = 'position',
         tableName = 'Chairs',
-        tableOptions = { 'Chairs', 'WashHands', 'Poles' },
+        tableOptions = { 'Chairs', 'WashHands', 'Poles', 'Payments', 'Shop', 'Stash', 'PublicStash', 'PlayerStash', 'Crafting', 'BossMenus', 'Outfit' },
         tableOption = 1,
         model = 'mp_m_freemode_01',
         moveSpeed = 0.01,
+        sizeSpeed = 0.02,
         rotateSpeed = 2.5,
         scrollHeightStep = 0.025,
         scrollHeadingStep = 2.5,
         nextScenarioCheck = 0,
+        l = 0.6,
+        w = 0.6,
+        minZ = nil,
+        maxZ = nil,
     }
+
+    local function getCurrentProfile()
+        return locationTableProfiles[chairTool.tableName or 'Chairs'] or locationTableProfiles.Chairs
+    end
+
+    local function isChairProfile()
+        return getCurrentProfile().kind == 'chair'
+    end
+
+    local function getDefaultZoneSize(tableName)
+        if tableName == 'Poles' then return 0.7, 0.7 end
+        if tableName == 'WashHands' then return 0.5, 0.5 end
+        if tableName == 'Shop' then return 0.8, 1.2 end
+        if tableName == 'Stash' then return 0.8, 1.2 end
+        if tableName == 'PublicStash' then return 0.6, 0.6 end
+        if tableName == 'Payments' then return 0.5, 0.5 end
+        if tableName == 'Crafting' then return 1.2, 1.2 end
+
+        return 0.6, 0.6
+    end
 
     local function deleteGhost()
         if chairTool.ghost and DoesEntityExist(chairTool.ghost) then
@@ -278,43 +378,33 @@ if TSS.IsClient() then
 
         SetEntityAsMissionEntity(ped, true, true)
         ClearPedTasksImmediately(ped)
+        FreezeEntityPosition(ped, false)
         SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false)
         SetEntityHeading(ped, coords.w)
-        FreezeEntityPosition(ped, false)
-        TaskStartScenarioAtPosition(
-            ped,
-            chairScenario,
-            coords.x,
-            coords.y,
-            coords.z,
-            coords.w,
-            -1,
-            true,
-            true
-        )
-        Wait(0)
 
-        if not IsPedUsingScenario(ped, chairScenario) then
-            local loaded = TSS.LoadAnimDict(chairAnimDict, 1500)
-            if loaded then
-                TaskPlayAnim(ped, chairAnimDict, chairAnimName, 8.0, 8.0, -1, 1, 0.0, false, false, false)
-            end
+        local loaded = TSS.LoadAnimDict(chairAnimDict, 1500)
+        if loaded then
+            TaskPlayAnimAdvanced(ped, chairAnimDict, chairAnimName, coords.x, coords.y, coords.z, 0.0, 0.0, coords.w, 8.0, 8.0, -1, 1, 0.0, false, false)
         end
 
-        CreateThread(function()
-            Wait(650)
-            if ped and DoesEntityExist(ped) then
-                FreezeEntityPosition(ped, true)
-            end
-        end)
+        FreezeEntityPosition(ped, true)
     end
 
     local function moveChairPed(ped, coords)
         if not ped or not DoesEntityExist(ped) or not coords then return end
 
-        FreezeEntityPosition(ped, true)
+        FreezeEntityPosition(ped, false)
         SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false)
         SetEntityHeading(ped, coords.w)
+
+        if IsEntityPlayingAnim(ped, chairAnimDict, chairAnimName, 3) then
+            TaskPlayAnimAdvanced(ped, chairAnimDict, chairAnimName, coords.x, coords.y, coords.z, 0.0, 0.0, coords.w, 8.0, 8.0, -1, 1, 0.0, false, false)
+        else
+            applyChairScenario(ped, coords)
+            return
+        end
+
+        FreezeEntityPosition(ped, true)
     end
 
     local function keepChairScenarioAlive()
@@ -325,7 +415,6 @@ if TSS.IsClient() then
 
         if chairTool.ghost
             and DoesEntityExist(chairTool.ghost)
-            and not IsPedUsingScenario(chairTool.ghost, chairScenario)
             and not IsEntityPlayingAnim(chairTool.ghost, chairAnimDict, chairAnimName, 3)
         then
             applyChairScenario(chairTool.ghost, chairTool.coords)
@@ -338,7 +427,6 @@ if TSS.IsClient() then
             if ped
                 and entry
                 and DoesEntityExist(ped)
-                and not IsPedUsingScenario(ped, chairScenario)
                 and not IsEntityPlayingAnim(ped, chairAnimDict, chairAnimName, 3)
             then
                 applyChairScenario(ped, entry.coords)
@@ -496,14 +584,23 @@ if TSS.IsClient() then
         chairTool.freePlayer = false
         chairTool.mode = 'position'
         chairTool.tableName = tableName or chairTool.tableName or 'Chairs'
+        chairTool.l, chairTool.w = getDefaultZoneSize(chairTool.tableName)
+        chairTool.minZ = chairTool.coords.z - 0.5
+        chairTool.maxZ = chairTool.coords.z + 0.5
         chairTool.nextScenarioCheck = 0
         deleteSavedGhosts()
 
-        if spawnGhost(chairTool.coords) then
-            setPlayerLocked(true)
-            notify('Chair debug started')
+        if isChairProfile() then
+            if spawnGhost(chairTool.coords) then
+                setPlayerLocked(true)
+                notify('Chair debug started')
+            else
+                chairTool.active = false
+            end
         else
-            chairTool.active = false
+            setPlayerLocked(true)
+            deleteGhost()
+            notify(('Location debug started: %s'):format(chairTool.tableName))
         end
     end
 
@@ -530,8 +627,12 @@ if TSS.IsClient() then
         chairTool.freePlayer = false
         chairTool.mode = 'position'
         chairTool.tableName = 'Chairs'
+        chairTool.l = 0.6
+        chairTool.w = 0.6
+        chairTool.minZ = nil
+        chairTool.maxZ = nil
         chairTool.nextScenarioCheck = 0
-        notify('Chair debug stopped')
+        notify('Location debug stopped')
     end
 
     local function saveChair()
@@ -543,8 +644,16 @@ if TSS.IsClient() then
             coords = savedCoords,
             stand = vec3(chairTool.stand.x, chairTool.stand.y, chairTool.stand.z),
             pole = #chairTool.entries + 1,
+            l = chairTool.l,
+            w = chairTool.w,
+            minZ = chairTool.minZ,
+            maxZ = chairTool.maxZ,
         }
-        spawnSavedGhost(savedCoords)
+
+        if isChairProfile() then
+            spawnSavedGhost(savedCoords)
+        end
+
         notify(('Saved %s #%s'):format(chairTool.tableName, #chairTool.entries))
     end
 
@@ -565,15 +674,23 @@ if TSS.IsClient() then
             moved = true
         end
 
-        if IsDisabledControlJustPressed(0, 20) then
+        if isChairProfile() and IsDisabledControlJustPressed(0, 20) then
             chairTool.freePlayer = not chairTool.freePlayer
             setPlayerLocked(not chairTool.freePlayer)
             notify(chairTool.freePlayer and 'Player movement unlocked' or 'Player movement locked')
         end
 
         if IsDisabledControlJustPressed(0, 21) then
-            chairTool.mode = chairTool.mode == 'position' and 'rotation' or 'position'
-            notify(('Chair debug mode: %s'):format(chairTool.mode))
+            if isChairProfile() then
+                chairTool.mode = chairTool.mode == 'position' and 'rotation' or 'position'
+            elseif chairTool.mode == 'position' then
+                chairTool.mode = 'size'
+            elseif chairTool.mode == 'size' then
+                chairTool.mode = 'rotation'
+            else
+                chairTool.mode = 'position'
+            end
+            notify(('Location debug mode: %s'):format(chairTool.mode))
         end
 
         if not chairTool.freePlayer then
@@ -582,6 +699,11 @@ if TSS.IsClient() then
                 if IsDisabledControlPressed(0, 33) then moveBy(-forward.x * speed, -forward.y * speed, 0.0, 0.0) end
                 if IsDisabledControlPressed(0, 35) then moveBy(right.x * speed, right.y * speed, 0.0, 0.0) end
                 if IsDisabledControlPressed(0, 34) then moveBy(-right.x * speed, -right.y * speed, 0.0, 0.0) end
+            elseif chairTool.mode == 'size' then
+                if IsDisabledControlPressed(0, 32) then chairTool.l = math.max(0.1, chairTool.l + chairTool.sizeSpeed); moved = true end
+                if IsDisabledControlPressed(0, 33) then chairTool.l = math.max(0.1, chairTool.l - chairTool.sizeSpeed); moved = true end
+                if IsDisabledControlPressed(0, 35) then chairTool.w = math.max(0.1, chairTool.w + chairTool.sizeSpeed); moved = true end
+                if IsDisabledControlPressed(0, 34) then chairTool.w = math.max(0.1, chairTool.w - chairTool.sizeSpeed); moved = true end
             else
                 if IsDisabledControlPressed(0, 35) then moveBy(0.0, 0.0, 0.0, chairTool.rotateSpeed) end
                 if IsDisabledControlPressed(0, 34) then moveBy(0.0, 0.0, 0.0, -chairTool.rotateSpeed) end
@@ -595,6 +717,8 @@ if TSS.IsClient() then
                 moveBy(0.0, 0.0, 0.0, chairTool.scrollHeadingStep)
             else
                 moveBy(0.0, 0.0, chairTool.scrollHeightStep, 0.0)
+                chairTool.minZ = chairTool.coords.z - 0.5
+                chairTool.maxZ = chairTool.coords.z + 0.5
             end
         end
 
@@ -603,6 +727,8 @@ if TSS.IsClient() then
                 moveBy(0.0, 0.0, 0.0, -chairTool.scrollHeadingStep)
             else
                 moveBy(0.0, 0.0, -chairTool.scrollHeightStep, 0.0)
+                chairTool.minZ = chairTool.coords.z - 0.5
+                chairTool.maxZ = chairTool.coords.z + 0.5
             end
         end
 
@@ -614,7 +740,7 @@ if TSS.IsClient() then
         if IsDisabledControlJustPressed(0, 38) then saveChair() end
         if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 200) then stopChairTool(true) end
 
-        if moved then
+        if moved and isChairProfile() then
             moveChairPed(chairTool.ghost, chairTool.coords)
             chairTool.nextScenarioCheck = GetGameTimer() + 250
         end
@@ -624,19 +750,20 @@ if TSS.IsClient() then
         if not chairTool.coords or not chairTool.stand then return end
 
         local mode = chairTool.freePlayer and 'Stand position: player unlocked' or 'Placement: player locked'
-        local editMode = chairTool.mode == 'rotation' and 'Rotation' or 'Position'
+        local editMode = chairTool.mode == 'rotation' and 'Rotation' or (chairTool.mode == 'size' and 'Size' or 'Position')
         local scrollMode = chairTool.mode == 'rotation' and 'heading' or 'height'
         local ghost = chairTool.coords
         local stand = chairTool.stand
+        local chairMode = isChairProfile()
 
         drawPanel({
             { text = ('TSS Location Debug: %s'):format(chairTool.tableName), scale = 0.36, r = 255, g = 26, b = 26 },
             { text = mode .. ' | ' .. editMode, scale = 0.30, r = 255, g = 255, b = 255 },
             { text = ('%s saved: %s'):format(chairTool.tableName, #chairTool.entries), scale = 0.27, r = 210, g = 210, b = 210 },
-            { text = 'Position: W/S forward, A/D side | Rotation: W/S red axis, A/D rotate', scale = 0.24, r = 225, g = 225, b = 225 },
-            { text = 'Wheel ' .. scrollMode .. ' | LShift mode | Z stand move | E save | ESC exit', scale = 0.24, r = 225, g = 225, b = 225 },
+            { text = chairMode and 'Position: W/S forward, A/D side | Rotation: W/S red axis, A/D rotate' or 'Position: move box | Size: W/S length, A/D width | Rotation: A/D rotate', scale = 0.24, r = 225, g = 225, b = 225 },
+            { text = 'Wheel ' .. scrollMode .. ' | LShift mode | ' .. (chairMode and 'Z stand move | ' or '') .. 'E save | ESC exit', scale = 0.24, r = 225, g = 225, b = 225 },
             { text = ('x %.3f   y %.3f   z %.3f'):format(ghost.x, ghost.y, ghost.z), scale = 0.25, r = 180, g = 205, b = 255 },
-            { text = ('heading %.2f   stand %.3f %.3f %.3f'):format(ghost.w, stand.x, stand.y, stand.z), scale = 0.25, r = 180, g = 205, b = 255 },
+            { text = chairMode and ('heading %.2f   stand %.3f %.3f %.3f'):format(ghost.w, stand.x, stand.y, stand.z) or ('heading %.2f   l %.2f   w %.2f'):format(ghost.w, chairTool.l, chairTool.w), scale = 0.25, r = 180, g = 205, b = 255 },
         })
     end
 
@@ -700,9 +827,17 @@ if TSS.IsClient() then
             elseif chairTool.active then
                 updateChairPlacement()
                 if chairTool.active and chairTool.coords and chairTool.stand then
-                    keepChairScenarioAlive()
-                    drawMarkerAt(chairTool.stand)
-                    drawAxisGizmo(chairTool.coords, chairTool.mode == 'rotation')
+                    if isChairProfile() then
+                        keepChairScenarioAlive()
+                        drawMarkerAt(chairTool.stand)
+                        drawAxisGizmo(chairTool.coords, chairTool.mode == 'rotation')
+                    else
+                        drawZoneBox(chairTool.coords, chairTool.l, chairTool.w, chairTool.minZ, chairTool.maxZ, 80, 200, 255, 235)
+                        for i = 1, #chairTool.entries do
+                            local entry = chairTool.entries[i]
+                            drawZoneBox(entry.coords, entry.l, entry.w, entry.minZ, entry.maxZ, 80, 255, 120, 160)
+                        end
+                    end
                     drawChairToolUi()
                 end
                 Wait(0)
