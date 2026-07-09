@@ -14,40 +14,69 @@ local function getProgressSystem()
         return configured
     end
 
-    if TSS.IsStarted(TSS.Resources.OxLib) then return 'ox' end
-    if TSS.IsStarted(TSS.Resources.ProgressBar) and TSS.IsStarted(TSS.Resources.QBCore) then return 'qb' end
-
-    return 'native'
+    return 'tss'
 end
 
-local function runNativeProgress(data)
-    local ped = PlayerPedId()
-    local duration = data.duration or data.time or 5000
-    local expires = GetGameTimer() + duration
-
-    if data.disableMovement then
-        FreezeEntityPosition(ped, true)
-    end
-
+local function playProgressAnim(ped, data, duration)
     if data.task then
         TaskStartScenarioInPlace(ped, data.task, 0, true)
     elseif data.dict and data.anim and TSS.LoadAnimDict(data.dict) then
         TaskPlayAnim(ped, data.dict, data.anim, 8.0, -8.0, duration, data.flag or 49, 0.0, false, false, false)
     end
+end
 
-    while GetGameTimer() < expires do
+local function cleanupProgressPed(ped, data)
+    if data.task or data.dict or data.anim then
+        ClearPedTasks(ped)
+    end
+
+    FreezeEntityPosition(ped, false)
+end
+
+local function runTssProgress(data)
+    local ped = PlayerPedId()
+    local duration = data.duration or data.time or 5000
+    local label = data.label or data.progressText or 'Working...'
+    local expires = GetGameTimer() + duration
+    local nextUiUpdate = 0
+
+    if data.disableMovement then
+        FreezeEntityPosition(ped, true)
+    end
+
+    playProgressAnim(ped, data, duration)
+
+    while active and GetGameTimer() < expires do
+        local now = GetGameTimer()
+        if now >= nextUiUpdate and TSS.UI and TSS.UI.Progress then
+            TSS.UI.Progress({
+                label = label,
+                percent = math.floor(((duration - math.max(0, expires - now)) / duration) * 100),
+                canCancel = bool(data.canCancel, bool(data.cancel, true)),
+            })
+            nextUiUpdate = now + 50
+        end
+
         Wait(0)
-        if bool(data.cancel, true) and IsControlJustPressed(0, 200) then
-            ClearPedTasks(ped)
-            FreezeEntityPosition(ped, false)
+        if bool(data.canCancel, bool(data.cancel, true)) and (IsControlJustPressed(0, 73) or IsControlJustPressed(0, 200) or IsControlJustPressed(0, 177)) then
+            cleanupProgressPed(ped, data)
+            if TSS.UI and TSS.UI.HideProgress then TSS.UI.HideProgress() end
             return false
         end
     end
 
-    ClearPedTasks(ped)
-    FreezeEntityPosition(ped, false)
+    cleanupProgressPed(ped, data)
+    if TSS.UI and TSS.UI.Progress then
+        TSS.UI.Progress({ label = label, percent = 100 })
+        Wait(80)
+    end
+    if TSS.UI and TSS.UI.HideProgress then TSS.UI.HideProgress() end
 
-    return true
+    return active == true
+end
+
+local function runNativeProgress(data)
+    return runTssProgress(data)
 end
 
 local function runOxProgress(data)
@@ -130,6 +159,7 @@ function TSS.ProgressBar(data)
     local ok, result = pcall(function()
         if system == 'ox' then return runOxProgress(data) end
         if system == 'qb' then return runQbProgress(data) end
+        if system == 'native' then return runNativeProgress(data) end
         return runNativeProgress(data)
     end)
 
@@ -153,6 +183,7 @@ function TSS.StopProgressBar()
     end
 
     active = false
+    if TSS.UI and TSS.UI.HideProgress then TSS.UI.HideProgress() end
 end
 
 function progressBar(data)
@@ -161,4 +192,20 @@ end
 
 function stopProgressBar()
     return TSS.StopProgressBar()
+end
+
+if TSS.IsClient() then
+    exports('ProgressBar', function(data)
+        return TSS.ProgressBar(data or {})
+    end)
+
+    exports('CancelProgressBar', function()
+        return TSS.StopProgressBar()
+    end)
+
+    RegisterCommand('tss_cancelprogress', function()
+        TSS.StopProgressBar()
+    end, false)
+
+    RegisterKeyMapping('tss_cancelprogress', 'Cancel TinySprite progress', 'keyboard', 'X')
 end

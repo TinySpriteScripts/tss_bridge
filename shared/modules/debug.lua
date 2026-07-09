@@ -165,6 +165,13 @@ local locationTableProfiles = {
             return ('            { coords = %s, l=%.1f, w=%.1f, pole = %s },'):format(formatVec4(entry.coords), entry.l or 0.7, entry.w or 0.7, entry.pole or index)
         end,
     },
+    Peds = {
+        kind = 'ped',
+        entry = function(entry)
+            local scenario = entry.scenario and entry.scenario ~= '' and (', scenario = "%s"'):format(entry.scenario) or ''
+            return ('        { model = "%s", coords = %s%s },'):format(entry.model or 'a_m_m_business_01', formatVec4(entry.coords), scenario)
+        end,
+    },
 }
 
 local directZoneProfiles = {
@@ -197,7 +204,7 @@ function TSS.DebugTools.FormatLocationTable(entries, tableName)
     local profile = locationTableProfiles[tableName or 'Chairs'] or locationTableProfiles.Chairs
     tableName = locationTableProfiles[tableName] and tableName or 'Chairs'
 
-    if profile.kind == 'directZone' then
+    if profile.kind == 'directZone' or profile.kind == 'ped' then
         local output = {
             ('%s = {'):format(tableName),
         }
@@ -226,6 +233,21 @@ function TSS.DebugTools.FormatLocationTable(entries, tableName)
     output[#output + 1] = '    },'
 
     return table.concat(output, '\n')
+end
+
+function TSS.DebugTools.FormatLocationTables(tables, order)
+    local output = {}
+
+    for i = 1, #(order or {}) do
+        local tableName = order[i]
+        local entries = tables and tables[tableName]
+
+        if entries and #entries > 0 then
+            output[#output + 1] = TSS.DebugTools.FormatLocationTable(entries, tableName)
+        end
+    end
+
+    return table.concat(output, '\n\n')
 end
 
 function TSS.DebugTools.FormatChairTable(entries, label, icon)
@@ -259,32 +281,195 @@ if TSS.IsServer() then
             return
         end
 
+        local resource = GetCurrentResourceName()
         local filename = ('debug/locations_%s_%s.txt'):format(os.date('%Y%m%d_%H%M%S'), tostring(src))
-        local saved = SaveResourceFile('tss_bridge', filename, output, #output)
+        local saved = SaveResourceFile(resource, filename, output, #output)
+
+        if saved == true and LoadResourceFile(resource, filename) ~= output then
+            saved = false
+        end
+
+        if saved ~= true then
+            filename = ('locations_%s_%s.txt'):format(os.date('%Y%m%d_%H%M%S'), tostring(src))
+            saved = SaveResourceFile(resource, filename, output, #output)
+
+            if saved == true and LoadResourceFile(resource, filename) ~= output then
+                saved = false
+            end
+        end
 
         TriggerClientEvent('tss_bridge:client:chairTableSaved', src, saved == true, filename)
-        TSS.Debug(('Chair table saved to %s'):format(filename))
+        TSS.Debug(('%s table %s to %s'):format(saved == true and 'Location' or 'Failed saving location', saved == true and 'saved' or 'output', filename))
     end)
 end
 
 if TSS.IsClient() then
     local chairAnimDict = 'amb@prop_human_seat_chair_mp@male@generic@base'
     local chairAnimName = 'base'
+    local pedModelOptions = {
+        'a_m_m_business_01',
+        'a_m_m_farmer_01',
+        'a_m_m_genfat_01',
+        'a_m_m_hillbilly_01',
+        'a_m_m_indian_01',
+        'a_m_m_ktown_01',
+        'a_m_m_mexlabor_01',
+        'a_m_m_og_boss_01',
+        'a_m_m_polynesian_01',
+        'a_m_m_skater_01',
+        'a_m_m_socenlat_01',
+        'a_m_m_soucent_01',
+        'a_m_m_tourist_01',
+        'a_m_y_beach_01',
+        'a_m_y_business_01',
+        'a_m_y_business_02',
+        'a_m_y_business_03',
+        'a_m_y_clubcust_01',
+        'a_m_y_downtown_01',
+        'a_m_y_hipster_01',
+        'a_m_y_indian_01',
+        'a_m_y_ktown_01',
+        'a_m_y_mexthug_01',
+        'a_m_y_runner_01',
+        'a_m_y_skater_01',
+        'a_m_y_smartcaspat_01',
+        'a_f_y_business_01',
+        'a_f_y_business_02',
+        'a_f_y_business_03',
+        'a_f_y_clubcust_01',
+        'a_f_y_hipster_01',
+        'a_f_y_tourist_01',
+        'a_f_y_vinewood_01',
+        'a_f_m_beach_01',
+        'a_f_m_business_02',
+        'a_f_m_ktown_01',
+        'a_f_m_soucent_01',
+        'a_f_m_tourist_01',
+        's_m_m_security_01',
+        's_m_m_bouncer_01',
+        's_m_m_doctor_01',
+        's_m_m_highsec_01',
+        's_m_m_migrant_01',
+        's_m_m_paramedic_01',
+        's_m_y_ammucity_01',
+        's_m_y_barman_01',
+        's_m_y_cop_01',
+        's_m_y_dealer_01',
+        's_m_y_doorman_01',
+        's_m_y_garbage',
+        's_m_y_marine_01',
+        's_m_y_shop_mask',
+        's_f_y_bartender_01',
+        's_f_y_cop_01',
+        's_f_y_hooker_01',
+        's_f_y_shop_low',
+        's_f_y_shop_mid',
+        's_f_y_stripper_01',
+        'g_m_y_lost_01',
+        'g_m_y_lost_02',
+        'g_m_y_lost_03',
+        'g_m_y_ballaorig_01',
+        'g_m_y_famca_01',
+        'g_m_y_mexgoon_01',
+        'g_m_y_salvaboss_01',
+        'ig_bankman',
+        'ig_barry',
+        'ig_benny',
+        'ig_bestmen',
+        'ig_car3guy1',
+        'ig_casey',
+        'ig_chef',
+        'ig_chengsr',
+        'ig_clay',
+        'ig_dale',
+        'ig_dreyfuss',
+        'ig_fbisuit_01',
+        'ig_floyd',
+        'ig_jimmyboston',
+        'ig_josef',
+        'ig_lestercrest',
+        'ig_lifeinvad_01',
+        'ig_malc',
+        'ig_manuel',
+        'ig_marnie',
+        'ig_maryann',
+        'ig_maude',
+        'ig_michelle',
+        'ig_milton',
+        'ig_molly',
+        'ig_money',
+        'ig_nervousron',
+        'ig_ortega',
+        'ig_priest',
+        'ig_ramp_gang',
+        'ig_roccopelosi',
+        'ig_talina',
+        'ig_taocheng',
+        'ig_tonya',
+        'ig_tylerdix',
+        'ig_wade',
+        'mp_m_freemode_01',
+        'mp_f_freemode_01',
+    }
+    local pedScenarioOptions = {
+        { label = 'None', value = nil },
+        { label = 'Stand Impatient', value = 'WORLD_HUMAN_STAND_IMPATIENT' },
+        { label = 'Clipboard', value = 'WORLD_HUMAN_CLIPBOARD' },
+        { label = 'Smoking', value = 'WORLD_HUMAN_SMOKING' },
+        { label = 'Hang Out', value = 'WORLD_HUMAN_HANG_OUT_STREET' },
+        { label = 'Guard Stand', value = 'WORLD_HUMAN_GUARD_STAND' },
+        { label = 'Leaning', value = 'WORLD_HUMAN_LEANING' },
+        { label = 'Drinking', value = 'WORLD_HUMAN_DRINKING' },
+        { label = 'Coffee', value = 'WORLD_HUMAN_AA_COFFEE' },
+        { label = 'Mobile', value = 'WORLD_HUMAN_MOBILE_FILM_SHOCKING' },
+        { label = 'Binoculars', value = 'WORLD_HUMAN_BINOCULARS' },
+        { label = 'Bum Freeway', value = 'WORLD_HUMAN_BUM_FREEWAY' },
+        { label = 'Bum Slumped', value = 'WORLD_HUMAN_BUM_SLUMPED' },
+        { label = 'Cheering', value = 'WORLD_HUMAN_CHEERING' },
+        { label = 'Drug Dealer', value = 'WORLD_HUMAN_DRUG_DEALER' },
+        { label = 'Golf Player', value = 'WORLD_HUMAN_GOLF_PLAYER' },
+        { label = 'Hammering', value = 'WORLD_HUMAN_HAMMERING' },
+        { label = 'Human Statue', value = 'WORLD_HUMAN_HUMAN_STATUE' },
+        { label = 'Janitor', value = 'WORLD_HUMAN_JANITOR' },
+        { label = 'Jog Standing', value = 'WORLD_HUMAN_JOG_STANDING' },
+        { label = 'Muscle Flex', value = 'WORLD_HUMAN_MUSCLE_FLEX' },
+        { label = 'Paparazzi', value = 'WORLD_HUMAN_PAPARAZZI' },
+        { label = 'Picnic', value = 'WORLD_HUMAN_PICNIC' },
+        { label = 'Prostitute High Class', value = 'WORLD_HUMAN_PROSTITUTE_HIGH_CLASS' },
+        { label = 'Prostitute Low Class', value = 'WORLD_HUMAN_PROSTITUTE_LOW_CLASS' },
+        { label = 'Push Ups', value = 'WORLD_HUMAN_PUSH_UPS' },
+        { label = 'Seat Steps', value = 'WORLD_HUMAN_SEAT_STEPS' },
+        { label = 'Sit Ups', value = 'WORLD_HUMAN_SIT_UPS' },
+        { label = 'Stand Fire', value = 'WORLD_HUMAN_STAND_FIRE' },
+        { label = 'Strip Watch Stand', value = 'WORLD_HUMAN_STRIP_WATCH_STAND' },
+        { label = 'Sunbathe Back', value = 'WORLD_HUMAN_SUNBATHE_BACK' },
+        { label = 'Tourist Map', value = 'WORLD_HUMAN_TOURIST_MAP' },
+        { label = 'Vehicle Mechanic', value = 'WORLD_HUMAN_VEHICLE_MECHANIC' },
+        { label = 'Welding', value = 'WORLD_HUMAN_WELDING' },
+        { label = 'Window Shop', value = 'WORLD_HUMAN_WINDOW_SHOP_BROWSE' },
+    }
 
     local chairTool = {
         active = false,
         selecting = false,
         ghost = nil,
         savedGhosts = {},
+        tempPeds = {},
+        allEntries = {},
         entries = {},
         coords = nil,
         stand = nil,
         freePlayer = false,
         mode = 'position',
         tableName = 'Chairs',
-        tableOptions = { 'Chairs', 'WashHands', 'Poles', 'Payments', 'Shop', 'Stash', 'PublicStash', 'PlayerStash', 'Crafting', 'BossMenus', 'Outfit' },
+        tableOptions = { 'Chairs', 'Peds', 'WashHands', 'Poles', 'Payments', 'Shop', 'Stash', 'PublicStash', 'PlayerStash', 'Crafting', 'BossMenus', 'Outfit' },
         tableOption = 1,
         model = 'mp_m_freemode_01',
+        pedModel = 'a_m_m_business_01',
+        pedScenario = 'WORLD_HUMAN_STAND_IMPATIENT',
+        pedModelOption = 1,
+        pedScenarioOption = 2,
+        pedSelect = nil,
         moveSpeed = 0.01,
         sizeSpeed = 0.02,
         rotateSpeed = 2.5,
@@ -295,6 +480,7 @@ if TSS.IsClient() then
         w = 0.6,
         minZ = nil,
         maxZ = nil,
+        uiNextUpdate = 0,
     }
 
     local function getCurrentProfile()
@@ -303,6 +489,10 @@ if TSS.IsClient() then
 
     local function isChairProfile()
         return getCurrentProfile().kind == 'chair'
+    end
+
+    local function isPedProfile()
+        return getCurrentProfile().kind == 'ped'
     end
 
     local function getDefaultZoneSize(tableName)
@@ -335,6 +525,19 @@ if TSS.IsClient() then
         end
 
         chairTool.savedGhosts = {}
+    end
+
+    local function deleteTempPeds()
+        for i = 1, #chairTool.tempPeds do
+            local temp = chairTool.tempPeds[i]
+            local ped = type(temp) == 'table' and temp.entity or temp
+            if ped and DoesEntityExist(ped) then
+                SetEntityAsMissionEntity(ped, true, true)
+                DeleteEntity(ped)
+            end
+        end
+
+        chairTool.tempPeds = {}
     end
 
     local function getLocalAxes(coords)
@@ -472,6 +675,114 @@ if TSS.IsClient() then
         applyChairScenario(ped, coords)
     end
 
+    local function applyPedScenario(ped, coords)
+        if not ped or not DoesEntityExist(ped) or not coords then return end
+
+        ClearPedTasksImmediately(ped)
+        FreezeEntityPosition(ped, false)
+        SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false)
+        SetEntityHeading(ped, coords.w)
+        TaskStandStill(ped, -1)
+
+        FreezeEntityPosition(ped, true)
+    end
+
+    local function movePedGhost(ped, coords)
+        if not ped or not DoesEntityExist(ped) or not coords then return end
+
+        ClearPedTasksImmediately(ped)
+        FreezeEntityPosition(ped, false)
+        SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false)
+        SetEntityHeading(ped, coords.w)
+        TaskStandStill(ped, -1)
+        FreezeEntityPosition(ped, true)
+    end
+
+    local function spawnPedGhost(coords)
+        deleteGhost()
+
+        local loaded, model = TSS.LoadModel(chairTool.pedModel)
+        if not loaded then return false end
+
+        chairTool.ghost = CreatePed(4, model, coords.x, coords.y, coords.z, coords.w, false, false)
+        SetEntityAsMissionEntity(chairTool.ghost, true, true)
+        SetEntityAlpha(chairTool.ghost, 150, false)
+        SetEntityCollision(chairTool.ghost, false, false)
+        SetEntityInvincible(chairTool.ghost, true)
+        SetPedDefaultComponentVariation(chairTool.ghost)
+        SetPedCanRagdoll(chairTool.ghost, false)
+        SetBlockingOfNonTemporaryEvents(chairTool.ghost, true)
+        SetModelAsNoLongerNeeded(model)
+        applyPedScenario(chairTool.ghost, coords)
+
+        return true
+    end
+
+    local function applyTempPedScenario(ped, coords, scenario)
+        if not ped or not DoesEntityExist(ped) or not coords then return end
+
+        ClearPedTasksImmediately(ped)
+        FreezeEntityPosition(ped, false)
+        SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false)
+        SetEntityHeading(ped, coords.w)
+
+        if scenario then
+            TaskStartScenarioAtPosition(ped, scenario, coords.x, coords.y, coords.z, coords.w, -1, false, true)
+            SetPedKeepTask(ped, true)
+        else
+            TaskStandStill(ped, -1)
+            FreezeEntityPosition(ped, true)
+        end
+    end
+
+    local function spawnTemporaryPed()
+        if not isPedProfile() or not chairTool.coords then return false end
+
+        local coords = vec4(chairTool.coords.x, chairTool.coords.y, chairTool.coords.z, chairTool.coords.w)
+        local loaded, model = TSS.LoadModel(chairTool.pedModel)
+        if not loaded then return false end
+
+        local ped = CreatePed(4, model, coords.x, coords.y, coords.z, coords.w, false, false)
+        if not ped or ped == 0 then return false end
+
+        chairTool.tempPeds[#chairTool.tempPeds + 1] = {
+            entity = ped,
+            coords = coords,
+            scenario = chairTool.pedScenario,
+        }
+        SetEntityAsMissionEntity(ped, true, true)
+        SetEntityAlpha(ped, 255, false)
+        SetEntityCollision(ped, true, true)
+        SetEntityInvincible(ped, true)
+        SetPedDefaultComponentVariation(ped)
+        SetPedCanRagdoll(ped, false)
+        SetBlockingOfNonTemporaryEvents(ped, true)
+        SetModelAsNoLongerNeeded(model)
+        applyTempPedScenario(ped, coords, chairTool.pedScenario)
+
+        notify(('Temporary ped spawned: %s #%s'):format(chairTool.pedModel, #chairTool.tempPeds))
+        return true
+    end
+
+    local function keepTempPedScenariosAlive()
+        local now = GetGameTimer()
+
+        for i = 1, #chairTool.tempPeds do
+            local temp = chairTool.tempPeds[i]
+            local ped = temp and temp.entity
+
+            if ped
+                and DoesEntityExist(ped)
+                and temp.scenario
+                and now >= (temp.nextScenarioCheck or 0)
+                and not IsPedUsingScenario(ped, temp.scenario)
+            then
+                temp.nextScenarioCheck = now + 1500
+                applyTempPedScenario(ped, temp.coords, temp.scenario)
+            end
+        end
+    end
+
     local function setPlayerLocked(locked)
         local ped = PlayerPedId()
         if ped and ped ~= 0 then
@@ -526,6 +837,9 @@ if TSS.IsClient() then
     end)
 
     local startChairTool
+    local updateSelectorUi
+    local updatePlacementUi
+    local setDebugFocus
 
     local function getProfileFromArg(value)
         if type(value) ~= 'string' then return nil end
@@ -550,18 +864,240 @@ if TSS.IsClient() then
         end
 
         chairTool.selecting = true
+        chairTool.pedSelect = nil
+        setDebugFocus(false)
         chairTool.tableOption = chairTool.tableOption or 1
+        updateSelectorUi(true)
     end
 
     local function closeTableSelector()
         chairTool.selecting = false
+        if not chairTool.pedSelect then
+            setDebugFocus(false)
+        end
+    end
+
+    setDebugFocus = function(focused)
+        SetNuiFocus(focused, focused)
+        if SetNuiFocusKeepInput then
+            SetNuiFocusKeepInput(false)
+        end
+    end
+
+    local function sendDebugUi(payload, force)
+        local now = GetGameTimer()
+        if not force and now < chairTool.uiNextUpdate then return end
+
+        chairTool.uiNextUpdate = now + 100
+        SendNUIMessage({
+            action = 'debugUi',
+            payload = payload,
+        })
+    end
+
+    local function hideDebugUi()
+        setDebugFocus(false)
+        SendNUIMessage({
+            action = 'debugUi',
+            payload = { visible = false },
+        })
+    end
+
+    local function getSavedEntryCount()
+        local count = 0
+
+        for i = 1, #chairTool.tableOptions do
+            local entries = chairTool.allEntries[chairTool.tableOptions[i]]
+            count = count + (entries and #entries or 0)
+        end
+
+        return count
+    end
+
+    local function saveAllTables()
+        if getSavedEntryCount() == 0 then
+            notify('No location entries to save')
+            return
+        end
+
+        local output = TSS.DebugTools.FormatLocationTables(chairTool.allEntries, chairTool.tableOptions)
+        TriggerServerEvent('tss_bridge:server:saveChairTable', output)
+
+        chairTool.allEntries = {}
+        chairTool.entries = {}
+        chairTool.tableOption = 1
+        chairTool.tableName = 'Chairs'
+        chairTool.freePlayer = false
+        chairTool.mode = 'position'
+        chairTool.coords = nil
+        chairTool.stand = nil
+        chairTool.l = 0.6
+        chairTool.w = 0.6
+        chairTool.minZ = nil
+        chairTool.maxZ = nil
+        chairTool.pedSelect = nil
+        chairTool.pedModelOption = 1
+        chairTool.pedScenarioOption = 2
+        chairTool.pedModel = pedModelOptions[1]
+        chairTool.pedScenario = pedScenarioOptions[2].value
+
+        deleteGhost()
+        deleteSavedGhosts()
+        setPlayerLocked(false)
+        updateSelectorUi(true)
+        notify('Location debug cleared')
     end
 
     local function startSelectedTable()
+        if chairTool.tableOption == #chairTool.tableOptions + 1 then
+            saveAllTables()
+            return
+        end
+
         local option = chairTool.tableOptions[chairTool.tableOption] or 'Chairs'
 
+        if option == 'Peds' then
+            chairTool.pedSelect = 'model'
+            setDebugFocus(true)
+            updateSelectorUi(true)
+            return
+        end
+
         closeTableSelector()
+        setDebugFocus(false)
         startChairTool(option)
+    end
+
+    local function buildSelectorItems()
+        local items = {}
+
+        for i = 1, #chairTool.tableOptions do
+            local tableName = chairTool.tableOptions[i]
+            local entries = chairTool.allEntries[tableName]
+
+            items[#items + 1] = {
+                label = tableName,
+                count = entries and #entries or 0,
+                selected = chairTool.tableOption == i,
+                kind = 'table',
+            }
+        end
+
+        items[#items + 1] = {
+            label = 'Save File',
+            count = getSavedEntryCount(),
+            selected = chairTool.tableOption == #chairTool.tableOptions + 1,
+            kind = 'save',
+        }
+
+        return items
+    end
+
+    local function buildPedSelectorItems()
+        local items = {}
+
+        if chairTool.pedSelect == 'model' then
+            for i = 1, #pedModelOptions do
+                items[#items + 1] = {
+                    label = pedModelOptions[i],
+                    count = 0,
+                    selected = chairTool.pedModelOption == i,
+                    kind = 'table',
+                }
+            end
+        else
+            for i = 1, #pedScenarioOptions do
+                local option = pedScenarioOptions[i]
+                items[#items + 1] = {
+                    label = option.value or option.label,
+                    count = 0,
+                    selected = chairTool.pedScenarioOption == i,
+                    kind = 'table',
+                }
+            end
+        end
+
+        return items
+    end
+
+    updateSelectorUi = function(force)
+        if chairTool.pedSelect then
+            setDebugFocus(true)
+            sendDebugUi({
+                visible = true,
+                screen = 'selector',
+                title = 'TSS Ped Spawner',
+                subtitle = chairTool.pedSelect == 'model' and 'Choose ped model' or ('Choose scenario for %s'):format(chairTool.pedModel),
+                items = buildPedSelectorItems(),
+                pedPicker = {
+                    modelIndex = chairTool.pedModelOption,
+                    scenarioIndex = chairTool.pedScenarioOption,
+                    models = pedModelOptions,
+                    scenarios = pedScenarioOptions,
+                },
+                footer = 'Select model/scenario with mouse | Place Ped starts placement | ESC table menu',
+                totalEntries = getSavedEntryCount(),
+            }, force)
+            return
+        end
+
+        setDebugFocus(false)
+        sendDebugUi({
+            visible = true,
+            screen = 'selector',
+            title = 'TSS Location Debug',
+            subtitle = 'Choose the locations table to create',
+            items = buildSelectorItems(),
+            footer = 'W/S choose | E start/save | ESC cancel',
+            totalEntries = getSavedEntryCount(),
+        }, force)
+    end
+
+    local function formatNumber(value, decimals)
+        return ('%.' .. (decimals or 3) .. 'f'):format(value or 0.0)
+    end
+
+    updatePlacementUi = function(force)
+        if not chairTool.coords or not chairTool.stand then return end
+
+        local chairMode = isChairProfile()
+        local pedMode = isPedProfile()
+        local editMode = chairTool.mode == 'rotation' and 'Rotation' or (chairTool.mode == 'size' and 'Size' or 'Position')
+        local mode = chairTool.freePlayer and 'Stand position: player unlocked' or 'Placement: player locked'
+        local scrollMode = chairTool.mode == 'rotation' and 'heading' or 'height'
+        local metrics = {
+            { label = 'X', value = formatNumber(chairTool.coords.x) },
+            { label = 'Y', value = formatNumber(chairTool.coords.y) },
+            { label = 'Z', value = formatNumber(chairTool.coords.z) },
+            { label = 'Heading', value = formatNumber(chairTool.coords.w, 2) },
+        }
+
+        if chairMode then
+            metrics[#metrics + 1] = { label = 'Stand', value = ('%s %s %s'):format(formatNumber(chairTool.stand.x), formatNumber(chairTool.stand.y), formatNumber(chairTool.stand.z)) }
+        elseif pedMode then
+            metrics[#metrics + 1] = { label = 'Model', value = chairTool.pedModel }
+            metrics[#metrics + 1] = { label = 'Scenario', value = chairTool.pedScenario or 'None' }
+        else
+            metrics[#metrics + 1] = { label = 'Length', value = formatNumber(chairTool.l, 2) }
+            metrics[#metrics + 1] = { label = 'Width', value = formatNumber(chairTool.w, 2) }
+        end
+
+        sendDebugUi({
+            visible = true,
+            screen = 'placement',
+            title = ('TSS Location Debug: %s'):format(chairTool.tableName),
+            subtitle = mode,
+            modeLabel = editMode,
+            savedLabel = pedMode and ('%s saved: %s | Temp: %s'):format(chairTool.tableName, #chairTool.entries, #chairTool.tempPeds) or ('%s saved: %s'):format(chairTool.tableName, #chairTool.entries),
+            metrics = metrics,
+            help = {
+                (chairMode or pedMode) and 'Position: W/S forward, A/D side | Rotation: W/S red axis, A/D rotate' or 'Position: move box | Size: W/S length, A/D width | Rotation: A/D rotate',
+                ('Mouse wheel: %s | LShift mode'):format(scrollMode),
+                chairMode and 'Z stand move | E save | ESC/BKSP menu' or (pedMode and 'E save to file | G temp spawn | ESC/BKSP menu' or 'E save | ESC/BKSP menu'),
+            },
+            footer = 'Backspace returns to table menu. Save File writes all tables.',
+            totalEntries = getSavedEntryCount(),
+        }, force)
     end
 
     startChairTool = function(tableName)
@@ -578,12 +1114,13 @@ if TSS.IsClient() then
         local heading = GetEntityHeading(ped)
 
         chairTool.active = true
-        chairTool.entries = {}
-        chairTool.coords = vec4(coords.x, coords.y, coords.z - 1.0, heading)
         chairTool.stand = vec3(coords.x, coords.y, coords.z)
         chairTool.freePlayer = false
         chairTool.mode = 'position'
         chairTool.tableName = tableName or chairTool.tableName or 'Chairs'
+        chairTool.coords = vec4(coords.x, coords.y, isPedProfile() and coords.z or (coords.z - 1.0), heading)
+        chairTool.allEntries[chairTool.tableName] = chairTool.allEntries[chairTool.tableName] or {}
+        chairTool.entries = chairTool.allEntries[chairTool.tableName]
         chairTool.l, chairTool.w = getDefaultZoneSize(chairTool.tableName)
         chairTool.minZ = chairTool.coords.z - 0.5
         chairTool.maxZ = chairTool.coords.z + 0.5
@@ -592,31 +1129,33 @@ if TSS.IsClient() then
 
         if isChairProfile() then
             if spawnGhost(chairTool.coords) then
+                for i = 1, #chairTool.entries do
+                    spawnSavedGhost(chairTool.entries[i].coords)
+                end
                 setPlayerLocked(true)
+                updatePlacementUi(true)
                 notify('Chair debug started')
+            else
+                chairTool.active = false
+            end
+        elseif isPedProfile() then
+            if spawnPedGhost(chairTool.coords) then
+                setPlayerLocked(true)
+                updatePlacementUi(true)
+                notify(('Ped spawner started: %s'):format(chairTool.pedModel))
             else
                 chairTool.active = false
             end
         else
             setPlayerLocked(true)
             deleteGhost()
+            updatePlacementUi(true)
             notify(('Location debug started: %s'):format(chairTool.tableName))
         end
     end
 
-    local function saveChairTable()
-        if #chairTool.entries == 0 then return end
-
-        local output = TSS.DebugTools.FormatLocationTable(chairTool.entries, chairTool.tableName)
-        TriggerServerEvent('tss_bridge:server:saveChairTable', output)
-    end
-
-    local function stopChairTool(saveResult)
+    local function stopChairTool(returnToSelector)
         if not chairTool.active then return end
-
-        if saveResult then
-            saveChairTable()
-        end
 
         deleteGhost()
         deleteSavedGhosts()
@@ -627,12 +1166,22 @@ if TSS.IsClient() then
         chairTool.freePlayer = false
         chairTool.mode = 'position'
         chairTool.tableName = 'Chairs'
+        chairTool.entries = {}
         chairTool.l = 0.6
         chairTool.w = 0.6
         chairTool.minZ = nil
         chairTool.maxZ = nil
         chairTool.nextScenarioCheck = 0
-        notify('Location debug stopped')
+        chairTool.pedSelect = nil
+
+        if returnToSelector then
+            chairTool.selecting = true
+            updateSelectorUi(true)
+            notify('Returned to location table menu')
+        else
+            hideDebugUi()
+            notify('Location debug stopped')
+        end
     end
 
     local function saveChair()
@@ -648,6 +1197,8 @@ if TSS.IsClient() then
             w = chairTool.w,
             minZ = chairTool.minZ,
             maxZ = chairTool.maxZ,
+            model = chairTool.pedModel,
+            scenario = chairTool.pedScenario,
         }
 
         if isChairProfile() then
@@ -681,7 +1232,7 @@ if TSS.IsClient() then
         end
 
         if IsDisabledControlJustPressed(0, 21) then
-            if isChairProfile() then
+            if isChairProfile() or isPedProfile() then
                 chairTool.mode = chairTool.mode == 'position' and 'rotation' or 'position'
             elseif chairTool.mode == 'position' then
                 chairTool.mode = 'size'
@@ -738,11 +1289,14 @@ if TSS.IsClient() then
         end
 
         if IsDisabledControlJustPressed(0, 38) then saveChair() end
+        if isPedProfile() and IsDisabledControlJustPressed(0, 47) then spawnTemporaryPed() end
         if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 200) then stopChairTool(true) end
 
         if moved and isChairProfile() then
             moveChairPed(chairTool.ghost, chairTool.coords)
             chairTool.nextScenarioCheck = GetGameTimer() + 250
+        elseif moved and isPedProfile() then
+            movePedGhost(chairTool.ghost, chairTool.coords)
         end
     end
 
@@ -767,17 +1321,106 @@ if TSS.IsClient() then
         })
     end
 
+    RegisterNUICallback('debugPedPicker', function(data, cb)
+        data = type(data) == 'table' and data or {}
+
+        if data.modelIndex then
+            chairTool.pedModelOption = math.max(1, math.min(#pedModelOptions, tonumber(data.modelIndex) or chairTool.pedModelOption))
+            chairTool.pedModel = pedModelOptions[chairTool.pedModelOption]
+        end
+
+        if data.scenarioIndex then
+            chairTool.pedScenarioOption = math.max(1, math.min(#pedScenarioOptions, tonumber(data.scenarioIndex) or chairTool.pedScenarioOption))
+            local scenario = pedScenarioOptions[chairTool.pedScenarioOption]
+            chairTool.pedScenario = scenario and scenario.value or nil
+        end
+
+        if data.start == true then
+            chairTool.pedSelect = nil
+            closeTableSelector()
+            setDebugFocus(false)
+            startChairTool('Peds')
+        else
+            chairTool.pedSelect = 'model'
+            updateSelectorUi(true)
+        end
+
+        cb({ ok = true })
+    end)
+
     local function updateTableSelector()
         disablePlacementControls(true)
 
+        if chairTool.pedSelect then
+            DisableControlAction(0, 1, true)
+            DisableControlAction(0, 2, true)
+            DisableControlAction(0, 106, true)
+            DisableControlAction(1, 1, true)
+            DisableControlAction(1, 2, true)
+            DisableControlAction(1, 106, true)
+            DisableControlAction(2, 1, true)
+            DisableControlAction(2, 2, true)
+            DisableControlAction(2, 106, true)
+
+            local totalOptions = chairTool.pedSelect == 'model' and #pedModelOptions or #pedScenarioOptions
+            local currentOption = chairTool.pedSelect == 'model' and chairTool.pedModelOption or chairTool.pedScenarioOption
+
+            if IsDisabledControlJustPressed(0, 32) or IsDisabledControlJustPressed(0, 172) then
+                currentOption = currentOption - 1
+                if currentOption < 1 then currentOption = totalOptions end
+            end
+
+            if IsDisabledControlJustPressed(0, 33) or IsDisabledControlJustPressed(0, 173) then
+                currentOption = currentOption + 1
+                if currentOption > totalOptions then currentOption = 1 end
+            end
+
+            if chairTool.pedSelect == 'model' then
+                chairTool.pedModelOption = currentOption
+            else
+                chairTool.pedScenarioOption = currentOption
+            end
+
+            if IsDisabledControlJustPressed(0, 38) or IsDisabledControlJustPressed(0, 191) then
+                if chairTool.pedSelect == 'model' then
+                    chairTool.pedModel = pedModelOptions[chairTool.pedModelOption]
+                    chairTool.pedSelect = 'scenario'
+                    updateSelectorUi(true)
+                else
+                    local scenario = pedScenarioOptions[chairTool.pedScenarioOption]
+                    chairTool.pedScenario = scenario and scenario.value or nil
+                    chairTool.pedSelect = nil
+                    closeTableSelector()
+                    setDebugFocus(false)
+                    startChairTool('Peds')
+                end
+                return
+            end
+
+            if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 200) then
+                if chairTool.pedSelect == 'scenario' then
+                    chairTool.pedSelect = 'model'
+                    updateSelectorUi(true)
+                else
+                    chairTool.pedSelect = nil
+                    setDebugFocus(false)
+                    updateSelectorUi(true)
+                end
+            end
+
+            return
+        end
+
+        local totalOptions = #chairTool.tableOptions + 1
+
         if IsDisabledControlJustPressed(0, 32) or IsDisabledControlJustPressed(0, 172) then
             chairTool.tableOption = chairTool.tableOption - 1
-            if chairTool.tableOption < 1 then chairTool.tableOption = #chairTool.tableOptions end
+            if chairTool.tableOption < 1 then chairTool.tableOption = totalOptions end
         end
 
         if IsDisabledControlJustPressed(0, 33) or IsDisabledControlJustPressed(0, 173) then
             chairTool.tableOption = chairTool.tableOption + 1
-            if chairTool.tableOption > #chairTool.tableOptions then chairTool.tableOption = 1 end
+            if chairTool.tableOption > totalOptions then chairTool.tableOption = 1 end
         end
 
         if IsDisabledControlJustPressed(0, 38) or IsDisabledControlJustPressed(0, 191) then
@@ -787,37 +1430,23 @@ if TSS.IsClient() then
 
         if IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 200) then
             closeTableSelector()
+            hideDebugUi()
             notify('Location debug cancelled')
         end
     end
 
     local function drawTableSelectorUi()
-        local lines = {
-            { text = 'TSS Location Debug', scale = 0.39, r = 255, g = 26, b = 26 },
-            { text = 'Choose the locations table to create', scale = 0.28, r = 255, g = 255, b = 255 },
-        }
-
-        for i = 1, #chairTool.tableOptions do
-            local prefix = i == chairTool.tableOption and '> ' or '  '
-            local color = i == chairTool.tableOption and 255 or 190
-
-            lines[#lines + 1] = {
-                text = prefix .. chairTool.tableOptions[i],
-                scale = 0.29,
-                r = color,
-                g = color,
-                b = color,
-            }
-        end
-
-        lines[#lines + 1] = { text = 'W/S choose | E start | ESC cancel', scale = 0.25, r = 225, g = 225, b = 225 }
-        drawPanel(lines)
+        updateSelectorUi(false)
     end
 
     CreateThread(function()
         cleanupOrphanDebugPeds(80.0)
 
         while true do
+            if #chairTool.tempPeds > 0 then
+                keepTempPedScenariosAlive()
+            end
+
             if chairTool.selecting then
                 updateTableSelector()
                 if chairTool.selecting then
@@ -831,6 +1460,12 @@ if TSS.IsClient() then
                         keepChairScenarioAlive()
                         drawMarkerAt(chairTool.stand)
                         drawAxisGizmo(chairTool.coords, chairTool.mode == 'rotation')
+                    elseif isPedProfile() then
+                        drawAxisGizmo(chairTool.coords, chairTool.mode == 'rotation')
+                        for i = 1, #chairTool.entries do
+                            local entry = chairTool.entries[i]
+                            drawMarkerAt(vec3(entry.coords.x, entry.coords.y, entry.coords.z))
+                        end
                     else
                         drawZoneBox(chairTool.coords, chairTool.l, chairTool.w, chairTool.minZ, chairTool.maxZ, 80, 200, 255, 235)
                         for i = 1, #chairTool.entries do
@@ -838,7 +1473,7 @@ if TSS.IsClient() then
                             drawZoneBox(entry.coords, entry.l, entry.w, entry.minZ, entry.maxZ, 80, 255, 120, 160)
                         end
                     end
-                    drawChairToolUi()
+                    updatePlacementUi(false)
                 end
                 Wait(0)
             else
@@ -852,8 +1487,10 @@ if TSS.IsClient() then
 
         deleteGhost()
         deleteSavedGhosts()
+        deleteTempPeds()
         cleanupOrphanDebugPeds(120.0)
         setPlayerLocked(false)
+        hideDebugUi()
     end)
 
     RegisterCommand('tsschairdebug', function()
@@ -861,6 +1498,7 @@ if TSS.IsClient() then
             stopChairTool(true)
         elseif chairTool.selecting then
             closeTableSelector()
+            hideDebugUi()
         else
             openTableSelector()
         end
@@ -874,15 +1512,49 @@ if TSS.IsClient() then
 
         if chairTool.selecting then
             closeTableSelector()
+            hideDebugUi()
             return
         end
 
         local tableName, index = getProfileFromArg(args and args[1])
         if tableName then
             chairTool.tableOption = index
-            startChairTool(tableName)
+            if tableName == 'Peds' then
+                chairTool.selecting = true
+                chairTool.pedSelect = 'model'
+                updateSelectorUi(true)
+            else
+                startChairTool(tableName)
+            end
         else
             openTableSelector()
+        end
+    end, false)
+
+    RegisterCommand('tsspeddebug', function()
+        if chairTool.active then
+            stopChairTool(true)
+            return
+        end
+
+        if chairTool.selecting then
+            closeTableSelector()
+            hideDebugUi()
+            return
+        end
+
+        chairTool.tableOption = 2
+        chairTool.selecting = true
+        chairTool.pedSelect = 'model'
+        updateSelectorUi(true)
+    end, false)
+
+    RegisterCommand('tsscleartemppeds', function()
+        local count = #chairTool.tempPeds
+        deleteTempPeds()
+        notify(('Cleared %s temporary peds'):format(count))
+        if chairTool.active and isPedProfile() then
+            updatePlacementUi(true)
         end
     end, false)
 

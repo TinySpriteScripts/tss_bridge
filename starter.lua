@@ -5,6 +5,7 @@ local bridgeResource = 'tss_bridge'
 local files = {
     'config.lua',
     'helpers.lua',
+    'modules/ui.lua',
     'modules/debug.lua',
     'modules/notify.lua',
     'modules/progressbars.lua',

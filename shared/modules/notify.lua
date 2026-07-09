@@ -7,20 +7,27 @@ local function nativeNotify(title, message)
     EndTextCommandThefeedPostTicker(false, false)
 end
 
-local function clientNotify(title, message, notifyType)
-    notifyType = notifyType or 'inform'
+local function normalizeType(notifyType)
+    notifyType = tostring(notifyType or 'info'):lower()
 
-    if TSS.IsStarted(TSS.Resources.OxLib) then
-        exports[TSS.Resources.OxLib]:notify({
-            title = title,
-            description = message,
+    if notifyType == 'inform' or notifyType == 'primary' then return 'info' end
+    if notifyType == 'error' or notifyType == 'danger' then return 'error' end
+    if notifyType == 'warning' or notifyType == 'warn' then return 'warning' end
+    if notifyType == 'success' then return 'success' end
+
+    return 'info'
+end
+
+local function clientNotify(title, message, notifyType, time)
+    notifyType = normalizeType(notifyType)
+
+    if TSS.UI and TSS.UI.Notify then
+        TSS.UI.Notify({
+            title = title or 'TinySprite',
+            message = message or title or '',
             type = notifyType,
+            duration = time or 4500,
         })
-        return true
-    end
-
-    if TSS.IsStarted(TSS.Resources.QBCore) then
-        TriggerEvent('QBCore:Notify', message or title, notifyType)
         return true
     end
 
@@ -28,28 +35,36 @@ local function clientNotify(title, message, notifyType)
     return true
 end
 
-function TSS.Notify.Send(title, message, notifyType, source)
+function TSS.Notify.Send(title, message, notifyType, source, time)
     if TSS.IsServer() then
         if not source then
             TSS.Warn('Notify.Send on server needs a player source')
             return false
         end
 
-        TriggerClientEvent('tss_bridge:client:notify', source, title, message, notifyType)
+        TriggerClientEvent('tss_bridge:client:notify', source, title, message, notifyType, time)
         return true
     end
 
-    return clientNotify(title, message, notifyType)
+    return clientNotify(title, message, notifyType, time)
 end
 
 if TSS.IsClient() then
-    RegisterNetEvent('tss_bridge:client:notify', function(title, message, notifyType)
-        clientNotify(title, message, notifyType)
+    RegisterNetEvent('tss_bridge:client:notify', function(title, message, notifyType, time)
+        clientNotify(title, message, notifyType, time)
+    end)
+
+    RegisterNetEvent('tss-hud:client:Notify', function(title, message, notifyType, time)
+        clientNotify(title, message, notifyType, time)
+    end)
+
+    exports('Notify', function(title, message, notifyType, time)
+        return clientNotify(title, message, notifyType, time)
     end)
 end
 
-function notifyPlayer(title, message, notifyType, source)
-    return TSS.Notify.Send(title, message, notifyType, source)
+function notifyPlayer(title, message, notifyType, source, time)
+    return TSS.Notify.Send(title, message, notifyType, source, time)
 end
 
 TSS.NotifyPlayer = TSS.Notify.Send

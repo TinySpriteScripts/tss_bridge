@@ -12,7 +12,11 @@ files {
     'shared/*.lua',
     'shared/modules/*.lua',
     'shared/inventory/*.lua',
+    'html/dist/index.html',
+    'html/dist/**/*',
 }
+
+ui_page 'html/dist/index.html'
 
 shared_scripts {
     'starter.lua',

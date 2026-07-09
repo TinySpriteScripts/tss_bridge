@@ -133,7 +133,8 @@ Mouse wheel move height or heading based on mode
 LShift switch mode
 Z toggle player movement for setting chair stand positions
 E save current point or zone
-ESC/Backspace finish and save the selected location table to `tss_bridge/debug/`
+ESC/Backspace return to the table menu
+Choose Save File from the table menu to save all created tables to one file in `tss_bridge/debug/`
 ```
 
 Target systems auto-detect in this order:
