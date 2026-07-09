@@ -1,0 +1,160 @@
+TSS = TSS or {}
+
+local currentGame = not IsDuplicityVersion() and GetCurrentGameName() or 'server'
+local trackedCleanup = {}
+
+function TSS.IsServer()
+    return IsDuplicityVersion()
+end
+
+function TSS.IsClient()
+    return not IsDuplicityVersion()
+end
+
+function TSS.IsStarted(resource)
+    return resource and GetResourceState(resource):find('start') ~= nil or false
+end
+
+function TSS.Debug(...)
+    if not TSS.Config.DebugPrints then return end
+    print('^5[tss_bridge]^7', ...)
+end
+
+function TSS.Warn(...)
+    print('^3[tss_bridge]^7', ...)
+end
+
+function TSS.SetDebug(state)
+    TSS.Config.Debug = state == true
+    TSS.Config.DebugPrints = state == true
+    TSS.Config.DebugPolyzones = state == true
+    TSS.Config.DebugTools = state == true
+end
+
+function TSS.ShouldDebugPoly(value)
+    if TSS.Config.DebugPolyzones then return true end
+    return value == true
+end
+
+function TSS.Game()
+    return currentGame
+end
+
+function TSS.ToHash(model)
+    return type(model) == 'string' and joaat(model) or model
+end
+
+function TSS.LoadModel(model, timeout)
+    local hash = TSS.ToHash(model)
+
+    if not IsModelInCdimage(hash) then
+        TSS.Warn(('Model does not exist: %s'):format(tostring(model)))
+        return false, hash
+    end
+
+    RequestModel(hash)
+
+    local expires = GetGameTimer() + (timeout or 5000)
+    while not HasModelLoaded(hash) do
+        Wait(0)
+        if GetGameTimer() > expires then
+            TSS.Warn(('Timed out loading model: %s'):format(tostring(model)))
+            return false, hash
+        end
+    end
+
+    return true, hash
+end
+
+function TSS.LoadAnimDict(dict, timeout)
+    if not dict then return false end
+
+    RequestAnimDict(dict)
+
+    local expires = GetGameTimer() + (timeout or 5000)
+    while not HasAnimDictLoaded(dict) do
+        Wait(0)
+        if GetGameTimer() > expires then
+            TSS.Warn(('Timed out loading anim dict: %s'):format(dict))
+            return false
+        end
+    end
+
+    return true
+end
+
+function TSS.TrackEntity(entity, deleteFn)
+    if entity and entity ~= 0 then
+        trackedCleanup[entity] = deleteFn or DeleteEntity
+    end
+
+    return entity
+end
+
+function TSS.ForgetEntity(entity)
+    trackedCleanup[entity] = nil
+end
+
+function TSS.DeleteEntity(entity)
+    if not entity or entity == 0 or not DoesEntityExist(entity) then return false end
+
+    SetEntityAsMissionEntity(entity, true, true)
+    DeleteEntity(entity)
+    TSS.ForgetEntity(entity)
+
+    return true
+end
+
+function TSS.FadeInEntity(entity, duration)
+    if not TSS.Config.FadeEntities or currentGame == 'rdr3' then return end
+    if not entity or entity == 0 or not DoesEntityExist(entity) then return end
+
+    duration = duration or 500
+    local steps = 20
+    local delay = math.floor(duration / steps)
+
+    SetEntityAlpha(entity, 0, false)
+
+    CreateThread(function()
+        for i = 1, steps do
+            if not DoesEntityExist(entity) then return end
+            SetEntityAlpha(entity, math.floor(255 * (i / steps)), false)
+            Wait(delay)
+        end
+
+        if DoesEntityExist(entity) then
+            ResetEntityAlpha(entity)
+        end
+    end)
+end
+
+local function cleanupTrackedEntities()
+    for entity, deleteFn in pairs(trackedCleanup) do
+        if entity and entity ~= 0 and DoesEntityExist(entity) then
+            deleteFn(entity)
+        end
+        trackedCleanup[entity] = nil
+    end
+end
+
+AddEventHandler('onResourceStop', function(resource)
+    if resource == GetCurrentResourceName() then
+        cleanupTrackedEntities()
+    end
+end)
+
+function isStarted(resource)
+    return TSS.IsStarted(resource)
+end
+
+function debugPrint(...)
+    return TSS.Debug(...)
+end
+
+function setDebug(state)
+    return TSS.SetDebug(state)
+end
+
+function debugPoly(value)
+    return TSS.ShouldDebugPoly(value)
+end
