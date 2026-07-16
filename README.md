@@ -63,6 +63,42 @@ TSS.Notify.Send(title, message, type, source)
 TSS.Groups.BossRoles(jobOrGang)
 ```
 
+Bridge menus (client-side):
+
+```lua
+TSS.UI.Menu({
+    title = 'Main Menu',
+    description = 'Access server features and options.',
+    options = {
+        { label = 'Player Options', icon = 'circle' },
+        { label = 'Vehicle Options', disabled = true },
+    }
+}, function(result)
+    if result then print(result.index, result.value) end
+end)
+
+TSS.UI.Context({
+    options = {
+        { label = 'Give Money', value = 'money' },
+        { label = 'Show ID', value = 'id' },
+    }
+}, function(result)
+    if result then print(result.value) end
+end)
+
+TSS.UI.Input({
+    title = 'Enter Amount',
+    description = 'Enter the amount of money to give to the player.',
+    fields = {
+        { name = 'amount', type = 'number', value = 5000, suffix = '$', min = 0 },
+    }
+}, function(result)
+    if result then print(result.values.amount) end
+end)
+```
+
+Closing or cancelling any interface returns `nil` to its callback. Use `TSS.UI.Close()` to close one from code.
+
 Progress bar selection is automatic by default:
 
 - `ox_lib`

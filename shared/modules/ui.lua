@@ -46,7 +46,62 @@ function TSS.UI.HideProgress(source)
     return sendClientMessage('progress', nil)
 end
 
+local activeUiCallback
+local activeUiId = 0
+
+local function openInteractive(kind, data, callback)
+    if not TSS.IsClient() then return false end
+    activeUiId = activeUiId + 1
+    data = type(data) == 'table' and data or {}
+    data.id = activeUiId
+    activeUiCallback = callback
+    SetNuiFocus(true, true)
+    sendClientMessage(kind, data)
+    return activeUiId
+end
+
+function TSS.UI.Menu(data, callback)
+    return openInteractive('menu', data, callback)
+end
+
+function TSS.UI.Context(data, callback)
+    return openInteractive('context', data, callback)
+end
+
+function TSS.UI.Input(data, callback)
+    return openInteractive('input', data, callback)
+end
+
+function TSS.UI.Close()
+    if not TSS.IsClient() then return false end
+    SetNuiFocus(false, false)
+    activeUiCallback = nil
+    return sendClientMessage('closeUi', nil)
+end
+
 if TSS.IsClient() then
+    local function finishInteractive(result)
+        SetNuiFocus(false, false)
+        local callback = activeUiCallback
+        activeUiCallback = nil
+        if callback then callback(result) end
+    end
+
+    RegisterNUICallback('uiSelect', function(data, cb)
+        cb({ ok = true })
+        finishInteractive({ index = data.index, value = data.value, id = data.id })
+    end)
+
+    RegisterNUICallback('uiSubmit', function(data, cb)
+        cb({ ok = true })
+        finishInteractive({ values = data.values or {}, id = data.id })
+    end)
+
+    RegisterNUICallback('uiClose', function(data, cb)
+        cb({ ok = true })
+        finishInteractive(nil)
+    end)
+
     RegisterNetEvent('tss_bridge:client:uiNotify', function(data)
         TSS.UI.Notify(data)
     end)

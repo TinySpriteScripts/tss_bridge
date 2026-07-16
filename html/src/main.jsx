@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Check, CircleDot, Save, SquareMousePointer, Timer, Zap } from 'lucide-react';
+import { Check, ChevronRight, CircleDot, Save, SquareMousePointer, Timer, X, Zap } from 'lucide-react';
 import './styles.css';
 
 const initialDebug = {
@@ -17,6 +17,7 @@ function App() {
   const [debugUi, setDebugUi] = useState(initialDebug);
   const [notices, setNotices] = useState([]);
   const [progress, setProgress] = useState(null);
+  const [dialog, setDialog] = useState(null);
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -37,6 +38,12 @@ function App() {
       if (data.action === 'progress') {
         setProgress(data.payload || null);
       }
+
+      if (data.action === 'menu' || data.action === 'context' || data.action === 'input') {
+        setDialog(data.payload ? { kind: data.action, ...data.payload } : null);
+      }
+
+      if (data.action === 'closeUi') setDialog(null);
     };
 
     window.addEventListener('message', handleMessage);
@@ -45,10 +52,122 @@ function App() {
 
   return (
     <div className="tss-ui">
-      <StealthTexture />
       {debugUi.visible && <LocationDebugPanel data={debugUi} />}
+      {dialog && <BridgeDialog data={dialog} onClose={() => setDialog(null)} />}
       <NoticeStack notices={notices} />
       {progress && <ProgressBar data={progress} />}
+    </div>
+  );
+}
+
+function BridgeDialog({ data, onClose }) {
+  const items = data.options || data.items || [];
+  const [selected, setSelected] = useState(Math.max(0, data.selected || 0));
+
+  useEffect(() => setSelected(Math.max(0, data.selected || 0)), [data]);
+
+  const close = () => {
+    postNui('uiClose', { id: data.id, kind: data.kind });
+    onClose();
+  };
+
+  const choose = (index) => {
+    const option = items[index];
+    if (!option || option.disabled) return;
+    postNui('uiSelect', { id: data.id, kind: data.kind, index: index + 1, value: option.value });
+    if (option.keepOpen !== true) onClose();
+  };
+
+  useEffect(() => {
+    const keydown = (event) => {
+      if (data.kind === 'input') return;
+      if (event.key === 'Escape' || event.key === 'Backspace') close();
+      if (event.key === 'ArrowDown') setSelected((current) => (current + 1) % Math.max(1, items.length));
+      if (event.key === 'ArrowUp') setSelected((current) => (current - 1 + Math.max(1, items.length)) % Math.max(1, items.length));
+      if (event.key === 'Enter') choose(selected);
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [selected, items.length, data.kind]);
+
+  if (data.kind === 'input') return <InputDialog data={data} close={close} onClose={onClose} />;
+
+  return (
+    <div className={`bridge-dialog-layer ${data.kind}`}>
+      <section className={`bridge-menu ${data.kind}-panel`}>
+        <div className="bridge-kicker">{data.label || (data.kind === 'context' ? 'Context menu' : 'Menu')}</div>
+        {data.kind === 'menu' && (
+          <header className="bridge-menu-header">
+            <h2>{data.title || 'Menu'}</h2>
+            {data.description && <p>{data.description}</p>}
+            <i />
+          </header>
+        )}
+        <div className="bridge-options">
+          {items.map((option, index) => {
+            const Icon = iconFor(option.icon);
+            return (
+              <button
+                className={`bridge-option ${selected === index ? 'selected' : ''}`}
+                disabled={option.disabled}
+                key={option.id || `${option.label}-${index}`}
+                onMouseEnter={() => setSelected(index)}
+                onClick={() => choose(index)}
+              >
+                {Icon && <Icon size={20} strokeWidth={1.7} />}
+                <span>{option.label || option.title}</span>
+                {option.description && <small>{option.description}</small>}
+                {(option.arrow !== false && data.kind === 'menu') && <ChevronRight className="option-arrow" size={19} />}
+              </button>
+            );
+          })}
+          {data.kind === 'context' && (
+            <button className="bridge-option close-option" onClick={close}><X size={20} /><span>{data.closeLabel || 'Close Menu'}</span></button>
+          )}
+        </div>
+        {data.kind === 'menu' && <footer className="menu-controls"><kbd>ESC</kbd><span>Back</span><b /> <kbd>ENTER</kbd><span>Select</span></footer>}
+      </section>
+    </div>
+  );
+}
+
+function iconFor(name) {
+  if (!name) return CircleDot;
+  return { check: Check, save: Save, timer: Timer, close: X, x: X, zap: Zap }[String(name).toLowerCase()] || CircleDot;
+}
+
+function InputDialog({ data, close, onClose }) {
+  const fields = data.fields || [{ name: 'value', label: data.fieldLabel, type: data.type || 'text', value: data.value || '', placeholder: data.placeholder }];
+  const [values, setValues] = useState(() => Object.fromEntries(fields.map((field) => [field.name || 'value', field.value ?? ''])));
+
+  useEffect(() => {
+    const keydown = (event) => {
+      if (event.key === 'Escape') close();
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, []);
+
+  const submit = (event) => {
+    event.preventDefault();
+    postNui('uiSubmit', { id: data.id, values });
+    onClose();
+  };
+
+  return (
+    <div className="bridge-dialog-layer input">
+      <form className="input-panel" onSubmit={submit}>
+        <div className="bridge-kicker">{data.label || 'Input menu'}</div>
+        <h2>{data.title || 'Enter Details'}</h2>
+        {data.description && <p>{data.description}</p>}
+        <div className="input-fields">
+          {fields.map((field, index) => {
+            const name = field.name || 'value';
+            return <label key={name}><span>{field.label}</span><div className="field-wrap"><input autoFocus={index === 0} type={field.type || 'text'} value={values[name]} placeholder={field.placeholder || ''} min={field.min} max={field.max} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))} />{field.suffix && <em>{field.suffix}</em>}</div></label>;
+          })}
+        </div>
+        <div className="input-actions"><button type="submit" className="confirm">{data.confirmLabel || 'Confirm'}<Check size={20} /></button><button type="button" onClick={close}>{data.cancelLabel || 'Cancel'}<X size={20} /></button></div>
+      </form>
     </div>
   );
 }
@@ -70,9 +189,7 @@ function LocationDebugPanel({ data }) {
 
   return (
     <section className={`debug-panel ${isSelector ? 'selector-panel' : 'placement-panel'} ${isPedPicker ? 'picker-panel' : ''}`}>
-      <div className="panel-glow panel-glow-top" />
-      <div className="panel-glow panel-glow-left" />
-
+      <div className="debug-kicker">Debug menu</div>
       <header className="debug-header">
         <div>
           <h1>{data.title}</h1>
