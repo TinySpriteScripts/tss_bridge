@@ -75,6 +75,7 @@ function GetResourceState(resource)
 end
 
 function AddEventHandler() end
+function CreateThread() end
 function RegisterNUICallback() end
 function RegisterNetEvent() end
 function RegisterCommand() end
@@ -203,12 +204,12 @@ if realm == 'client' then
     expandedNames = {
         'Locale', 'Capabilities', 'Diagnostics', 'Player', 'Money', 'Notify', 'TextUI',
         'Callbacks', 'Interaction', 'VehicleKeys', 'Fuel', 'ProgressBar', 'Blips', 'Peds',
-        'Props', 'Vehicles', 'World', 'Groups', 'Targets'
+        'Props', 'Vehicles', 'World', 'Groups', 'Targets', 'Debug'
     }
 else
     expandedNames = {
         'Locale', 'Capabilities', 'Diagnostics', 'Player', 'Money', 'Notify', 'TextUI',
-        'Callbacks', 'VehicleKeys', 'Groups'
+        'Callbacks', 'VehicleKeys', 'Groups', 'Debug'
     }
 end
 
@@ -223,6 +224,7 @@ assert(expanded.TextUI.Show)
 assert(expanded.Callbacks.Register)
 assert(expanded.Callbacks.Await)
 assert(expanded.VehicleKeys.Has)
+assert(expanded.Debug.FormatLocationTable)
 
 if realm == 'client' then
     assert(expanded.Money.Balance)
