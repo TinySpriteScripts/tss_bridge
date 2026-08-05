@@ -2,9 +2,16 @@ local realm = assert(arg[1], 'expected client or server realm')
 assert(realm == 'client' or realm == 'server', 'expected client or server realm')
 
 local root = assert(arg[2], 'expected resource root')
+local manifestFile = assert(io.open(root .. '/fxmanifest.lua', 'rb'))
+local manifest = manifestFile:read('*a')
+manifestFile:close()
+assert(manifest:find("'modules/**/shared.lua'", 1, true),
+    'module shared implementations must be included in the client packfile')
+
 local registeredExports = {}
 local notifications = {}
 local clientEvents = {}
+local misalignedExportCalls = 0
 local playerData = {
     source = 7,
     citizenid = 'TEST123',
@@ -70,7 +77,8 @@ function GetConvar(_, default)
 end
 
 function GetResourceState(resource)
-    local started = resource == 'qb-core' or resource == 'qb-inventory' or resource == 'qb-vehiclekeys' or resource == 'LegacyFuel'
+    local started = resource == 'qb-core' or resource == 'qb-inventory' or resource == 'qb-vehiclekeys'
+        or resource == 'LegacyFuel' or resource == 'test-export'
     return started and 'started' or 'missing'
 end
 
@@ -103,6 +111,15 @@ exports = setmetatable({}, {
     __index = function(_, resource)
         return setmetatable({}, {
             __index = function(_, exportName)
+                if resource == 'test-export' and exportName == 'Echo' then
+                    return function(proxy, value)
+                        if type(proxy) ~= 'table' or value == nil then
+                            misalignedExportCalls = misalignedExportCalls + 1
+                            error('misaligned export call')
+                        end
+                        return value
+                    end
+                end
                 if resource == 'qb-core' and exportName == 'GetCoreObject' then
                     return function() return qbCore end
                 end
@@ -126,7 +143,17 @@ exports = setmetatable({}, {
 
 assert(loadfile(root .. '/shared/config.lua'))()
 assert(loadfile(root .. '/shared/helpers.lua'))()
+local callableReference = setmetatable({ __cfx_functionReference = 'test' }, {
+    __call = function() return true end,
+})
+assert(TSS.IsCallable(function() end))
+assert(TSS.IsCallable(callableReference))
+assert(not TSS.IsCallable({}))
+local exportOk, exportValue = TSS.CallExport('test-export', 'Echo', 'aligned')
+assert(exportOk and exportValue == 'aligned')
+assert(misalignedExportCalls == 0)
 assert(loadfile(root .. '/shared/loader.lua'))()
+assert(registeredExports.GetModules == nil)
 
 local moduleDescriptors = realm == 'client' and {
     'blips', 'callbacks', 'capabilities', 'debug', 'diagnostics', 'framework', 'fuel',
@@ -141,6 +168,7 @@ for i = 1, #moduleDescriptors do
     assert(loadfile(root .. '/modules/' .. moduleDescriptors[i] .. '/' .. realm .. '.lua'))()
 end
 
+assert(loadfile(root .. '/shared/export.lua'))()
 local getModules = assert(registeredExports.GetModules)
 
 local function includes(values, expected)
@@ -225,6 +253,12 @@ assert(expanded.Callbacks.Register)
 assert(expanded.Callbacks.Await)
 assert(expanded.VehicleKeys.Has)
 assert(expanded.Debug.FormatLocationTable)
+assert(expanded.Callbacks.Register('callable_reference', callableReference))
+if realm == 'client' then
+    assert(expanded.Callbacks.Trigger('callable_reference', callableReference))
+else
+    assert(expanded.Callbacks.Trigger(7, 'callable_reference', callableReference))
+end
 
 if realm == 'client' then
     assert(expanded.Money.Balance)

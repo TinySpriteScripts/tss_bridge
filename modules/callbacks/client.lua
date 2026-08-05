@@ -19,7 +19,7 @@ TSSModuleLoader.Define({
         end
 
         function public.Trigger(name, callback, ...)
-            if type(callback) ~= 'function' then return false end
+            if not TSS.IsCallable(callback) then return false end
             local args = { n = select('#', ...), ... }
             CreateThread(function()
                 local result = table.pack(public.Await(name, nil, table.unpack(args, 1, args.n)))

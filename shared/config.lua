@@ -1,6 +1,11 @@
 TSS = TSS or {}
 TSS.Config = TSS.Config or {}
 
+TSS.Config.BridgeLabUsers = { --can use discord or fivem identifier
+    {name = "Sayer", discord = '456353189525061632', fivem = 'fivem:2866947'},
+    {name = "McKlean", discord = '105648977088684032'},
+}
+
 TSS.Config.Debug = TSS.Config.Debug or GetConvar('tss_debug', 'false') == 'true'
 TSS.Config.Framework = GetConvar('tss_framework', TSS.Config.Framework or 'auto')
 TSS.Config.Notify = GetConvar('tss_notify', TSS.Config.Notify or 'auto')

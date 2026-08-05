@@ -162,15 +162,7 @@ local function getCircleData(data)
 end
 
 local function callTarget(resource, exportName, ...)
-    local ok, result = pcall(function(...)
-        return exports[resource][exportName](...)
-    end, ...)
-
-    if not ok then
-        ok, result = pcall(function(...)
-            return exports[resource][exportName](exports[resource], ...)
-        end, ...)
-    end
+    local ok, result = TSS.CallExport(resource, exportName, ...)
 
     if not ok then
         TSS.Warn(('%s:%s failed: %s'):format(resource, exportName, result))

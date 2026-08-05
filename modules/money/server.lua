@@ -36,7 +36,7 @@ TSSModuleLoader.Define({
 
             if system == 'qb' then
                 local fn = player.Functions and player.Functions[action .. 'Money']
-                return type(fn) == 'function' and fn(moneyType, amount, reason) == true or false
+                return TSS.IsCallable(fn) and fn(moneyType, amount, reason) == true or false
             end
 
             local account = moneyType == 'cash' and 'money' or moneyType
@@ -44,7 +44,7 @@ TSSModuleLoader.Define({
             if action == 'Add' then fn = account == 'money' and player.addMoney or player.addAccountMoney end
             if action == 'Remove' then fn = account == 'money' and player.removeMoney or player.removeAccountMoney end
             if action == 'Set' then fn = account == 'money' and player.setMoney or player.setAccountMoney end
-            if type(fn) ~= 'function' then return false end
+            if not TSS.IsCallable(fn) then return false end
 
             local ok = pcall(fn, account == 'money' and amount or account,
                 account == 'money' and reason or amount, account == 'money' and nil or reason)

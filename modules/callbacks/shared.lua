@@ -40,12 +40,16 @@ local function awaitResponse(key, trigger, timeout)
     SetTimeout(timeout, function()
         if pending[key] == deferred then
             pending[key] = nil
-            deferred:resolve({ ok = false, error = TSS.Locale.T('callback_timeout', key) })
+            local timeoutError = TSS.Locale.T('callback_timeout', key)
+            TSS.Warn(timeoutError)
+            deferred:resolve({ ok = false, error = timeoutError })
         end
     end)
 
     local response = Citizen.Await(deferred)
-    if not response.ok then return nil, response.error end
+    -- A leading nil is lost when this async result crosses the consumer's
+    -- function-reference boundary. False preserves the accompanying error.
+    if not response.ok then return false, response.error or 'callback failed' end
     return unpackValues(response.values)
 end
 
@@ -57,13 +61,14 @@ local function resolve(key, ok, values, err)
 end
 
 local function register(namespace, name, handler)
-    if not validName(namespace) or not validName(name) or type(handler) ~= 'function' then return false end
+    if not validName(namespace) or not validName(name) or not TSS.IsCallable(handler) then return false end
     local key = callbackKey(namespace, name)
     if handlers[key] then
         TSS.Warn(('Callback already registered: %s'):format(key))
         return false
     end
     handlers[key] = handler
+    TSS.Debug(('Callback registered: %s (%s)'):format(key, TSS.IsServer() and 'server' or 'client'))
     return true
 end
 
@@ -119,10 +124,14 @@ if TSS.IsServer() then
 
     RegisterNetEvent('tss_bridge:server:callback:request', function(namespace, name, id, args)
         local source = source
+        TSS.Debug(('Raw callback request from %s: namespace=%s name=%s id=%s args=%s')
+            :format(tostring(source), tostring(namespace), tostring(name), tostring(id), type(args)))
         if not allowed(source) or not validName(namespace) or not validName(name) or not validName(id) or type(args) ~= 'table' then return end
+        TSS.Debug(('Callback request received: %s:%s from %s (%s)'):format(namespace, name, source, id))
 
         local handler = handlers[callbackKey(namespace, name)]
         if not handler then
+            TSS.Warn(('Callback is not registered: %s'):format(callbackKey(namespace, name)))
             TriggerClientEvent('tss_bridge:client:callback:response', source, id, false, nil,
                 TSS.Locale.T('callback_missing', callbackKey(namespace, name)))
             return
@@ -133,6 +142,9 @@ if TSS.IsServer() then
             local ok = result[1]
             table.remove(result, 1)
             result.n = result.n - 1
+            if not ok then
+                TSS.Warn(('Callback %s failed: %s'):format(callbackKey(namespace, name), tostring(result[1])))
+            end
             TriggerClientEvent('tss_bridge:client:callback:response', source, id, ok, ok and result or nil, ok and nil or tostring(result[1]))
         end)
     end)
@@ -192,6 +204,7 @@ else
 
     RegisterNetEvent('tss_bridge:client:callback:response', function(id, ok, values, err)
         if not validName(id) then return end
+        TSS.Debug(('Callback response received: %s (%s)'):format(id, tostring(ok)))
         resolve(id, ok, values, err)
     end)
 
@@ -205,6 +218,7 @@ else
         if not validName(namespace) or not validName(name) then return nil, 'invalid callback request' end
         local id = nextId(namespace)
         local args = pack(...)
+        TSS.Debug(('Sending callback request: %s:%s (%s)'):format(namespace, name, id))
         return awaitResponse(id, function()
             TriggerServerEvent('tss_bridge:server:callback:request', namespace, name, id, args)
         end, timeout)

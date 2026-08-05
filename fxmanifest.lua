@@ -10,7 +10,7 @@ lua54 'yes'
 files {
     'shared/*.lua',
     'shared/locales/*.lua',
-    'modules/*/shared.lua',
+    'modules/**/shared.lua',
     'modules/inventory/adapters/*.lua',
     'html/dist/index.html',
     'html/dist/**/*',
@@ -25,10 +25,12 @@ shared_scripts {
 }
 
 client_scripts {
-    'modules/*/client.lua',
+    'modules/**/client.lua',
+    'shared/export.lua',
 }
 server_scripts {
-    'modules/*/server.lua',
+    'modules/**/server.lua',
+    'shared/export.lua',
 }
 
 suppress_updates 'false'   -- set to 'true' to disable update pings

@@ -9,19 +9,7 @@ local aliases = {}
 TSS.Inventory.Utils = TSS.Inventory.Utils or {}
 
 function TSS.Inventory.Utils.CallExport(resource, exportName, ...)
-    local export = exports[resource] and exports[resource][exportName]
-
-    if type(export) ~= 'function' then
-        return false, ('missing export %s:%s'):format(resource, exportName)
-    end
-
-    local ok, result, extra = pcall(export, ...)
-    if ok then return true, result, extra end
-
-    ok, result, extra = pcall(export, exports[resource], ...)
-    if ok then return true, result, extra end
-
-    return false, result
+    return TSS.CallExport(resource, exportName, ...)
 end
 
 function TSS.Inventory.Utils.TryExports(resource, exportsToTry, ...)

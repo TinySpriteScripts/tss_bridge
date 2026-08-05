@@ -285,4 +285,14 @@ local function getModules(requested, options)
     return public
 end
 
-exports('GetModules', getModules)
+TSSModuleLoader.GetModules = getModules
+
+--- Publishes the consumer export after all realm descriptors have registered.
+--- This must run from the final client/server manifest script.
+function TSSModuleLoader.RegisterExport()
+    if #TSSModuleLoader.ListAvailable() == 0 then
+        error(('[tss_bridge] No %s modules were registered before GetModules export setup'):format(realm), 0)
+    end
+
+    exports('GetModules', getModules)
+end

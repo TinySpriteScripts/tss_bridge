@@ -11,6 +11,18 @@ function TSS.IsClient()
     return not IsDuplicityVersion()
 end
 
+--- Reports whether a value can be invoked as a Lua or Cfx function.
+--- Consumer functions crossing a resource boundary arrive as callable tables.
+---@param value any
+---@return boolean callable
+function TSS.IsCallable(value)
+    if type(value) == 'function' then return true end
+    if type(value) ~= 'table' then return false end
+    if rawget(value, '__cfx_functionReference') ~= nil then return true end
+    local metatable = getmetatable(value)
+    return metatable ~= nil and type(metatable.__call) == 'function'
+end
+
 function TSS.IsStarted(resource)
     return resource and GetResourceState(resource):find('start') ~= nil or false
 end
@@ -24,10 +36,14 @@ function TSS.CallExport(resource, exportName, ...)
         return false, ('missing export %s:%s'):format(resource, exportName)
     end
 
-    local ok, result, extra = pcall(export, ...)
+    -- FiveM resource exports are proxy methods (`exports.resource:Name(...)`).
+    -- Pass the proxy first so consumer arguments retain their positions.
+    local ok, result, extra = pcall(export, proxy, ...)
     if ok then return true, result, extra end
 
-    ok, result, extra = pcall(export, proxy, ...)
+    -- Retain compatibility with plain callable export shims used by some
+    -- resources and standalone test environments.
+    ok, result, extra = pcall(export, ...)
     if ok then return true, result, extra end
     return false, result
 end
