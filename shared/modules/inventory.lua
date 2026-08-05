@@ -129,6 +129,20 @@ function TSS.Inventory.System()
     return system, resource
 end
 
+function TSS.Inventory.Supports(feature)
+    local _, _, adapter = getAdapter()
+    feature = tostring(feature or ''):lower()
+    if TSS.IsClient() and (feature == 'add' or feature == 'remove' or feature == 'carry' or feature == 'stash') then
+        return false
+    end
+    local methods = {
+        add = 'add', remove = 'remove', count = 'count', has = 'count', carry = 'canCarry',
+        player = 'inventory', items = 'items', stash = 'registerStash', open = 'openInventory', close = 'close',
+    }
+    local method = methods[feature]
+    return adapter ~= nil and method ~= nil and type(adapter[method]) == 'function'
+end
+
 function TSS.Inventory.Add(source, item, amount, metadata, slot, reason)
     local _, resource, adapter = getAdapter()
     if not adapter then return false end

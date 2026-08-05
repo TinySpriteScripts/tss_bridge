@@ -56,7 +56,7 @@ function TSS.ClearBlips()
     end
 end
 
-AddEventHandler('onResourceStop', function(resource)
+AddEventHandler('onClientResourceStop', function(resource)
     if resource == GetCurrentResourceName() then
         TSS.ClearBlips()
     end

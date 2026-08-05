@@ -1,4 +1,5 @@
 TSS = TSS or {}
+TSS.Progress = TSS.Progress or {}
 
 local active = false
 
@@ -8,13 +9,34 @@ local function bool(value, default)
 end
 
 local function getProgressSystem()
-    local configured = TSS.Config.ProgressBar
+    local configured = tostring(TSS.Config.ProgressBar or 'auto'):lower()
 
     if configured ~= 'auto' then
+        if configured == TSS.Resources.OxLib then return 'ox' end
+        if configured == TSS.Resources.ProgressBar or configured == 'qb-core' or configured == 'qbcore' then return 'qb' end
+        if configured == 'tss_bridge' then return 'tss' end
         return configured
     end
 
+    if TSS.IsStarted(TSS.Resources.OxLib) then return 'ox' end
+    if TSS.IsStarted(TSS.Resources.ProgressBar) and TSS.IsStarted(TSS.Resources.QBCore) then return 'qb' end
     return 'tss'
+end
+
+function TSS.Progress.System()
+    local system = getProgressSystem()
+    if system == 'ox' then return system, TSS.Resources.OxLib end
+    if system == 'qb' then return system, TSS.Resources.ProgressBar end
+    return system, nil
+end
+
+function TSS.Progress.Supports(feature)
+    local system = getProgressSystem()
+    feature = tostring(feature or ''):lower()
+    if feature == 'cancel' or feature == 'animation' or feature == 'controls' then return true end
+    if feature == 'circle' then return system == 'ox' end
+    if feature == 'props' then return system == 'ox' or system == 'qb' end
+    return false
 end
 
 local function playProgressAnim(ped, data, duration)
@@ -185,6 +207,9 @@ function TSS.StopProgressBar()
     active = false
     if TSS.UI and TSS.UI.HideProgress then TSS.UI.HideProgress() end
 end
+
+TSS.Progress.Start = TSS.ProgressBar
+TSS.Progress.Stop = TSS.StopProgressBar
 
 function progressBar(data)
     return TSS.ProgressBar(data)

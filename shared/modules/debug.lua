@@ -273,8 +273,22 @@ function TSS.DebugTools.FormatChairTable(entries, label, icon)
 end
 
 if TSS.IsServer() then
+    local lastSaveAt = {}
+
     RegisterNetEvent('tss_bridge:server:saveChairTable', function(output)
         local src = source
+
+        if not TSS.Config.DebugTools or not IsPlayerAceAllowed(src, 'tss_bridge.debug') then
+            TriggerClientEvent('tss_bridge:client:chairTableSaved', src, false, 'You are not allowed to save debug tables')
+            return
+        end
+
+        local now = GetGameTimer()
+        if lastSaveAt[src] and now - lastSaveAt[src] < 5000 then
+            TriggerClientEvent('tss_bridge:client:chairTableSaved', src, false, 'Please wait before saving another debug table')
+            return
+        end
+        lastSaveAt[src] = now
 
         if type(output) ~= 'string' or output == '' or #output > 50000 then
             TriggerClientEvent('tss_bridge:client:chairTableSaved', src, false, 'Invalid chair table output')
@@ -300,6 +314,10 @@ if TSS.IsServer() then
 
         TriggerClientEvent('tss_bridge:client:chairTableSaved', src, saved == true, filename)
         TSS.Debug(('%s table %s to %s'):format(saved == true and 'Location' or 'Failed saving location', saved == true and 'saved' or 'output', filename))
+    end)
+
+    AddEventHandler('playerDropped', function()
+        lastSaveAt[source] = nil
     end)
 end
 
@@ -1482,7 +1500,7 @@ if TSS.IsClient() then
         end
     end)
 
-    AddEventHandler('onResourceStop', function(resource)
+    AddEventHandler('onClientResourceStop', function(resource)
         if resource ~= GetCurrentResourceName() then return end
 
         deleteGhost()

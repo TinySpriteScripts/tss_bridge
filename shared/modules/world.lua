@@ -139,7 +139,7 @@ function TSS.World.CreateDistancePed(data, coords, options)
     return createDistanceEntity('Ped', data, options)
 end
 
-AddEventHandler('onResourceStop', function(resource)
+AddEventHandler('onClientResourceStop', function(resource)
     if resource ~= GetCurrentResourceName() then return end
 
     for i = 1, #distanceItems do

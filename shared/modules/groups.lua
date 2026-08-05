@@ -3,7 +3,15 @@ TSS.Groups = TSS.Groups or {}
 
 function TSS.Groups.BossRoles(role)
     local roles = {}
-    local group = (Jobs and Jobs[role]) or (Gangs and Gangs[role])
+    local jobs = rawget(_G, 'Jobs')
+    local gangs = rawget(_G, 'Gangs')
+
+    if TSS.Framework then
+        jobs = jobs or (TSS.Framework.Jobs and TSS.Framework.Jobs())
+        gangs = gangs or (TSS.Framework.Gangs and TSS.Framework.Gangs())
+    end
+
+    local group = (jobs and jobs[role]) or (gangs and gangs[role])
 
     if not group or not group.grades then
         return roles

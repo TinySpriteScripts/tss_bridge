@@ -102,15 +102,8 @@ if TSS.IsClient() then
         finishInteractive(nil)
     end)
 
-    RegisterNetEvent('tss_bridge:client:uiNotify', function(data)
-        TSS.UI.Notify(data)
+    AddEventHandler('onClientResourceStop', function(resource)
+        if resource == GetCurrentResourceName() then TSS.UI.Close() end
     end)
 
-    RegisterNetEvent('tss_bridge:client:uiProgress', function(data)
-        if data == nil then
-            TSS.UI.HideProgress()
-        else
-            TSS.UI.Progress(data)
-        end
-    end)
 end

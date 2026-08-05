@@ -15,6 +15,23 @@ function TSS.IsStarted(resource)
     return resource and GetResourceState(resource):find('start') ~= nil or false
 end
 
+function TSS.CallExport(resource, exportName, ...)
+    if not TSS.IsStarted(resource) then return false, 'resource is not started' end
+
+    local proxy = exports[resource]
+    local export = proxy and proxy[exportName]
+    if type(export) ~= 'function' then
+        return false, ('missing export %s:%s'):format(resource, exportName)
+    end
+
+    local ok, result, extra = pcall(export, ...)
+    if ok then return true, result, extra end
+
+    ok, result, extra = pcall(export, proxy, ...)
+    if ok then return true, result, extra end
+    return false, result
+end
+
 function TSS.Debug(...)
     if not TSS.Config.DebugPrints then return end
     print('^5[tss_bridge]^7', ...)
@@ -137,7 +154,7 @@ local function cleanupTrackedEntities()
     end
 end
 
-AddEventHandler('onResourceStop', function(resource)
+AddEventHandler(TSS.IsServer() and 'onResourceStop' or 'onClientResourceStop', function(resource)
     if resource == GetCurrentResourceName() then
         cleanupTrackedEntities()
     end

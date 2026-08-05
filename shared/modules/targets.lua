@@ -47,6 +47,18 @@ local function getTargetResource(system)
     if system == 'bt' then return TSS.Resources.BtTarget end
 end
 
+function TSS.Target.System()
+    local system = getTargetSystem()
+    return system, getTargetResource(system)
+end
+
+function TSS.Target.Supports(feature)
+    local system = getTargetSystem()
+    feature = tostring(feature or ''):lower()
+    if not system then return false end
+    return feature == 'entity' or feature == 'model' or feature == 'box' or feature == 'circle' or feature == 'groups' or feature == 'items'
+end
+
 local function normaliseOxOptions(options, distance)
     local normalised = {}
     options = asArray(options)
@@ -368,7 +380,7 @@ function TSS.Target.Clear()
     end
 end
 
-AddEventHandler('onResourceStop', function(resource)
+AddEventHandler('onClientResourceStop', function(resource)
     if resource == GetCurrentResourceName() then
         TSS.Target.Clear()
     end
