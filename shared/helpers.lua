@@ -41,6 +41,8 @@ function TSS.Warn(...)
     print('^3[tss_bridge]^7', ...)
 end
 
+--- Enables or disables all bridge debug modes at runtime.
+---@param state boolean New debug state.
 function TSS.SetDebug(state)
     TSS.Config.Debug = state == true
     TSS.Config.DebugPrints = state == true

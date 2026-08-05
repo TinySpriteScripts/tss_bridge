@@ -41,6 +41,28 @@ Module names are case-insensitive and returned under their canonical names. An u
 
 The old `@tss_bridge/starter.lua` injection entry point no longer exists.
 
+### LuaLS autocomplete
+
+The bridge includes documentation types in `shared/types.lua`. Add the realm type
+above each module request to get hover documentation, parameter hints, and
+completion in Lua Language Server:
+
+```lua
+-- client/main.lua
+---@type TSSClientModules
+local TSS = exports.tss_bridge:GetModules({ 'Notify', 'Interaction' })
+```
+
+```lua
+-- server/main.lua
+---@type TSSServerModules
+local TSS = exports.tss_bridge:GetModules({ 'Callbacks', 'Money', 'Inventory' })
+```
+
+Each public function also has an EmmyLua/LuaLS documentation block in its
+implementation. The type catalog records the client/server signature differences;
+for example, server money mutation methods do not exist on `TSSClientModules`.
+
 ## Configuration
 
 Defaults live in `shared/config.lua`:
@@ -101,6 +123,92 @@ Common aliases and resource names are accepted, including `qb`, `qb-core`, `qbox
 | `Debug` | Debug tools | Secured debug persistence |
 
 Mutation methods are not merely guarded with `IsDuplicityVersion()`; they are absent from client module projections.
+
+## Adding or extending modules
+
+Modules self-register from `modules/<name>/client.lua` and
+`modules/<name>/server.lua`. Realm-specific wildcards in `fxmanifest.lua`
+discover them automatically, so there is no central client registry, server
+registry, or manifest list to update. Server factories are never loaded as
+client scripts.
+
+Every module now owns its complete implementation directory. There is no
+`shared/modules` implementation tree:
+
+```text
+modules/
+└── money/
+    ├── client.lua  # client API
+    ├── server.lua  # server API and authoritative mutations
+    └── shared.lua  # read logic genuinely used by both realms
+```
+
+Module-specific integrations stay in the same directory as well; for example,
+inventory adapters live under `modules/inventory/adapters/`.
+
+For example, a client module is one file:
+
+```lua
+-- modules/example/client.lua
+TSSModuleLoader.Define({
+    name = 'Example',
+    dependencies = { 'Framework' },
+
+    client = function(context)
+        local Example = {}
+
+        --- Returns the resource that requested this module.
+        ---@return string resource
+        function Example.Consumer()
+            return context.Caller
+        end
+
+        return Example
+    end,
+})
+```
+
+A server implementation lives separately:
+
+```lua
+-- modules/example/server.lua
+TSSModuleLoader.Define({
+    name = 'Example',
+
+    server = function(context)
+        local Example = {}
+
+        --- Performs a server-authoritative check.
+        ---@param source integer Trusted server player ID.
+        ---@return boolean allowed
+        function Example.CanUse(source)
+            return source > 0 and IsPlayerAceAllowed(source, 'example.use')
+        end
+
+        return Example
+    end,
+})
+```
+
+To add a function to an existing module, edit only its `client.lua` or
+`server.lua` factory and add the function before returning the public table. A
+new one-realm module needs one file; a module available in both realms needs two.
+Updating `shared/types.lua` is optional at runtime, but recommended when the new
+function should appear in consumer autocomplete.
+
+Descriptor options:
+
+- `dependencies` initializes other modules first without exposing them to the consumer.
+- `files` contains implementation files loaded lazily in both realms.
+- `clientFiles` and `serverFiles` contain realm-specific lazy implementation files.
+- `client` and `server` are independent API factories in their corresponding files.
+- `context.Caller` identifies the consuming resource.
+- `context.Options` contains the options passed to `GetModules`.
+- `context.CopyFunctions` safely copies existing implementation functions.
+- `context.OnStop` registers cleanup scoped to the consuming resource.
+
+Factories must return a table containing only named functions. Invalid public
+values fail during `GetModules` rather than silently exposing internal state.
 
 ## Notify
 

@@ -8,24 +8,12 @@ local requestedBy = {}
 
 TSSModuleLoader = {
     Realm = realm,
-    InventoryFiles = {
-        'shared/modules/inventory.lua',
-        'shared/inventory/ox_inventory.lua',
-        'shared/inventory/qb-inventory.lua',
-        'shared/inventory/ps-inventory.lua',
-        'shared/inventory/lj-inventory.lua',
-        'shared/inventory/qs-inventory.lua',
-        'shared/inventory/core_inventory.lua',
-        'shared/inventory/codem-inventory.lua',
-        'shared/inventory/origen_inventory.lua',
-        'shared/inventory/tgiann-inventory.lua',
-        'shared/inventory/ak47_inventory.lua',
-        'shared/inventory/mf-inventory.lua',
-        'shared/inventory/tss-inventory.lua',
-        'shared/inventory/inventory.lua',
-    },
 }
 
+--- Copies an explicit set of functions into an isolated public API table.
+---@param source table Internal module implementation.
+---@param names string[] Public function names.
+---@return table<string, function> public
 function TSSModuleLoader.CopyFunctions(source, names)
     local public = {}
 
@@ -65,22 +53,58 @@ local function loadFile(path)
     loaded[path] = true
 end
 
-function TSSModuleLoader.Define(name, files, build, dependencies)
-    if type(name) ~= 'string' or name == '' then
+--- Registers a self-contained module descriptor for the current realm.
+---@param specification TSSModuleDefinition Module metadata and realm factories.
+function TSSModuleLoader.Define(specification)
+    if type(specification) ~= 'table' then
+        error('[tss_bridge] Module definition must be a table', 0)
+    end
+
+    local name = specification.name
+    if type(name) ~= 'string' or name == '' or not name:match('^[%w_%-]+$') then
         error('[tss_bridge] Cannot register a module without a name', 0)
+    end
+
+    local build = specification[realm]
+    if build == nil then return false end
+    if type(build) ~= 'function' then
+        error(('[tss_bridge] Module %s has an invalid %s factory'):format(name, realm), 0)
     end
 
     if definitions[name:lower()] then
         error(('[tss_bridge] Module %s is already registered on the %s'):format(name, realm), 0)
     end
 
+    local files = {}
+    local function append(list)
+        if list == nil then return end
+        if type(list) ~= 'table' then
+            error(('[tss_bridge] Module %s file list must be a table'):format(name), 0)
+        end
+        for i = 1, #list do
+            if type(list[i]) ~= 'string' or list[i] == '' then
+                error(('[tss_bridge] Module %s has an invalid file at index %d'):format(name, i), 0)
+            end
+            files[#files + 1] = list[i]
+        end
+    end
+
+    append(specification.files)
+    append(specification[realm .. 'Files'])
+
+    local dependencies = specification.dependencies or {}
+    if type(dependencies) ~= 'table' then
+        error(('[tss_bridge] Module %s dependencies must be a table'):format(name), 0)
+    end
+
     definitions[name:lower()] = {
         name = name,
         files = files,
         build = build,
-        dependencies = dependencies or {},
+        dependencies = dependencies,
         ready = false,
     }
+    return true
 end
 
 function TSSModuleLoader.HasDefinition(name)
@@ -121,19 +145,31 @@ end
 
 local function initialise(definition)
     if definition.ready then return end
+    if definition.initialising then
+        error(('[tss_bridge] Circular dependency detected while loading %s'):format(definition.name), 0)
+    end
 
-    for i = 1, #definition.dependencies do
-        local dependency = definitions[definition.dependencies[i]:lower()]
-        if not dependency then
-            error(('[tss_bridge] %s module has unknown dependency %s'):format(definition.name, definition.dependencies[i]), 0)
+    definition.initialising = true
+
+    local ok, initialiseError = pcall(function()
+        for i = 1, #definition.dependencies do
+            local dependencyName = definition.dependencies[i]
+            if type(dependencyName) ~= 'string' or dependencyName == '' then
+                error(('[tss_bridge] Module %s has an invalid dependency at index %d'):format(definition.name, i), 0)
+            end
+
+            local dependency = definitions[dependencyName:lower()]
+            if not dependency then
+                error(('[tss_bridge] %s module has unknown %s dependency %s'):format(definition.name, realm, dependencyName), 0)
+            end
+            initialise(dependency)
         end
-        initialise(dependency)
-    end
 
-    for i = 1, #definition.files do
-        loadFile(definition.files[i])
-    end
+        for i = 1, #definition.files do loadFile(definition.files[i]) end
+    end)
 
+    definition.initialising = false
+    if not ok then error(initialiseError, 0) end
     definition.ready = true
 end
 
@@ -148,6 +184,52 @@ local function availableModules()
     return table.concat(TSSModuleLoader.ListAvailable(), ', ')
 end
 
+local function createContext(caller, options)
+    return {
+        Caller = caller,
+        Options = options,
+        Realm = realm,
+        CopyFunctions = TSSModuleLoader.CopyFunctions,
+        OnStop = function(callback)
+            if type(callback) ~= 'function' then
+                error('[tss_bridge] Module cleanup callback must be a function', 0)
+            end
+
+            AddEventHandler(realm == 'server' and 'onResourceStop' or 'onClientResourceStop', function(resource)
+                if resource == caller then callback() end
+            end)
+        end,
+    }
+end
+
+local function buildModule(definition, caller, options)
+    local public = definition.build(createContext(caller, options))
+    if type(public) ~= 'table' then
+        error(('[tss_bridge] Module %s %s factory must return a table'):format(definition.name, realm), 0)
+    end
+
+    for key, value in pairs(public) do
+        if type(key) ~= 'string' or type(value) ~= 'function' then
+            error(('[tss_bridge] Module %s public API may only contain named functions'):format(definition.name), 0)
+        end
+    end
+
+    return public
+end
+
+--- Returns only the requested modules that are valid for the current realm.
+---
+--- Client and server module registries are separate. A client cannot request a
+--- server-only method such as `Money.Remove`, even if it asks for `Money`.
+---
+---@param requested string[] Names of the modules to expose to the calling resource.
+---@param options? TSSModuleOptions Optional request settings reserved for compatible extensions.
+---@return TSSClientModules|TSSServerModules modules A caller-scoped table containing only the requested modules.
+---@usage
+--- ```lua
+--- local TSS = exports.tss_bridge:GetModules({ 'Framework', 'Inventory' })
+--- print(TSS.Framework.System())
+--- ```
 local function getModules(requested, options)
     if type(requested) ~= 'table' then
         error(('[tss_bridge] GetModules expects an array of module names on the %s'):format(realm), 2)
@@ -194,7 +276,7 @@ local function getModules(requested, options)
 
         if not seen[definition.name] then
             initialise(definition)
-            public[definition.name] = definition.build(caller, options or {})
+            public[definition.name] = buildModule(definition, caller, options or {})
             seen[definition.name] = true
             requestedBy[caller][definition.name] = true
         end

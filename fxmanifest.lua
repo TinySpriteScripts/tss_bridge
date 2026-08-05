@@ -1,6 +1,6 @@
 name "TSS_Bridge"
 author "TinySprite"
-version "1.1.0"
+version "1.2.0"
 description "Framework Bridge By TinySprite"
 fx_version "cerulean"
 rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aware my resources *will* become incompatible once RedM ships.'
@@ -10,8 +10,8 @@ lua54 'yes'
 files {
     'shared/*.lua',
     'shared/locales/*.lua',
-    'shared/modules/*.lua',
-    'shared/inventory/*.lua',
+    'modules/*/shared.lua',
+    'modules/inventory/adapters/*.lua',
     'html/dist/index.html',
     'html/dist/**/*',
 }
@@ -25,12 +25,10 @@ shared_scripts {
 }
 
 client_scripts {
-    'client/modules.lua',
-    'client/transport.lua',
+    'modules/*/client.lua',
 }
 server_scripts {
-    'server/modules.lua',
-    'server/runtime.lua',
+    'modules/*/server.lua',
 }
 
 suppress_updates 'false'   -- set to 'true' to disable update pings

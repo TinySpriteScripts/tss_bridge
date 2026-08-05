@@ -126,14 +126,63 @@ exports = setmetatable({}, {
 assert(loadfile(root .. '/shared/config.lua'))()
 assert(loadfile(root .. '/shared/helpers.lua'))()
 assert(loadfile(root .. '/shared/loader.lua'))()
-assert(loadfile(root .. '/' .. realm .. '/modules.lua'))()
-assert(loadfile(root .. '/' .. realm .. (realm == 'client' and '/transport.lua' or '/runtime.lua')))()
+
+local moduleDescriptors = realm == 'client' and {
+    'blips', 'callbacks', 'capabilities', 'debug', 'diagnostics', 'framework', 'fuel',
+    'groups', 'interaction', 'inventory', 'locale', 'money', 'notify', 'peds', 'player',
+    'progressbar', 'props', 'targets', 'textui', 'ui', 'vehiclekeys', 'vehicles', 'world',
+} or {
+    'callbacks', 'capabilities', 'debug', 'diagnostics', 'framework', 'groups', 'inventory',
+    'locale', 'money', 'notify', 'player', 'textui', 'ui', 'vehiclekeys',
+}
+
+for i = 1, #moduleDescriptors do
+    assert(loadfile(root .. '/modules/' .. moduleDescriptors[i] .. '/' .. realm .. '.lua'))()
+end
 
 local getModules = assert(registeredExports.GetModules)
+
+local function includes(values, expected)
+    for i = 1, #values do
+        if values[i] == expected then return true end
+    end
+    return false
+end
+
+assert(not includes(TSSModuleLoader.ListLoaded(), 'Inventory'))
+
+local extensionDefinition = { name = 'ExtensionTest' }
+extensionDefinition[realm] = function(context)
+    return { Realm = function() return context.Realm end }
+end
+TSSModuleLoader.Define(extensionDefinition)
+
+local extension = getModules({ 'ExtensionTest' }).ExtensionTest
+assert(extension.Realm() == realm)
+
+local invalidDefinition = { name = 'InvalidApiTest' }
+invalidDefinition[realm] = function() return { Value = true } end
+TSSModuleLoader.Define(invalidDefinition)
+local invalidApiOk, invalidApiError = pcall(getModules, { 'InvalidApiTest' })
+assert(not invalidApiOk)
+assert(invalidApiError:find('only contain named functions', 1, true))
+
+local cycleA = { name = 'CycleA', dependencies = { 'CycleB' } }
+local cycleB = { name = 'CycleB', dependencies = { 'CycleA' } }
+cycleA[realm] = function() return {} end
+cycleB[realm] = function() return {} end
+TSSModuleLoader.Define(cycleA)
+TSSModuleLoader.Define(cycleB)
+local cycleOk, cycleError = pcall(getModules, { 'CycleA' })
+assert(not cycleOk)
+assert(cycleError:find('Circular dependency', 1, true))
+
 local modules = getModules({ 'framework', 'Inventory', 'Inventory' })
 
 assert(modules.Framework)
 assert(modules.Inventory)
+assert(modules.Money == nil)
+assert(includes(TSSModuleLoader.ListLoaded(), 'Inventory'))
 assert(modules.Inventory.System)
 assert(modules.Inventory.Utils == nil)
 
