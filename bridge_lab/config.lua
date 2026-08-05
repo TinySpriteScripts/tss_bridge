@@ -1,5 +1,6 @@
-BridgeLabConfig = {
-    Command = 'bridgelab',
+-- Non-sensitive Bridge Lab settings shared with authorized clients.
+-- Access identifiers are intentionally kept in server_config.lua.
+TSSBridgeLabConfig = {
     SpawnAtPlayer = true,
     DefaultLocation = { x = 215.76, y = -810.12, z = 30.73, w = 160.0 },
 
@@ -14,13 +15,5 @@ BridgeLabConfig = {
     TextUIDuration = 3500,
     StashSlots = 10,
     StashWeight = 25000,
-
-    -- Mutation tests are disabled by default. When enabled, the server adds and
-    -- removes the configured amounts to verify adapter round trips.
-    EnableMutationTests = false,
-    RequireMutationAce = true,
-    MutationAce = 'tss_bridge.example.mutate',
     MoneyAccount = 'cash',
-    MoneyAmount = 25,
-    ItemAmount = 1,
 }

@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Check, ChevronRight, CircleDot, Save, SquareMousePointer, Timer, X, Zap } from 'lucide-react';
+import {
+  Activity, Bell, Box, Car, Check, ChevronRight, Circle, CircleDot, ClipboardCheck, Cpu,
+  Crosshair, FlaskConical, Fuel, KeyRound, Keyboard, Map, MessageSquare,
+  MousePointerClick, Package, Play, RotateCcw, Save, Server, Settings,
+  ShieldCheck, SquareMousePointer, Timer, Trash2, Type, Wrench, X, Zap,
+} from 'lucide-react';
 import './styles.css';
 
 const initialDebug = {
@@ -18,6 +23,7 @@ function App() {
   const [notices, setNotices] = useState([]);
   const [progress, setProgress] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [zoneCreator, setZoneCreator] = useState(null);
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -44,6 +50,7 @@ function App() {
       }
 
       if (data.action === 'closeUi') setDialog(null);
+      if (data.action === 'zoneCreator') setZoneCreator(data.payload || null);
     };
 
     window.addEventListener('message', handleMessage);
@@ -53,6 +60,7 @@ function App() {
   return (
     <div className="tss-ui">
       {debugUi.visible && <LocationDebugPanel data={debugUi} />}
+      {zoneCreator?.visible && <ZoneCreatorPanel data={zoneCreator} />}
       {dialog && <BridgeDialog data={dialog} onClose={() => setDialog(null)} />}
       <NoticeStack notices={notices} />
       {progress && <ProgressBar data={progress} />}
@@ -60,9 +68,36 @@ function App() {
   );
 }
 
+function ZoneCreatorPanel({ data }) {
+  return (
+    <section className="zone-creator-panel">
+      <div className="zone-creator-accent" />
+      <header>
+        <div>
+          <span>PolyZone Creator</span>
+          <h2>{data.title || 'Untitled zone'}</h2>
+        </div>
+        <div className="zone-mode"><Crosshair size={14} />{data.mode || 'EDITING'}</div>
+      </header>
+      <div className="zone-type">{data.zoneType || 'zone'} shape</div>
+      <div className="zone-metrics">
+        {(data.metrics || []).map((metric) => (
+          <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>
+        ))}
+      </div>
+      {data.message && <div className="zone-message">{data.message}</div>}
+      <div className="zone-help">
+        {(data.help || []).map((line) => <p key={line}><MousePointerClick size={13} />{line}</p>)}
+      </div>
+    </section>
+  );
+}
+
 function BridgeDialog({ data, onClose }) {
   const items = data.options || data.items || [];
   const [selected, setSelected] = useState(Math.max(0, data.selected || 0));
+  const selectedOption = items[selected] || {};
+  const SelectedIcon = iconFor(selectedOption.icon);
 
   useEffect(() => setSelected(Math.max(0, data.selected || 0)), [data]);
 
@@ -98,31 +133,48 @@ function BridgeDialog({ data, onClose }) {
         <div className="bridge-kicker">{data.label || (data.kind === 'context' ? 'Context menu' : 'Menu')}</div>
         {data.kind === 'menu' && (
           <header className="bridge-menu-header">
-            <h2>{data.title || 'Menu'}</h2>
+            <div className="bridge-menu-heading">
+              <h2>{data.title || 'Menu'}</h2>
+              {data.status && <span className={`bridge-status ${data.statusTone || 'neutral'}`}>{data.status}</span>}
+            </div>
             {data.description && <p>{data.description}</p>}
             <i />
           </header>
         )}
-        <div className="bridge-options">
-          {items.map((option, index) => {
-            const Icon = iconFor(option.icon);
-            return (
-              <button
-                className={`bridge-option ${selected === index ? 'selected' : ''}`}
-                disabled={option.disabled}
-                key={option.id || `${option.label}-${index}`}
-                onMouseEnter={() => setSelected(index)}
-                onClick={() => choose(index)}
-              >
-                {Icon && <Icon size={20} strokeWidth={1.7} />}
-                <span>{option.label || option.title}</span>
-                {option.description && <small>{option.description}</small>}
-                {(option.arrow !== false && data.kind === 'menu') && <ChevronRight className="option-arrow" size={19} />}
-              </button>
-            );
-          })}
-          {data.kind === 'context' && (
-            <button className="bridge-option close-option" onClick={close}><X size={20} /><span>{data.closeLabel || 'Close Menu'}</span></button>
+        <div className={data.kind === 'menu' ? 'bridge-menu-body' : undefined}>
+          <div className="bridge-options">
+            {items.map((option, index) => {
+              const Icon = iconFor(option.icon);
+              return (
+                <button
+                  className={`bridge-option ${selected === index ? 'selected' : ''}`}
+                  disabled={option.disabled}
+                  key={option.id || `${option.label}-${index}`}
+                  onMouseEnter={() => setSelected(index)}
+                  onClick={() => choose(index)}
+                >
+                  {Icon && <Icon size={20} strokeWidth={1.7} />}
+                  <span className="bridge-option-copy">
+                    <strong>{option.label || option.title}</strong>
+                    {option.description && <small>{option.description}</small>}
+                  </span>
+                  {(option.arrow !== false && data.kind === 'menu') && <ChevronRight className="option-arrow" size={19} />}
+                </button>
+              );
+            })}
+            {data.kind === 'context' && (
+              <button className="bridge-option close-option" onClick={close}><X size={20} /><span>{data.closeLabel || 'Close Menu'}</span></button>
+            )}
+          </div>
+          {data.kind === 'menu' && (
+            <aside className={`bridge-menu-preview ${selectedOption.disabled ? 'disabled' : ''}`}>
+              <div className="preview-icon">{SelectedIcon && <SelectedIcon size={30} strokeWidth={1.5} />}</div>
+              <span className="preview-label">{selectedOption.eyebrow || data.previewLabel || 'Selected item'}</span>
+              <h3>{selectedOption.label || selectedOption.title || 'No options available'}</h3>
+              <p>{selectedOption.description || 'Select this option to continue.'}</p>
+              {selectedOption.badge && <span className="preview-badge">{selectedOption.badge}</span>}
+              <span className="preview-count">{String(selected + 1).padStart(2, '0')} / {String(items.length).padStart(2, '0')}</span>
+            </aside>
           )}
         </div>
         {data.kind === 'menu' && <footer className="menu-controls"><kbd>ESC</kbd><span>Back</span><b /> <kbd>ENTER</kbd><span>Select</span></footer>}
@@ -133,7 +185,41 @@ function BridgeDialog({ data, onClose }) {
 
 function iconFor(name) {
   if (!name) return CircleDot;
-  return { check: Check, save: Save, timer: Timer, close: X, x: X, zap: Zap }[String(name).toLowerCase()] || CircleDot;
+  return {
+    activity: Activity,
+    audit: ClipboardCheck,
+    boxzone: Box,
+    check: Check,
+    circlezone: Circle,
+    cleanup: Trash2,
+    close: X,
+    configuration: Settings,
+    deploy: Play,
+    feedback: MessageSquare,
+    framework: Cpu,
+    fuel: Fuel,
+    gameplay: Car,
+    input: Keyboard,
+    interaction: MousePointerClick,
+    keys: KeyRound,
+    menu: MessageSquare,
+    mutations: RotateCcw,
+    notify: Bell,
+    polyzone: Map,
+    save: Save,
+    server: Server,
+    stash: Package,
+    target: Crosshair,
+    tests: FlaskConical,
+    text: Type,
+    timer: Timer,
+    tools: Wrench,
+    vehicle: Car,
+    shield: ShieldCheck,
+    wrench: Wrench,
+    x: X,
+    zap: Zap,
+  }[String(name).toLowerCase()] || CircleDot;
 }
 
 function InputDialog({ data, close, onClose }) {

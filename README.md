@@ -100,6 +100,18 @@ set tss_debug false
 
 Common aliases and resource names are accepted, including `qb`, `qb-core`, `qbox`, `qbx_core`, `esx`, `es_extended`, `ox`, and `ox_lib` where relevant.
 
+Authorized Bridge Lab users can also choose the nine adapter defaults from the
+in-game **Configuration** menu. The effective priority is:
+
+1. A convar present in `server.cfg` (shown as **Blocked by server.cfg** and not
+   editable in the lab).
+2. A selection saved through the Bridge Lab.
+3. The default in `shared/config.lua`.
+
+Lab selections are persisted in the server resource KVP store and synchronized
+to connected clients. Remove the corresponding convar and restart FXServer
+before attempting to edit a previously convar-controlled setting.
+
 ## Modules by realm
 
 | Module | Client | Server |
@@ -406,6 +418,18 @@ add_ace group.admin tss_bridge.diagnostics allow
 ```
 
 The report lists available and loaded modules, configured adapters, started resources and server consumers.
+
+## Built-in Bridge Lab
+
+The bridge includes an official, lazily loaded certification lab. Configure
+authorized Discord/FiveM identifiers in `bridge_lab/server_config.lua`, restart
+the bridge, and use `/bridgelab` or press `F7` in game. Both entry points are
+authorized by the server; the allowlist remains server-only and
+every lab callback rechecks the player's identifiers.
+
+See `bridge_lab/README.md` for setup, security, and mutation-test details.
+The built-in developer tools include a detached-freecam PolyZone Creator for
+box, 3D circle, and drawn polygon zones saved to `bridge_lab/created_zones.lua`.
 
 ## Localization
 

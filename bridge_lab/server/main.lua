@@ -1,5 +1,4 @@
----@type TSSServerModules
-local TSS = exports.tss_bridge:GetModules({
+local moduleNames = {
     'Framework',
     'Player',
     'Money',
@@ -14,10 +13,24 @@ local TSS = exports.tss_bridge:GetModules({
     'Capabilities',
     'Diagnostics',
     'Debug',
-})
+}
+
+---@type TSSServerModules?
+local TSS
+local LabConfig = TSSBridgeLabConfig
+local ServerConfig = TSSBridgeLabServerConfig
+local Authorization = TSSBridgeLabAuthorization
+local Configuration = TSSBridgeLabConfiguration
+local ZoneStorage = TSSBridgeLabZoneStorage
 
 local mutationCooldowns = {}
+local openCooldowns = {}
 local registeredStashes = {}
+local allowedIdentifiers, allowedCount = Authorization.Build(ServerConfig)
+
+local function isAuthorized(source)
+    return Authorization.IsAllowed(source, allowedIdentifiers)
+end
 
 local function systemName(module)
     local system, resource = module.System()
@@ -30,13 +43,12 @@ local function playerJobName(source)
 end
 
 local function mutationAllowed(source)
-    if not BridgeLabConfig.EnableMutationTests then
-        return false, 'Mutation tests are disabled in config.lua'
+    if not isAuthorized(source) then
+        return false, ServerConfig.DeniedMessage
     end
 
-    if BridgeLabConfig.RequireMutationAce
-        and not TSS.Player.HasPermission(source, BridgeLabConfig.MutationAce) then
-        return false, ('Missing ACE permission: %s'):format(BridgeLabConfig.MutationAce)
+    if not ServerConfig.EnableMutationTests then
+        return false, 'Mutation tests are disabled in bridge_lab/server_config.lua'
     end
 
     local now = GetGameTimer()
@@ -61,13 +73,13 @@ local function buildSnapshot(source)
     jobGrade = type(jobGrade) == 'table' and (jobGrade.level or jobGrade.grade) or jobGrade
     jobGrade = tonumber(jobGrade) or 0
     local bossRoles = jobName ~= 'none' and TSS.Groups.BossRoles(jobName) or {}
-    local itemCount = TSS.Inventory.Count(source, BridgeLabConfig.TestItem)
+    local itemCount = TSS.Inventory.Count(source, LabConfig.TestItem)
 
     local debugPreview = TSS.Debug.FormatLocationTable({ {
-        coords = BridgeLabConfig.DefaultLocation,
+        coords = LabConfig.DefaultLocation,
         l = 1.0,
         w = 1.0,
-        maxZ = BridgeLabConfig.DefaultLocation.z + 1.0,
+        maxZ = LabConfig.DefaultLocation.z + 1.0,
     } }, 'Shop')
 
     return {
@@ -80,12 +92,12 @@ local function buildSnapshot(source)
         job = jobName,
         jobGrade = jobGrade,
         isBoss = bossRoles[jobName] ~= nil and jobGrade >= bossRoles[jobName],
-        cash = TSS.Money.Balance(source, BridgeLabConfig.MoneyAccount),
+        cash = TSS.Money.Balance(source, LabConfig.MoneyAccount),
         inventory = inventory,
         inventoryResource = inventoryResource,
-        testItem = BridgeLabConfig.TestItem,
+        testItem = LabConfig.TestItem,
         testItemCount = itemCount,
-        hasTestItem = TSS.Inventory.Has(source, BridgeLabConfig.TestItem, 1),
+        hasTestItem = TSS.Inventory.Has(source, LabConfig.TestItem, 1),
         vehicleKeys = keySystem,
         vehicleKeysResource = keyResource,
         locale = TSS.Locale.Language(),
@@ -115,8 +127,8 @@ local function prepareStash(source)
     local success = TSS.Inventory.RegisterStash({
         id = stashId,
         label = ('Bridge Lab - %s'):format(GetPlayerName(source) or source),
-        slots = BridgeLabConfig.StashSlots,
-        weight = BridgeLabConfig.StashWeight,
+        slots = LabConfig.StashSlots,
+        weight = LabConfig.StashWeight,
         owner = false,
     })
 
@@ -131,8 +143,8 @@ local function runMutations(source)
     local allowed, reason = mutationAllowed(source)
     if not allowed then return { allowed = false, error = reason } end
 
-    local account = BridgeLabConfig.MoneyAccount
-    local moneyAmount = BridgeLabConfig.MoneyAmount
+    local account = LabConfig.MoneyAccount
+    local moneyAmount = ServerConfig.MoneyAmount
     local moneyBefore = TSS.Money.Balance(source, account)
     local moneySetSame = TSS.Money.Set(source, account, moneyBefore, 'bridge_lab_test_set_same')
     local moneyAdded = TSS.Money.Add(source, account, moneyAmount, 'bridge_lab_test_add')
@@ -140,8 +152,8 @@ local function runMutations(source)
     local moneyRemoved = moneyAdded and TSS.Money.Remove(source, account, moneyAmount, 'bridge_lab_test_restore') or false
     local moneyAfterRestore = TSS.Money.Balance(source, account)
 
-    local item = BridgeLabConfig.TestItem
-    local itemAmount = BridgeLabConfig.ItemAmount
+    local item = LabConfig.TestItem
+    local itemAmount = ServerConfig.ItemAmount
     local itemBefore = TSS.Inventory.Count(source, item)
     local itemCanCarry = TSS.Inventory.CanCarry(source, item, itemAmount)
     local itemAdded = itemCanCarry
@@ -174,7 +186,16 @@ local function runMutations(source)
     }
 end
 
-TSS.Callbacks.Register('serverSnapshot', function(source)
+local function secureCallback(name, handler)
+    local registered = TSS.Callbacks.Register(name, function(source, ...)
+        if not isAuthorized(source) then return false, ServerConfig.DeniedMessage end
+        return handler(source, ...)
+    end)
+    if not registered then error(('Unable to register Bridge Lab callback: %s'):format(name), 0) end
+end
+
+local function registerCallbacks()
+secureCallback('serverSnapshot', function(source)
     local snapshot = buildSnapshot(source)
 
     TSS.Notify.Send(source, {
@@ -195,7 +216,7 @@ TSS.Callbacks.Register('serverSnapshot', function(source)
     return snapshot
 end)
 
-TSS.Callbacks.Register('recordClientAudit', function(source, report)
+secureCallback('recordClientAudit', function(source, report)
     if type(report) ~= 'table' then return false, 'invalid report' end
     local passed = math.max(0, math.min(100, tonumber(report.passed) or 0))
     local failed = math.max(0, math.min(100, tonumber(report.failed) or 0))
@@ -203,15 +224,28 @@ TSS.Callbacks.Register('recordClientAudit', function(source, report)
     return true
 end)
 
-TSS.Callbacks.Register('prepareStash', function(source)
+secureCallback('setConfiguration', function(source, key, value)
+    local changed, message = Configuration.Set(key, value)
+    return {
+        success = changed,
+        message = message,
+        configuration = Configuration.Snapshot(),
+    }
+end)
+
+secureCallback('saveCreatedZone', function(source, zone)
+    return ZoneStorage.Save(source, zone)
+end)
+
+secureCallback('prepareStash', function(source)
     return prepareStash(source)
 end)
 
-TSS.Callbacks.Register('runMutations', function(source)
+secureCallback('runMutations', function(source)
     return runMutations(source)
 end)
 
-TSS.Callbacks.Register('testServerDelivery', function(source)
+secureCallback('testServerDelivery', function(source)
     TSS.TextUI.Show(source, { text = 'Server TextUI delivery passed', icon = 'server' })
     TSS.UI.Notify({ title = 'Bridge Lab UI', message = 'Direct server UI delivery passed', type = 'success' }, source)
     TSS.UI.Progress({ label = 'Server-driven UI progress', percent = 45 }, source)
@@ -224,7 +258,7 @@ TSS.Callbacks.Register('testServerDelivery', function(source)
     return true
 end)
 
-TSS.Callbacks.Register('vehicleKeyRoundTrip', function(source, networkId)
+secureCallback('vehicleKeyRoundTrip', function(source, networkId)
     if type(networkId) ~= 'number' or networkId <= 0 then
         return { success = false, error = 'invalid network ID' }
     end
@@ -268,26 +302,79 @@ TSS.Callbacks.Register('vehicleKeyRoundTrip', function(source, networkId)
         hasAfter = hasAfter,
     }
 end)
+end
 
-RegisterCommand('bridgelabserver', function(source)
-    if source == 0 then
-        TSS.Diagnostics.Print()
+local function initialiseLab()
+    if TSS then return true end
+
+    local ok, modules = pcall(function()
+        return exports.tss_bridge:GetModules(moduleNames)
+    end)
+    if not ok then
+        print(('^1[bridge_lab] Unable to load server modules: %s^7'):format(tostring(modules)))
+        return false
+    end
+
+    TSS = modules
+    local registered, registerError = pcall(registerCallbacks)
+    if not registered then
+        print(('^1[bridge_lab] %s^7'):format(tostring(registerError)))
+        TSS = nil
+        return false
+    end
+    return true
+end
+
+local command = tostring(ServerConfig.Command or 'bridgelab'):lower()
+if not command:match('^[%w_-]+$') then command = 'bridgelab' end
+
+local function requestOpen(playerSource)
+    if playerSource == 0 then
+        print(('[bridge_lab] /%s must be used by an authorized in-game player.'):format(command))
         return
     end
 
-    TSS.Callbacks.Trigger(source, 'clientSnapshot', function(snapshot, callbackError)
-        TSS.Notify.Send(source, {
-            title = 'Bridge Lab',
-            description = callbackError and ('Client callback failed: ' .. callbackError)
-                or ('Client callback passed for ' .. snapshot.playerName),
-            type = callbackError and 'error' or 'success',
-        })
-    end, 'server_command')
-end, false)
+    local now = GetGameTimer()
+    if openCooldowns[playerSource] and now - openCooldowns[playerSource] < 1000 then return end
+    openCooldowns[playerSource] = now
+
+    if not isAuthorized(playerSource) then
+        TriggerClientEvent('tss_bridge:lab:denied', playerSource, ServerConfig.DeniedMessage)
+        print(('[bridge_lab] denied access for player %s'):format(playerSource))
+        return
+    end
+
+    if not initialiseLab() then
+        TriggerClientEvent('tss_bridge:lab:denied', playerSource, 'The TSS Bridge Lab could not be initialized. Check the server console.')
+        return
+    end
+
+    TriggerClientEvent('tss_bridge:lab:open', playerSource, {
+        mutationTests = ServerConfig.EnableMutationTests == true,
+        configuration = Configuration.Snapshot(),
+    })
+end
+
+if ServerConfig.Enabled then
+    RegisterCommand(command, function(source)
+        requestOpen(source)
+    end, false)
+
+    RegisterNetEvent('tss_bridge:lab:requestOpen', function()
+        requestOpen(source)
+    end)
+end
 
 AddEventHandler('playerDropped', function()
     mutationCooldowns[source] = nil
+    openCooldowns[source] = nil
     registeredStashes[('bridge_lab_%s'):format(source)] = nil
 end)
 
-print(('[bridge_lab] server consumer loaded with %d bridge modules'):format(#TSS.Capabilities.LoadedModules()))
+if not ServerConfig.Enabled then
+    print('^3[bridge_lab] disabled in bridge_lab/server_config.lua^7')
+elseif allowedCount == 0 then
+    print('^3[bridge_lab] enabled, but no Discord or FiveM IDs are authorized in bridge_lab/server_config.lua^7')
+else
+    print(('[bridge_lab] ready for %d configured identifier(s); modules will load on first authorized use'):format(allowedCount))
+end
