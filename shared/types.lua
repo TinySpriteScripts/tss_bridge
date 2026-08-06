@@ -311,14 +311,19 @@
 ---@class TSSGroupsModule
 ---@field BossRoles fun(role: string): table<string, integer>
 
----@class TSSUIModule
----@field Notify fun(data: TSSNotifyData, source?: integer): boolean
----@field Progress fun(data: TSSProgressData, source?: integer): boolean
----@field HideProgress fun(source?: integer): boolean
----@field Menu? fun(data: table, callback?: fun(...)): boolean
----@field Context? fun(data: table, callback?: fun(...)): boolean
----@field Input? fun(data: table, callback?: fun(...)): boolean
----@field Close? fun(): boolean
+---@class TSSUIClientModule
+---@field Notify fun(data: TSSNotifyData): boolean
+---@field Progress fun(data: TSSProgressData): boolean
+---@field HideProgress fun(): boolean
+---@field Menu fun(data: table, callback?: fun(...)): integer|false
+---@field Context fun(data: table, callback?: fun(...)): integer|false
+---@field Input fun(data: table, callback?: fun(...)): integer|false
+---@field Close fun(): boolean
+
+---@class TSSUIServerModule
+---@field Notify fun(data: TSSNotifyData, source: integer): boolean
+---@field Progress fun(data: TSSProgressData, source: integer): boolean
+---@field HideProgress fun(source: integer): boolean
 
 ---@class TSSDebugModule
 ---@field FormatLocationTable fun(entries: table[], tableName?: string): string
@@ -339,7 +344,7 @@
 ---@field Interaction? TSSInteractionModule
 ---@field VehicleKeys? TSSVehicleKeysClientModule
 ---@field Fuel? TSSFuelModule
----@field UI? TSSUIModule
+---@field UI? TSSUIClientModule
 ---@field Blips? TSSBlipsModule
 ---@field Peds? TSSPedsModule
 ---@field Props? TSSPropsModule
@@ -360,7 +365,7 @@
 ---@field Callbacks? TSSCallbacksServerModule
 ---@field Inventory? TSSInventoryServerModule
 ---@field VehicleKeys? TSSVehicleKeysServerModule
----@field UI? TSSUIModule
+---@field UI? TSSUIServerModule
 ---@field Locale? TSSLocaleModule
 ---@field Capabilities? TSSCapabilitiesModule
 ---@field Diagnostics? TSSDiagnosticsModule

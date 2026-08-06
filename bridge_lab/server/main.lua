@@ -22,6 +22,7 @@ local ServerConfig = TSSBridgeLabServerConfig
 local Authorization = TSSBridgeLabAuthorization
 local Configuration = TSSBridgeLabConfiguration
 local ZoneStorage = TSSBridgeLabZoneStorage
+local AttachmentStorage = TSSBridgeLabAttachmentStorage
 
 local mutationCooldowns = {}
 local openCooldowns = {}
@@ -235,6 +236,10 @@ end)
 
 secureCallback('saveCreatedZone', function(source, zone)
     return ZoneStorage.Save(source, zone)
+end)
+
+secureCallback('saveCreatedPropAttachment', function(source, attachment)
+    return AttachmentStorage.Save(source, attachment)
 end)
 
 secureCallback('prepareStash', function(source)

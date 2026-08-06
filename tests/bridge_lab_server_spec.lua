@@ -20,6 +20,11 @@ TSSBridgeLabZoneStorage = {
         return { success = source == 1 and type(zone) == 'table' }
     end,
 }
+TSSBridgeLabAttachmentStorage = {
+    Save = function(source, attachment)
+        return { success = source == 1 and type(attachment) == 'table' }
+    end,
+}
 
 TSSBridgeLabConfig = {
     TestItem = 'water',
@@ -134,6 +139,7 @@ assert(callbackHandlers.serverSnapshot)
 assert(callbackHandlers.recordClientAudit)
 assert(callbackHandlers.setConfiguration)
 assert(callbackHandlers.saveCreatedZone)
+assert(callbackHandlers.saveCreatedPropAttachment)
 assert(callbackHandlers.prepareStash)
 assert(callbackHandlers.runMutations)
 assert(callbackHandlers.testServerDelivery)

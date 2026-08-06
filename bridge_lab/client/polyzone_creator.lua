@@ -402,11 +402,31 @@ local function updatePolygonHeight()
     zone.maxZ = zone.groundZ + zone.height
 end
 
-local function drawPolygon()
+local function polygonPointAtCrosshair()
+    local closest, closestDistance = nil, 0.018
+    for i = 1, #editor.zone.points do
+        local visible, x, y = project(editor.zone.points[i])
+        if visible then
+            local distance = screenDistance(0.5, 0.5, x, y)
+            if distance < closestDistance then
+                closest, closestDistance = i, distance
+            end
+        end
+    end
+    return closest
+end
+
+local function drawPolygon(hoveredPoint)
     local zone = editor.zone
     local points = zone.points
     for i = 1, #points do
-        marker(points[i], 0.055, 255, 65, 65, 240)
+        local selected = editor.polyDrag == i
+        local hovered = hoveredPoint == i
+        marker(points[i], selected and 0.08 or (hovered and 0.07 or 0.055),
+            255,
+            (hovered or selected) and 205 or 65,
+            65,
+            240)
         if i > 1 then line(points[i - 1], points[i], 50, 205, 255, 240) end
     end
     if #points > 2 then line(points[#points], points[1], 50, 205, 255, 150) end
@@ -424,13 +444,14 @@ local function drawPolygon()
         end
     end
 
-    if editor.rayHit then
+    if editor.rayHit and not editor.polyDrag then
         marker(editor.rayHit, 0.065, 255, 65, 65, 245)
         if #points > 0 then line(points[#points], editor.rayHit, 255, 205, 65, 190) end
     end
 
-    DrawRect(0.5, 0.5, 0.002, 0.018, 255, 255, 255, 210)
-    DrawRect(0.5, 0.5, 0.010, 0.002, 255, 255, 255, 210)
+    local crosshairR, crosshairG, crosshairB = 255, hoveredPoint and 205 or 255, hoveredPoint and 65 or 255
+    DrawRect(0.5, 0.5, 0.002, 0.018, crosshairR, crosshairG, crosshairB, 210)
+    DrawRect(0.5, 0.5, 0.010, 0.002, crosshairR, crosshairG, crosshairB, 210)
 end
 
 local function zonePayload()
@@ -484,12 +505,14 @@ local function hudPayload(message)
         visible = true,
         title = editor.name,
         zoneType = editor.type,
-        mode = editor.type == 'poly' and 'DRAW MODE' or (editor.drag and 'DRAGGING' or 'GIZMO MODE'),
+        mode = editor.type == 'poly' and (editor.polyDrag and 'MOVING POINT' or 'DRAW MODE')
+            or (editor.drag and 'DRAGGING' or 'GIZMO MODE'),
         metrics = metrics,
         message = message or editor.message,
         help = editor.type == 'poly' and {
             'WASD move · Q/E down/up · Mouse look · Wheel adjusts maxZ',
-            'Left click place point · Right click remove last point',
+            'Left click place · Aim at a point and left-drag to move it',
+            'Right click remove last point',
             'Enter save · Backspace cancel and delete draft',
         } or {
             'WASD move · Q/E down/up · Hold RMB to look · Wheel speed',
@@ -547,16 +570,41 @@ local function editorLoop()
         if polyMode then
             raycastFromCamera()
             updatePolygonHeight()
-            drawPolygon()
-            if IsDisabledControlJustPressed(0, 24) and editor.rayHit then
-                editor.zone.points[#editor.zone.points + 1] = copy(editor.rayHit)
+            local hoveredPoint = editor.polyDrag or polygonPointAtCrosshair()
+            local rightClick = IsDisabledControlJustPressed(0, 25)
+
+            -- GTA also reports RMB through its shared frontend/cellphone cancel input.
+            -- Remember the mouse press so the keyboard cancel handler cannot consume it.
+            if rightClick then editor.ignoreCancelUntil = GetGameTimer() + 250 end
+
+            if IsDisabledControlJustPressed(0, 24) then
+                if hoveredPoint then
+                    editor.polyDrag = hoveredPoint
+                    editor.message = ('Moving point %d'):format(hoveredPoint)
+                elseif editor.rayHit then
+                    editor.zone.points[#editor.zone.points + 1] = copy(editor.rayHit)
+                    recalculatePolygonGround()
+                    editor.message = nil
+                end
+            end
+            if editor.polyDrag and IsDisabledControlPressed(0, 24) and editor.rayHit then
+                editor.zone.points[editor.polyDrag] = copy(editor.rayHit)
+                recalculatePolygonGround()
+            end
+            if editor.polyDrag and IsDisabledControlJustReleased(0, 24) then
+                editor.polyDrag = nil
+                editor.message = nil
+            elseif editor.polyDrag and not IsDisabledControlPressed(0, 24) then
+                editor.polyDrag = nil
+                editor.message = nil
+            end
+            if rightClick and #editor.zone.points > 0 then
+                editor.polyDrag = nil
+                editor.zone.points[#editor.zone.points] = nil
                 recalculatePolygonGround()
                 editor.message = nil
             end
-            if IsDisabledControlJustPressed(0, 25) and #editor.zone.points > 0 then
-                editor.zone.points[#editor.zone.points] = nil
-                recalculatePolygonGround()
-            end
+            drawPolygon(hoveredPoint)
         else
             local looking = IsDisabledControlPressed(0, 25)
             local hovered
@@ -575,7 +623,8 @@ local function editorLoop()
         end
 
         if IsDisabledControlJustPressed(0, 191) or IsDisabledControlJustPressed(0, 201) then saveEditor() end
-        if editor.active and (IsDisabledControlJustPressed(0, 177) or IsDisabledControlJustPressed(0, 200)) then
+        if editor.active and IsDisabledControlJustPressed(0, 177)
+            and GetGameTimer() > (editor.ignoreCancelUntil or 0) then
             stopEditor(true)
         end
         if editor.active then sendHud(false) end

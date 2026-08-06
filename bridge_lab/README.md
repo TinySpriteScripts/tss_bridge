@@ -42,8 +42,9 @@ The landing menu separates bridge certification from developer tooling:
   **Blocked by server.cfg**.
 - **Test Centre** contains the full read-only audit plus grouped UI/feedback
   and gameplay/data suites.
-- **Developer Tools** contains the interactive certification yard, session
-  cleanup, and the freecam PolyZone Creator.
+- **Developer Tools** contains the interactive certification yard, PolyZone and
+  prop-attachment creators, API Explorer, shared-item browser, and session
+  cleanup.
 
 Highlighting an entry shows its purpose, availability, and suite status in the
 detail panel. Pressing Escape in a submenu returns to its parent menu.
@@ -68,10 +69,11 @@ All shapes use detached freecam controls:
   ring. Circles start with a radius of `1`, have one radius handle, and are saved
   as three-dimensional `useZ` spheres.
 - Polygon mode uses mouse look and a center crosshair. Left click places the
-  ground marker, right click removes the last point, and the mouse wheel raises
-  or lowers `maxZ`. The editor renders the resulting walls; `maxZ` stops at
-  ground level. Enter saves and Backspace deletes the draft.
-- Enter saves box/circle edits; Backspace or Escape deletes the draft.
+  ground marker. Aim at an existing point and hold left click to drag it across
+  the ground. Right click removes the last point, and the mouse wheel raises or
+  lowers `maxZ`. The editor renders the resulting walls; `maxZ` stops at ground
+  level. Enter saves and Backspace deletes the draft.
+- Enter saves box/circle edits; Backspace deletes the draft.
 
 The server validates names, coordinates, dimensions, polygon area, point count,
 file size, authorization, and save rate before appending formatted Lua to
@@ -79,12 +81,59 @@ file size, authorization, and save rate before appending formatted Lua to
 contains `box`, `circle`, and `poly` records compatible with the familiar
 PolyZone fields while retaining 3D size and ground-height information.
 
+## Prop Attachment Creator
+
+Open **Developer Tools → Prop Attachment Creator**, then provide a save name and
+a valid GTA prop model. The editor attaches a local, non-colliding preview to
+the current player ped.
+
+- Press `B` to open the in-editor settings panel. Its dropdown contains the
+  common ped-bone list and updates the live attachment immediately. Left/Right
+  arrows remain available as quick bone-cycle controls.
+- The settings panel accepts an animation dictionary, clip and flag. **Play**
+  previews it on the ped, **Stop** ends the preview, and **Done editing** returns
+  keyboard and mouse control to the gizmo.
+- `Tab` switches between move axes and three-axis rotation rings.
+- Left-drag a colored gizmo, and hold `Ctrl` for precision adjustments.
+- Hold right mouse to look around. `WASD` moves the camera and `Q`/`E` moves it
+  vertically.
+- Enter saves; Backspace deletes the draft.
+
+The server validates the model, bone, offsets, rotations, optional animation,
+authorization, file size, and save rate before appending data to
+`bridge_lab/created_prop_attatchments.lua`. The filename retains the requested
+`attatchments` spelling. It is a data file and is not loaded automatically.
+
+## Bridge API Explorer
+
+The API Explorer parses `shared/types.lua`, the bridge's existing public type
+source, whenever it opens. It groups functions by module, identifies client and
+server availability independently, and shows exact parameter and return
+signatures. Searches match both module and function names. Function names,
+example calls, and `GetModules` imports can be copied directly.
+
+Keeping the public annotations in `shared/types.lua` current automatically keeps
+the explorer current; there is no separate API catalogue to maintain.
+
+## Inventory Item Browser
+
+The Item Browser calls only `Inventory.Items()` on the client. It never calls
+`Inventory.Player()` and never reads a player's inventory. It displays the
+active inventory adapter/resource, searches the shared item-definition table by
+code or label, and tries the adapter resource's common image directories.
+
+Selecting an item exposes every serialization-safe top-level field. Nested
+tables are shown as JSON, and every displayed field—as well as the item code—has
+its own clipboard button.
+
 ## Security model
 
 - Lab access is authorized on the server using the player's actual
   `discord:` and `fivem:` identifiers.
 - The identifier allowlist never leaves the server.
 - Every server callback rechecks authorization independently.
+- Created attachment payloads are validated and formatted by the server; the
+  client cannot submit raw Lua.
 - Mutation amounts, stash definitions, and other authoritative values come
   from bridge configuration rather than client payloads.
 - Vehicle-key tests validate network ownership and never remove existing keys.

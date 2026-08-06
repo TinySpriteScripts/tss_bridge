@@ -441,6 +441,168 @@ body,
   box-shadow: 0 0 14px rgba(255, 26, 26, 0.7);
 }
 
+.bridge-lab-browser {
+  position: absolute;
+  inset: 7vh 7vw;
+  z-index: 30;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  pointer-events: auto;
+  overflow: hidden;
+  color: #fff;
+  border: 1px solid rgba(255, 40, 40, 0.48);
+  background: linear-gradient(145deg, rgba(17, 17, 19, 0.98), rgba(7, 7, 8, 0.98));
+  box-shadow: 0 32px 100px rgba(0, 0, 0, 0.72), inset 4px 0 #ff1a1a;
+}
+
+.browser-header {
+  min-height: 86px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 24px;
+  padding: 17px 22px 16px 28px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+  background: linear-gradient(90deg, rgba(255, 26, 26, 0.12), transparent 40%);
+}
+
+.browser-header span,
+.detail-heading span,
+.item-heading > div > span,
+.module-import > span {
+  color: #ff3535;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.browser-header h1,
+.detail-heading h2,
+.item-heading h2 {
+  margin: 3px 0 0;
+  font-family: Orbitron, Montserrat, Arial, sans-serif;
+  font-size: 23px;
+  letter-spacing: 0.02em;
+}
+
+.browser-summary {
+  padding: 7px 12px;
+  border: 1px solid rgba(255, 26, 26, 0.34);
+  color: rgba(255, 255, 255, 0.68);
+  background: rgba(255, 26, 26, 0.08);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.browser-header > button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+}
+
+.browser-header > button:hover { border-color: #ff1a1a; background: rgba(255, 26, 26, 0.16); }
+
+.browser-workspace {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(280px, 30%) minmax(0, 1fr);
+}
+
+.browser-list {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  border-right: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.browser-search {
+  margin: 16px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  background: rgba(255, 255, 255, 0.035);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.browser-search:focus-within { border-color: rgba(255, 26, 26, 0.72); }
+.browser-search input { width: 100%; border: 0; outline: 0; color: #fff; background: transparent; font: inherit; }
+.browser-search input::placeholder { color: rgba(255, 255, 255, 0.35); }
+
+.browser-scroll { min-height: 0; overflow: auto; padding: 0 10px 18px 16px; scrollbar-color: #9f1717 rgba(255, 255, 255, 0.04); }
+.api-module h3 { margin: 13px 8px 6px; display: flex; justify-content: space-between; color: rgba(255, 255, 255, 0.45); font-size: 10px; letter-spacing: 0.13em; text-transform: uppercase; }
+.api-module h3 span { color: #ff3d3d; }
+.api-module button {
+  width: 100%; height: 35px; display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 7px;
+  padding: 0 10px; border: 0; border-left: 2px solid transparent; color: rgba(255, 255, 255, 0.72); background: transparent; text-align: left; cursor: pointer;
+}
+.api-module button:hover, .api-module button.active { border-left-color: #ff1a1a; color: #fff; background: linear-gradient(90deg, rgba(255, 26, 26, 0.18), transparent); }
+.api-module button i { color: #ff4747; font-size: 9px; font-style: normal; font-weight: 900; letter-spacing: 0.18em; }
+
+.browser-detail { min-width: 0; min-height: 0; overflow: auto; padding: 26px 30px; scrollbar-color: #9f1717 rgba(255, 255, 255, 0.04); }
+.detail-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 24px; }
+.realm-cards { display: grid; gap: 14px; }
+.realm-card { border: 1px solid rgba(255, 255, 255, 0.1); background: rgba(255, 255, 255, 0.025); overflow: hidden; }
+.realm-card > header { min-height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px 0 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
+.realm-card > header > span { color: #fff; font-size: 10px; font-weight: 900; letter-spacing: 0.15em; text-transform: uppercase; }
+.realm-card.client { border-left: 3px solid #28a8ff; }
+.realm-card.server { border-left: 3px solid #ff3434; }
+.realm-card > code, .module-import code { display: block; margin: 16px; color: #ffcaca; font-family: Consolas, monospace; font-size: 13px; overflow-wrap: anywhere; }
+.realm-card dl { margin: 0; display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.realm-card dl div { padding: 13px 16px; min-width: 0; }
+.realm-card dl div + div { border-left: 1px solid rgba(255, 255, 255, 0.07); }
+.realm-card dt { color: rgba(255, 255, 255, 0.4); font-size: 9px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.realm-card dd { margin: 5px 0 0; color: rgba(255, 255, 255, 0.82); font-family: Consolas, monospace; font-size: 11px; overflow-wrap: anywhere; }
+.module-import { position: relative; margin-top: 18px; padding: 15px 130px 2px 0; border-top: 1px solid rgba(255, 255, 255, 0.09); }
+.module-import .browser-copy { position: absolute; right: 0; bottom: 7px; }
+
+.browser-copy { height: 29px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid rgba(255, 26, 26, 0.38); color: #fff; background: rgba(255, 26, 26, 0.1); font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.browser-copy:hover { border-color: #ff1a1a; background: rgba(255, 26, 26, 0.22); }
+
+.item-list { display: grid; align-content: start; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.item-list > button { min-width: 0; height: 65px; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 9px; padding: 7px; border: 1px solid rgba(255, 255, 255, 0.08); color: #fff; background: rgba(255, 255, 255, 0.025); text-align: left; cursor: pointer; }
+.item-list > button:hover, .item-list > button.active { border-color: rgba(255, 26, 26, 0.62); background: rgba(255, 26, 26, 0.1); }
+.item-list > button > span { min-width: 0; }
+.item-list strong, .item-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item-list strong { font-size: 11px; }
+.item-list small { margin-top: 4px; color: rgba(255, 255, 255, 0.42); font-family: Consolas, monospace; font-size: 9px; }
+.item-image { width: 48px; height: 48px; display: grid; place-items: center; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); background: radial-gradient(circle, rgba(255, 255, 255, 0.09), rgba(0, 0, 0, 0.15)); }
+.item-image img { max-width: 90%; max-height: 90%; object-fit: contain; }
+.item-image.missing { color: rgba(255, 255, 255, 0.25); }
+.item-image.missing span { display: none; }
+.item-heading { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid rgba(255, 255, 255, 0.09); }
+.item-heading .item-image { width: 92px; height: 92px; }
+.item-heading h2 { font-size: 22px; }
+.item-heading code { display: block; margin-top: 7px; color: rgba(255, 255, 255, 0.5); font-family: Consolas, monospace; }
+.item-fields { display: grid; margin-top: 15px; border: 1px solid rgba(255, 255, 255, 0.08); }
+.item-field { min-height: 46px; display: grid; grid-template-columns: minmax(130px, 20%) minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 7px 9px 7px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.07); }
+.item-field:last-child { border-bottom: 0; }
+.item-field > span strong, .item-field > span small { display: block; }
+.item-field > span strong { color: #ff6767; font-size: 11px; }
+.item-field > span small { margin-top: 3px; color: rgba(255, 255, 255, 0.32); font-size: 8px; text-transform: uppercase; }
+.item-field > code { min-width: 0; overflow-wrap: anywhere; color: rgba(255, 255, 255, 0.78); font-family: Consolas, monospace; font-size: 11px; }
+.browser-empty { height: 100%; display: grid; place-items: center; color: rgba(255, 255, 255, 0.42); }
+
+.bridge-lab-browser > footer { min-height: 40px; display: flex; align-items: center; gap: 9px; padding: 0 22px; border-top: 1px solid rgba(255, 255, 255, 0.09); color: rgba(255, 255, 255, 0.48); font-size: 10px; }
+.bridge-lab-browser > footer kbd { padding: 3px 7px; border: 1px solid rgba(255, 26, 26, 0.5); color: #fff; background: rgba(255, 26, 26, 0.1); }
+.bridge-lab-browser > footer i { margin-left: auto; font-style: normal; }
+
+@media (max-width: 1050px) {
+  .bridge-lab-browser { inset: 4vh 3vw; }
+  .browser-workspace { grid-template-columns: minmax(250px, 36%) minmax(0, 1fr); }
+  .item-list { grid-template-columns: 1fr; }
+}
+
 /* PolyZone freecam editor HUD */
 .zone-creator-panel {
   position: absolute;
@@ -473,6 +635,25 @@ body,
 .zone-help { display: grid; gap: 6px; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.07); }
 .zone-help p { margin: 0; display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,.55); font-size: 11px; line-height: 1.35; }
 .zone-help svg { flex: 0 0 auto; color: #ff4141; }
+.attachment-creator-panel { width: min(500px, calc(100vw - 68px)); }
+.attachment-creator-panel.settings-open { pointer-events: auto; }
+.attachment-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.attachment-metrics > div { padding: 12px; }
+.attachment-settings-hint { width: 100%; min-height: 38px; margin-top: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(255,255,255,.08); border-radius: 6px; color: rgba(255,255,255,.58); background: rgba(255,255,255,.025); font-size: 11px; }
+.attachment-settings-hint svg { color: #ff4646; }
+.attachment-settings-hint kbd { margin: 0 2px; padding: 2px 6px; border: 1px solid rgba(255,55,55,.5); border-radius: 3px; color: #fff; background: rgba(255,30,30,.12); }
+.attachment-settings { display: grid; gap: 11px; margin-top: 14px; padding: 14px; border: 1px solid rgba(255,50,50,.22); border-radius: 8px; background: rgba(0,0,0,.26); }
+.attachment-settings label { min-width: 0; display: grid; gap: 5px; }
+.attachment-settings label > span { color: rgba(255,255,255,.48); font-size: 9px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.attachment-settings select,
+.attachment-settings input { width: 100%; height: 35px; padding: 0 9px; outline: none; border: 1px solid rgba(255,255,255,.13); border-radius: 4px; color: #fff; background: rgba(9,9,10,.96); font: 11px "Segoe UI", sans-serif; }
+.attachment-settings select:focus,
+.attachment-settings input:focus { border-color: rgba(255,45,45,.8); box-shadow: 0 0 0 2px rgba(255,30,30,.08); }
+.animation-fields { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .8fr) 72px; gap: 8px; }
+.attachment-actions { display: grid; grid-template-columns: 1fr .65fr 1fr; gap: 7px; }
+.attachment-actions button { min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(255,255,255,.12); border-radius: 4px; color: rgba(255,255,255,.76); background: rgba(255,255,255,.04); font-size: 10px; font-weight: 700; cursor: pointer; }
+.attachment-actions button:hover { color: #fff; border-color: rgba(255,50,50,.65); background: rgba(255,30,30,.12); }
+.attachment-actions button.done { border-color: rgba(255,55,55,.45); color: #fff; background: rgba(160,15,15,.24); }
 
 /* Shared menu, context menu and input dialog */
 .bridge-dialog-layer {

@@ -1,6 +1,6 @@
 name "TSS_Bridge"
 author "TinySprite"
-version "1.5.0"
+version "1.6.0"
 description "Framework Bridge By TinySprite"
 fx_version "cerulean"
 rdr3_warning 'I acknowledge that this is a prerelease build of RedM, and I am aware my resources *will* become incompatible once RedM ships.'
@@ -29,6 +29,8 @@ client_scripts {
     'modules/**/client.lua',
     'shared/export.lua',
     'bridge_lab/client/polyzone_creator.lua',
+    'bridge_lab/client/prop_attachment_creator.lua',
+    'bridge_lab/client/tool_browser.lua',
     'bridge_lab/client/main.lua',
 }
 server_scripts {
@@ -38,6 +40,7 @@ server_scripts {
     'bridge_lab/authorization.lua',
     'bridge_lab/configuration.lua',
     'bridge_lab/polyzone_storage.lua',
+    'bridge_lab/attachment_storage.lua',
     'bridge_lab/server/main.lua',
 }
 

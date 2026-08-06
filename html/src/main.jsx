@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  Activity, Bell, Box, Car, Check, ChevronRight, Circle, CircleDot, ClipboardCheck, Cpu,
-  Crosshair, FlaskConical, Fuel, KeyRound, Keyboard, Map, MessageSquare,
-  MousePointerClick, Package, Play, RotateCcw, Save, Server, Settings,
+  Activity, Bell, Box, Car, Check, ChevronRight, Circle, CircleDot, Clipboard, ClipboardCheck, Code2, Cpu,
+  Crosshair, FlaskConical, Fuel, ImageOff, KeyRound, Keyboard, Map, MessageSquare,
+  MousePointerClick, Package, Play, RotateCcw, Save, Search, Server, Settings,
   ShieldCheck, SquareMousePointer, Timer, Trash2, Type, Wrench, X, Zap,
 } from 'lucide-react';
 import './styles.css';
@@ -24,6 +24,8 @@ function App() {
   const [progress, setProgress] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [zoneCreator, setZoneCreator] = useState(null);
+  const [attachmentCreator, setAttachmentCreator] = useState(null);
+  const [bridgeLabBrowser, setBridgeLabBrowser] = useState(null);
 
   useEffect(() => {
     const handleMessage = (event) => {
@@ -51,6 +53,8 @@ function App() {
 
       if (data.action === 'closeUi') setDialog(null);
       if (data.action === 'zoneCreator') setZoneCreator(data.payload || null);
+      if (data.action === 'attachmentCreator') setAttachmentCreator(data.payload || null);
+      if (data.action === 'bridgeLabBrowser') setBridgeLabBrowser(data.payload || null);
     };
 
     window.addEventListener('message', handleMessage);
@@ -61,11 +65,192 @@ function App() {
     <div className="tss-ui">
       {debugUi.visible && <LocationDebugPanel data={debugUi} />}
       {zoneCreator?.visible && <ZoneCreatorPanel data={zoneCreator} />}
+      {attachmentCreator?.visible && <AttachmentCreatorPanel data={attachmentCreator} />}
+      {bridgeLabBrowser?.visible && <BridgeLabBrowser data={bridgeLabBrowser} />}
       {dialog && <BridgeDialog data={dialog} onClose={() => setDialog(null)} />}
       <NoticeStack notices={notices} />
       {progress && <ProgressBar data={progress} />}
     </div>
   );
+}
+
+function AttachmentCreatorPanel({ data }) {
+  const [boneIndex, setBoneIndex] = useState(data.boneIndex || 1);
+  const [animation, setAnimation] = useState(data.animation || { dict: '', clip: '', flag: 49 });
+
+  useEffect(() => setBoneIndex(data.boneIndex || 1), [data.boneIndex]);
+  useEffect(() => {
+    if (data.settingsOpen) setAnimation(data.animation || { dict: '', clip: '', flag: 49 });
+  }, [data.settingsOpen]);
+  useEffect(() => {
+    if (!data.settingsOpen) return undefined;
+    const keydown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        postNui('attachmentCreatorAction', { action: 'close', boneIndex, ...animation });
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [data.settingsOpen, boneIndex, animation]);
+
+  const sendAction = (action, extra = {}) => postNui('attachmentCreatorAction', { action, boneIndex, ...animation, ...extra });
+  const changeBone = (event) => {
+    const next = Number(event.target.value);
+    setBoneIndex(next);
+    sendAction('bone', { boneIndex: next });
+  };
+
+  return <section className={`zone-creator-panel attachment-creator-panel ${data.settingsOpen ? 'settings-open' : ''}`}>
+    <div className="zone-creator-accent" />
+    <header><div><span>Prop Attachment Creator</span><h2>{data.title || 'Untitled attachment'}</h2></div><div className="zone-mode"><Package size={14} />{data.mode || 'MOVE'}</div></header>
+    <div className="zone-type">{data.model} · {data.bone}</div>
+    <div className="zone-metrics attachment-metrics">{(data.metrics || []).map((metric) => <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>
+    {data.message && <div className="zone-message">{data.message}</div>}
+    {data.settingsOpen ? <div className="attachment-settings">
+      <label><span>Ped bone</span><select value={boneIndex} onChange={changeBone}>{(data.bones || []).map((bone) => <option value={bone.index} key={bone.id}>{bone.name} · 0x{Number(bone.id).toString(16).toUpperCase().padStart(4, '0')}</option>)}</select></label>
+      <div className="animation-fields">
+        <label><span>Animation dictionary</span><input value={animation.dict || ''} placeholder="amb@world_human_clipboard@male@idle_a" onChange={(event) => setAnimation((current) => ({ ...current, dict: event.target.value }))} /></label>
+        <label><span>Animation clip</span><input value={animation.clip || ''} placeholder="idle_c" onChange={(event) => setAnimation((current) => ({ ...current, clip: event.target.value }))} /></label>
+        <label className="flag-field"><span>Flag</span><input type="number" min="0" max="1024" value={animation.flag ?? 49} onChange={(event) => setAnimation((current) => ({ ...current, flag: event.target.value }))} /></label>
+      </div>
+      <div className="attachment-actions"><button type="button" onClick={() => sendAction('play')}><Play size={14} />Play animation</button><button type="button" onClick={() => sendAction('stop')}><X size={14} />Stop</button><button type="button" className="done" onClick={() => sendAction('close')}><Check size={14} />Done editing</button></div>
+    </div> : <button type="button" className="attachment-settings-hint"><Keyboard size={14} /><span>Press <kbd>B</kbd> for bone and animation settings</span></button>}
+    <div className="zone-help">{(data.help || []).map((line) => <p key={line}><MousePointerClick size={13} />{line}</p>)}</div>
+  </section>;
+}
+
+function copyText(value) {
+  const text = String(value ?? '');
+  if (navigator.clipboard?.writeText) return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  return Promise.resolve(fallbackCopy(text));
+}
+
+function fallbackCopy(text) {
+  const input = document.createElement('textarea');
+  input.value = text;
+  input.style.position = 'fixed';
+  input.style.opacity = '0';
+  document.body.appendChild(input);
+  input.select();
+  document.execCommand('copy');
+  input.remove();
+}
+
+function CopyButton({ value, label = 'Copy' }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    copyText(value).finally(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1000);
+    });
+  };
+  return <button type="button" className="browser-copy" onClick={copy}><Clipboard size={13} />{copied ? 'Copied' : label}</button>;
+}
+
+function ItemImage({ item }) {
+  const candidates = item.imageCandidates || [];
+  const [index, setIndex] = useState(0);
+  useEffect(() => setIndex(0), [item.name]);
+  if (!candidates[index]) return <div className="item-image missing"><ImageOff size={30} /><span>{item.image || 'No image'}</span></div>;
+  return <div className="item-image"><img src={candidates[index]} alt={item.label} onError={() => setIndex((current) => current + 1)} /></div>;
+}
+
+function ApiExplorer({ data }) {
+  const [query, setQuery] = useState('');
+  const [selectedKey, setSelectedKey] = useState('');
+  const modules = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return (data.modules || []).map((module) => ({
+      ...module,
+      functions: (module.functions || []).filter((api) => !needle || `${module.name}.${api.name}`.toLowerCase().includes(needle)),
+    })).filter((module) => !needle || module.name.toLowerCase().includes(needle) || module.functions.length);
+  }, [data.modules, query]);
+  const functions = modules.flatMap((module) => module.functions.map((api) => ({ ...api, module: module.name })));
+  const selected = functions.find((api) => `${api.module}.${api.name}` === selectedKey) || functions[0];
+
+  useEffect(() => {
+    if (selected) setSelectedKey(`${selected.module}.${selected.name}`);
+  }, [query]);
+
+  return <div className="browser-workspace api-workspace">
+    <aside className="browser-list">
+      <div className="browser-search"><Search size={16} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search modules and functions" /></div>
+      <div className="browser-scroll">
+        {modules.map((module) => <section className="api-module" key={module.name}>
+          <h3>{module.name}<span>{module.functions.length}</span></h3>
+          {module.functions.map((api) => {
+            const key = `${module.name}.${api.name}`;
+            return <button type="button" className={selected && key === `${selected.module}.${selected.name}` ? 'active' : ''} key={key} onClick={() => setSelectedKey(key)}>
+              <Code2 size={14} /><span>{api.name}</span><i>{api.realms.client && 'C'}{api.realms.server && 'S'}</i>
+            </button>;
+          })}
+        </section>)}
+      </div>
+    </aside>
+    <main className="browser-detail">
+      {selected ? <>
+        <div className="detail-heading"><div><span>{selected.module} module</span><h2>{selected.module}.{selected.name}</h2></div><CopyButton value={`TSS.${selected.module}.${selected.name}`} label="Copy name" /></div>
+        <div className="realm-cards">
+          {['client', 'server'].map((realm) => selected.realms[realm] && <article className={`realm-card ${realm}`} key={realm}>
+            <header><span>{realm}</span><CopyButton value={`TSS.${selected.module}.${selected.name}(${selected.realms[realm].params})`} label="Copy call" /></header>
+            <code>{selected.name}({selected.realms[realm].params})</code>
+            <dl><div><dt>Parameters</dt><dd>{selected.realms[realm].params || 'None'}</dd></div><div><dt>Returns</dt><dd>{selected.realms[realm].returns || 'Nothing'}</dd></div></dl>
+          </article>)}
+        </div>
+        <div className="module-import"><span>Consumer import</span><code>{`local TSS = exports.tss_bridge:GetModules({ '${selected.module}' })`}</code><CopyButton value={`local TSS = exports.tss_bridge:GetModules({ '${selected.module}' })`} /></div>
+      </> : <div className="browser-empty">No matching API functions.</div>}
+    </main>
+  </div>;
+}
+
+function ItemBrowser({ data }) {
+  const [query, setQuery] = useState('');
+  const [selectedName, setSelectedName] = useState('');
+  const items = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    return (data.items || []).filter((item) => !needle || `${item.name} ${item.label}`.toLowerCase().includes(needle));
+  }, [data.items, query]);
+  const selected = items.find((item) => item.name === selectedName) || items[0];
+
+  useEffect(() => {
+    if (selected) setSelectedName(selected.name);
+  }, [query]);
+
+  return <div className="browser-workspace item-workspace">
+    <aside className="browser-list">
+      <div className="browser-search"><Search size={16} /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search item code or label" /></div>
+      <div className="browser-scroll item-list">
+        {items.map((item) => <button type="button" className={selected?.name === item.name ? 'active' : ''} key={item.name} onClick={() => setSelectedName(item.name)}>
+          <ItemImage item={item} /><span><strong>{item.label}</strong><small>{item.name}</small></span>
+        </button>)}
+      </div>
+    </aside>
+    <main className="browser-detail">
+      {selected ? <>
+        <div className="item-heading"><ItemImage item={selected} /><div><span>Shared item definition</span><h2>{selected.label}</h2><code>{selected.name}</code></div><CopyButton value={selected.name} label="Copy item code" /></div>
+        <div className="item-fields">
+          {selected.fields.map((field) => <div className="item-field" key={field.name}><span><strong>{field.name}</strong><small>{field.valueType}</small></span><code>{field.value}</code><CopyButton value={field.value} /></div>)}
+        </div>
+      </> : <div className="browser-empty">No matching shared items.</div>}
+    </main>
+  </div>;
+}
+
+function BridgeLabBrowser({ data }) {
+  useEffect(() => {
+    const keydown = (event) => {
+      if (event.key === 'Escape') postNui('bridgeLabBrowserClose');
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, []);
+
+  return <section className="bridge-lab-browser">
+    <header className="browser-header"><div><span>Bridge Lab / Developer Tools</span><h1>{data.title}</h1></div><div className="browser-summary">{data.kind === 'api' ? `${data.moduleCount} modules · ${data.functionCount} functions` : `${data.itemCount} items · ${data.system} / ${data.resource}`}</div><button type="button" onClick={() => postNui('bridgeLabBrowserClose')}><X size={18} /></button></header>
+    {data.kind === 'api' ? <ApiExplorer data={data} /> : <ItemBrowser data={data} />}
+    <footer><kbd>ESC</kbd><span>Return to Developer Tools</span><i>Click any copy button to place its exact value on your clipboard</i></footer>
+  </section>;
 }
 
 function ZoneCreatorPanel({ data }) {
@@ -187,6 +372,7 @@ function iconFor(name) {
   if (!name) return CircleDot;
   return {
     activity: Activity,
+    api: Code2,
     audit: ClipboardCheck,
     boxzone: Box,
     check: Check,
@@ -200,12 +386,14 @@ function iconFor(name) {
     fuel: Fuel,
     gameplay: Car,
     input: Keyboard,
+    items: Package,
     interaction: MousePointerClick,
     keys: KeyRound,
     menu: MessageSquare,
     mutations: RotateCcw,
     notify: Bell,
     polyzone: Map,
+    prop: Package,
     save: Save,
     server: Server,
     stash: Package,

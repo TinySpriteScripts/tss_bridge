@@ -17,6 +17,13 @@ TSSBridgeLabConfig = {}
 TSSBridgeLabPolyZoneCreator = {
     Start = function() return true end,
 }
+TSSBridgeLabPropAttachmentCreator = {
+    Start = function() return true end,
+}
+TSSBridgeLabToolBrowser = {
+    OpenApi = function() return true end,
+    OpenItems = function() return true end,
+}
 
 function RegisterNetEvent(name, callback)
     events[name] = callback
@@ -106,19 +113,23 @@ assert(menus[2].data.title == 'Configuration')
 assert(menus[2].data.options[1].description:find('Blocked by server.cfg', 1, true))
 
 menus[2].callback(nil)
-assert(menusOpened == 3 and menus[3].data.title == 'Bridge Laboratory')
+assert(menusOpened == 3 and menus[3].data.title == 'BridgeLab')
 menus[3].callback({ value = 'tests' })
 assert(menusOpened == 4)
 assert(menus[4].data.title == 'Test Centre')
 assert(#menus[4].data.options == 3)
 
 menus[4].callback(nil)
-assert(menusOpened == 5 and menus[5].data.title == 'Bridge Laboratory')
+assert(menusOpened == 5 and menus[5].data.title == 'BridgeLab')
 menus[5].callback({ value = 'tools' })
 assert(menusOpened == 6)
 assert(menus[6].data.title == 'Developer Tools')
 assert(menus[6].data.options[2].value == 'polyzone')
 assert(menus[6].data.options[2].disabled ~= true)
+assert(menus[6].data.options[3].value == 'prop_attachment')
+assert(menus[6].data.options[4].value == 'api_explorer')
+assert(menus[6].data.options[5].value == 'item_browser')
+assert(#menus[6].data.options == 6)
 menus[6].callback({ value = 'polyzone' })
 assert(menusOpened == 7)
 assert(menus[7].data.title == 'PolyZone Creator')

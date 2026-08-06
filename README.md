@@ -428,8 +428,10 @@ authorized by the server; the allowlist remains server-only and
 every lab callback rechecks the player's identifiers.
 
 See `bridge_lab/README.md` for setup, security, and mutation-test details.
-The built-in developer tools include a detached-freecam PolyZone Creator for
-box, 3D circle, and drawn polygon zones saved to `bridge_lab/created_zones.lua`.
+The built-in developer tools include a detached-freecam PolyZone Creator, a ped
+prop-attachment gizmo editor, a client/server API Explorer, and a read-only
+shared inventory item browser. Created zones and prop attachments are saved to
+server-validated Lua data files under `bridge_lab/`.
 
 ## Localization
 

@@ -35,6 +35,7 @@ end
 local TSS
 local LabConfig = TSSBridgeLabConfig
 local PolyZoneCreator = TSSBridgeLabPolyZoneCreator
+local ToolBrowser = TSSBridgeLabToolBrowser
 
 local lab = {
     active = false,
@@ -843,6 +844,78 @@ openPolyZoneMenu = function()
     end)
 end
 
+local function openApiExplorer()
+    local opened, browserError = ToolBrowser.OpenApi(openToolsMenu)
+    if not opened then
+        notify(browserError or 'Unable to open the API Explorer.', 'error', 'API Explorer')
+        openToolsMenu()
+    end
+end
+
+local function openItemBrowser()
+    local opened, browserError = ToolBrowser.OpenItems(TSS.Inventory, openToolsMenu)
+    if not opened then
+        notify(browserError or 'Unable to load the shared item database.', 'error', 'Item Browser')
+        openToolsMenu()
+    end
+end
+
+local function requestPropAttachment()
+    TSS.UI.Input({
+        label = 'Bridge Lab / Prop Attachment Creator',
+        title = 'Create Prop Attachment',
+        description = 'Choose a save name and a valid GTA prop model. The preview attaches to your current ped.',
+        confirmLabel = 'Start Editor',
+        fields = {
+            { name = 'name', label = 'Attachment name', value = 'new_attachment', placeholder = 'clipboard_prop' },
+            { name = 'model', label = 'Prop model', value = 'prop_cs_tablet', placeholder = 'prop_cs_tablet' },
+        },
+    }, function(result)
+        if not result then return openToolsMenu() end
+        local values = result.values or {}
+        local name = tostring(values.name or ''):match('^%s*(.-)%s*$')
+        local model = tostring(values.model or ''):match('^%s*(.-)%s*$')
+        if name == '' or #name > 64 or not name:match('^[%w _%-]+$') then
+            notify('Use 1-64 letters, numbers, spaces, underscores, or hyphens for the name.', 'error', 'Invalid Name')
+            return requestPropAttachment()
+        end
+        if model == '' or #model > 80 or not model:match('^[%w_%-]+$') then
+            notify('Enter a valid prop model name.', 'error', 'Invalid Model')
+            return requestPropAttachment()
+        end
+
+        -- Resolve at use time: FiveM may initialise newly added client files after
+        -- this main chunk, so caching the global here can permanently cache nil.
+        local creator = TSSBridgeLabPropAttachmentCreator
+        if type(creator) ~= 'table' or type(creator.Start) ~= 'function' then
+            notify('The Prop Attachment Creator client script did not load. Restart tss_bridge and check F8 for its startup error.',
+                'error', 'Prop Attachment Creator')
+            return openToolsMenu()
+        end
+
+        local started, startError = creator.Start(name, model, TSS.Props, {
+            onSave = function(attachment)
+                local response, callbackError = TSS.Callbacks.Await('saveCreatedPropAttachment', 7000, attachment)
+                if type(response) == 'table' and response.success then
+                    notify(response.message, 'success', 'Attachment Saved')
+                else
+                    notify(type(response) == 'table' and response.error or callbackError or 'Unable to save attachment.',
+                        'error', 'Attachment Save Failed')
+                end
+                openToolsMenu()
+            end,
+            onCancel = function()
+                notify('Attachment draft deleted. Nothing was saved.', 'inform', 'Prop Attachment Creator')
+                openToolsMenu()
+            end,
+        })
+        if not started then
+            notify(startError or 'Unable to start the attachment editor.', 'error', 'Prop Attachment Creator')
+            openToolsMenu()
+        end
+    end)
+end
+
 openToolsMenu = function()
     TSS.UI.Menu({
         label = 'Bridge Lab',
@@ -868,6 +941,27 @@ openToolsMenu = function()
                 badge = 'AVAILABLE',
             },
             {
+                label = 'Prop Attachment Creator',
+                description = 'Attach a prop to a ped bone, then position and rotate it with local gizmos.',
+                value = 'prop_attachment',
+                icon = 'prop',
+                badge = 'GIZMO EDITOR',
+            },
+            {
+                label = 'Bridge API Explorer',
+                description = 'Browse every documented public function, signature, parameter and client/server realm.',
+                value = 'api_explorer',
+                icon = 'api',
+                badge = 'LIVE TYPES',
+            },
+            {
+                label = 'Inventory Item Browser',
+                description = 'Search the active inventory shared item database, preview images and copy any field.',
+                value = 'item_browser',
+                icon = 'items',
+                badge = 'READ ONLY',
+            },
+            {
                 label = 'Clean Up Lab Session',
                 description = lab.active and 'Removes every entity, target, interaction and blip created by the lab.'
                     or 'There is no active certification yard to clean up.',
@@ -882,6 +976,9 @@ openToolsMenu = function()
         handleMenuResult(result, openMainMenu, {
             spawn = spawnLab,
             polyzone = openPolyZoneMenu,
+            prop_attachment = requestPropAttachment,
+            api_explorer = openApiExplorer,
+            item_browser = openItemBrowser,
             cleanup = cleanupLab,
         })
     end)
@@ -891,7 +988,7 @@ openMainMenu = function()
     local configTotal, configLocked = configurationCounts()
     TSS.UI.Menu({
         label = 'TSS Bridge / Authorized',
-        title = 'Bridge Laboratory',
+        title = 'BridgeLab',
         description = 'A focused workspace for bridge certification and developer tooling.',
         status = lab.active and 'LAB ACTIVE' or 'SYSTEM READY',
         statusTone = lab.active and 'success' or 'neutral',
@@ -916,7 +1013,7 @@ openMainMenu = function()
                 description = 'Deploy the lab yard and access upcoming creation tools.',
                 value = 'tools',
                 icon = 'tools',
-                badge = lab.active and 'YARD ACTIVE' or '3 TOOLS',
+                badge = lab.active and 'YARD ACTIVE' or '6 TOOLS',
             },
         },
     }, function(result)

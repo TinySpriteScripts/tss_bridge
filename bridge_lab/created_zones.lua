@@ -13,3 +13,17 @@ TSSBridgeLabCreatedZones[#TSSBridgeLabCreatedZones + 1] = {
     maxZ = 42.714,
 }
 
+TSSBridgeLabCreatedZones[#TSSBridgeLabCreatedZones + 1] = {
+    type = "poly",
+    name = "poly_zone",
+    points = {
+        vec2(176.826, 3210.620), -- ground Z 41.299
+        vec2(179.474, 3204.072), -- ground Z 41.349
+        vec2(184.912, 3198.785), -- ground Z 41.187
+        vec2(188.906, 3204.466), -- ground Z 41.167
+        vec2(183.756, 3211.815), -- ground Z 41.298
+    },
+    minZ = 41.167,
+    maxZ = 42.849,
+}
+
