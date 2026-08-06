@@ -309,6 +309,8 @@
 ---@field Print fun(): string[]
 
 ---@class TSSGroupsModule
+---@field System fun(): system?: TSSFrameworkName, resource?: string
+---@field Supports fun(feature: string): boolean
 ---@field BossRoles fun(role: string): table<string, integer>
 
 ---@class TSSUIClientModule

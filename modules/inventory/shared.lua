@@ -2,9 +2,7 @@
 TSS = TSS or {}
 TSS.Inventory = TSS.Inventory or {}
 
-local adapters = {}
-local inventoryOrder = {}
-local aliases = {}
+local registry = TSS.Adapters.Create('Inventory', { config = 'Inventory' })
 
 TSS.Inventory.Utils = TSS.Inventory.Utils or {}
 
@@ -60,57 +58,16 @@ function TSS.Inventory.RegisterAdapter(key, resource, adapter, priority)
         TSS.Warn('Inventory adapter registration is missing key, resource, or adapter')
         return
     end
-
-    adapters[key] = adapter
-    aliases[resource] = key
-    inventoryOrder[#inventoryOrder + 1] = {
-        key = key,
-        resource = resource,
-        priority = priority or 100,
-    }
-
-    table.sort(inventoryOrder, function(a, b)
-        return a.priority < b.priority
-    end)
-end
-
-local function detectInventory()
-    local configured = TSS.Config.Inventory
-
-    if configured ~= 'auto' then
-        return aliases[configured] or configured
-    end
-
-    for i = 1, #inventoryOrder do
-        if TSS.IsStarted(inventoryOrder[i].resource) then
-            return inventoryOrder[i].key
-        end
-    end
-end
-
-local function getResource(system)
-    for i = 1, #inventoryOrder do
-        if inventoryOrder[i].key == system then
-            return inventoryOrder[i].resource
-        end
-    end
+    return registry:Register(key, resource, adapter, priority)
 end
 
 local function getAdapter()
-    local system = detectInventory()
-    local resource = getResource(system)
-
-    if not system or not resource then
+    local system, resource, adapter = registry:Resolve()
+    if not system or not resource or not adapter then
         TSS.Warn('No supported inventory system found')
         return nil, nil, nil
     end
-
-    if not TSS.IsStarted(resource) then
-        TSS.Warn(('Configured inventory is not started: %s'):format(resource))
-        return nil, nil, nil
-    end
-
-    return system, resource, adapters[system]
+    return system, resource, adapter
 end
 
 TSS.Inventory._GetAdapter = getAdapter

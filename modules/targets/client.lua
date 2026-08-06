@@ -1,6 +1,12 @@
 TSSModuleLoader.Define({
     name = 'Targets',
-    files = { 'modules/targets/shared.lua' },
+    files = {
+        'modules/targets/shared.lua',
+        'modules/targets/adapters/ox.lua',
+        'modules/targets/adapters/qb.lua',
+        'modules/targets/adapters/tgiann.lua',
+        'modules/targets/adapters/bt.lua',
+    },
     client = function(context)
         local entities = {}
         local models = {}

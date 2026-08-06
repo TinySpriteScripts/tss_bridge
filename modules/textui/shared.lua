@@ -4,34 +4,12 @@ TSS.TextUI = TSS.TextUI or {}
 
 local active
 local activeOwner
-local nativeThread = false
+local activeAdapter
+local activeResource
+local registry = TSS.Adapters.Create('TextUI', { config = 'TextUI', fallback = 'native' })
 
-local aliases = {
-    ['ox'] = 'ox', ['ox_lib'] = 'ox',
-    ['qb'] = 'qb', ['qb-core'] = 'qb', ['qbcore'] = 'qb',
-    ['native'] = 'native',
-}
-
-local support = {
-    ox = { position = true, icon = true, style = true },
-    qb = { position = true },
-    native = {},
-}
-
-local function detect(preferred)
-    local configured = tostring(preferred or TSS.Config.TextUI or 'auto'):lower()
-    if configured ~= 'auto' then
-        local system = aliases[configured] or configured
-        if system == 'native' then return system end
-        local resource = system == 'ox' and TSS.Resources.OxLib or system == 'qb' and TSS.Resources.QBCore
-        if resource and TSS.IsStarted(resource) then return system, resource end
-        TSS.Warn(('Configured text UI system is not started: %s'):format(tostring(resource or configured)))
-        return 'native'
-    end
-
-    if TSS.IsStarted(TSS.Resources.OxLib) then return 'ox', TSS.Resources.OxLib end
-    if TSS.IsStarted(TSS.Resources.QBCore) then return 'qb', TSS.Resources.QBCore end
-    return 'native'
+function TSS.TextUI.RegisterAdapter(key, resource, adapter, options)
+    return registry:Register(key, resource, adapter, options)
 end
 
 local function normalize(data)
@@ -48,66 +26,34 @@ local function normalize(data)
     }
 end
 
-local function nativeShow(data)
-    active = data
-    if nativeThread then return true end
-    nativeThread = true
-
-    CreateThread(function()
-        while active do
-            BeginTextCommandDisplayHelp('STRING')
-            AddTextComponentSubstringPlayerName(active.text)
-            EndTextCommandDisplayHelp(0, false, true, -1)
-            Wait(0)
-        end
-        nativeThread = false
-    end)
-
-    return true
-end
-
 local function clientShow(data, owner)
     data = normalize(data)
-    local system, resource = detect(data.adapter)
-    local ok
+    local system, resource, adapter = registry:Resolve(data.adapter)
+    local ok = adapter and adapter.show and adapter.show(resource, data) == true
 
-    if system == 'ox' then
-        ok = TSS.CallExport(resource, 'showTextUI', data.text, {
-            position = data.position,
-            icon = data.icon,
-            iconColor = data.iconColor,
-            iconAnimation = data.iconAnimation,
-            style = data.style,
-            alignIcon = data.alignIcon,
-        })
-    elseif system == 'qb' then
-        local position = data.position:find('left') and 'left' or data.position:find('top') and 'top' or 'right'
-        ok = TSS.CallExport(resource, 'DrawText', data.text, position)
-    else
-        ok = nativeShow(data)
+    if not ok and system ~= 'native' then
+        system, resource, adapter = registry:Fallback()
+        ok = adapter and adapter.show and adapter.show(resource, data) == true
     end
 
     if ok then
         active = data
         activeOwner = owner
+        activeAdapter = adapter
+        activeResource = resource
         return true
     end
-    activeOwner = owner
-    return nativeShow(data)
+    return false
 end
 
 local function clientHide(owner, force)
     if owner and activeOwner and owner ~= activeOwner and not force then return false end
-    local system, resource = detect(active and active.adapter)
-
-    if system == 'ox' then
-        TSS.CallExport(resource, 'hideTextUI')
-    elseif system == 'qb' then
-        TSS.CallExport(resource, 'HideText')
-    end
+    if activeAdapter and activeAdapter.hide then activeAdapter.hide(activeResource) end
 
     active = nil
     activeOwner = nil
+    activeAdapter = nil
+    activeResource = nil
     return true
 end
 
@@ -116,7 +62,8 @@ end
 ---@return string? system
 ---@return string? resource
 function TSS.TextUI.System(preferred)
-    return detect(preferred)
+    local system, resource = registry:Resolve(preferred)
+    return system, resource
 end
 
 --- Reports whether a TextUI adapter supports an option.
@@ -124,8 +71,7 @@ end
 ---@param preferred? string Adapter override for this check.
 ---@return boolean supported
 function TSS.TextUI.Supports(feature, preferred)
-    local system = detect(preferred)
-    return support[system] and support[system][tostring(feature or ''):lower()] == true or false
+    return registry:Supports(feature, preferred)
 end
 
 --- Shows TextUI for the local player or a selected server player.

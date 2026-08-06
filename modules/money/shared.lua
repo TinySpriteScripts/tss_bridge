@@ -1,78 +1,100 @@
--- Lazy realm-aware implementation owned by the Money module.
+-- Public money API. Framework account behaviour lives in adapters.
 TSS = TSS or {}
 TSS.Money = TSS.Money or {}
 
+local registry = TSS.Adapters.Create('Money')
+
 local function normalizeType(moneyType)
     moneyType = tostring(moneyType or 'cash'):lower()
-    if moneyType == 'money' then return 'cash' end
-    return moneyType
+    return moneyType == 'money' and 'cash' or moneyType
 end
 
 local function validAmount(amount, allowZero)
     amount = tonumber(amount)
     if not amount or amount ~= amount or amount == math.huge or amount == -math.huge then return nil end
-    if allowZero and amount < 0 or not allowZero and amount <= 0 then return nil end
+    if (allowZero and amount < 0) or (not allowZero and amount <= 0) then return nil end
     return amount
 end
 
-local function esxAccount(player, moneyType)
-    local account = moneyType == 'cash' and 'money' or moneyType
-    if account == 'money' and player.getMoney then return player.getMoney() end
-    if player.getAccount then
-        local value = player.getAccount(account)
-        return value and (value.money or value.amount) or 0
-    end
-    return 0
+function TSS.Money.RegisterAdapter(key, resource, adapter, options)
+    return registry:Register(key, resource, adapter, options)
+end
+
+local function resolve()
+    local framework = TSS.Framework.System()
+    return registry:Resolve(framework)
 end
 
 --- Returns a player's balance for an account type.
----@param source? integer|string Server player ID, or the account type when called on the client.
----@param moneyType? TSSMoneyType Account type on the server; defaults to `cash`.
+---@param source? integer|string
+---@param moneyType? TSSMoneyType
 ---@return number balance
 function TSS.Money.Balance(source, moneyType)
-    if not TSS.IsServer() then
+    if TSS.IsClient() then
         moneyType = source
         source = nil
     end
-    moneyType = normalizeType(moneyType)
 
-    local system, resource = TSS.Framework.System()
-    if system == 'qbox' and TSS.IsServer() then
-        local ok, amount = TSS.CallExport(resource, 'GetMoney', source, moneyType)
-        return ok and tonumber(amount) or 0
-    end
-
-    local player = TSS.Framework.Player(source)
-    local playerData = TSS.Framework.PlayerData(source)
-    if system == 'esx' and player then
-        if TSS.IsServer() then return tonumber(esxAccount(player, moneyType)) or 0 end
-        if moneyType == 'cash' then return tonumber(playerData.money) or 0 end
-        local accounts = playerData.accounts or {}
-        if accounts[moneyType] then
-            local account = accounts[moneyType]
-            return tonumber(type(account) == 'table' and (account.money or account.amount) or account) or 0
-        end
-        for _, account in pairs(accounts) do
-            if type(account) == 'table' and account.name == moneyType then return tonumber(account.money) or 0 end
-        end
-        return 0
-    end
-    return playerData and playerData.money and tonumber(playerData.money[moneyType]) or 0
+    local _, resource, adapter = resolve()
+    if not adapter or not adapter.balance then return 0 end
+    return tonumber(adapter.balance(resource, source, normalizeType(moneyType))) or 0
 end
 
 --- Checks whether a player has at least the requested account balance.
----@param source integer|string Server player ID, or the account type on the client.
----@param moneyType string|number Account type on the server, or amount on the client.
----@param amount? number Amount required on the server.
+---@param source integer|string
+---@param moneyType string|number
+---@param amount? number
 ---@return boolean hasFunds
 function TSS.Money.Has(source, moneyType, amount)
-    if not TSS.IsServer() then
+    if TSS.IsClient() then
         amount = moneyType
         moneyType = source
         source = nil
     end
     amount = validAmount(amount, true)
     if not amount then return false end
-    if not TSS.IsServer() then return TSS.Money.Balance(moneyType) >= amount end
+    if TSS.IsClient() then return TSS.Money.Balance(moneyType) >= amount end
     return TSS.Money.Balance(source, moneyType) >= amount
+end
+
+local function mutate(action, source, moneyType, amount, reason)
+    if not TSS.IsServer() or type(source) ~= 'number' then return false end
+    amount = validAmount(amount, action == 'set')
+    if not amount then return false end
+
+    local _, resource, adapter = resolve()
+    local method = adapter and adapter[action]
+    if not method then return false end
+    reason = type(reason) == 'string' and reason:sub(1, 128) or 'tss_bridge'
+    return method(resource, source, normalizeType(moneyType), amount, reason) == true
+end
+
+--- Adds money to a player after validating the amount.
+---@param source integer
+---@param moneyType TSSMoneyType
+---@param amount number
+---@param reason? string
+---@return boolean success
+function TSS.Money.Add(source, moneyType, amount, reason)
+    return mutate('add', source, moneyType, amount, reason)
+end
+
+--- Removes money from a player after validating the amount.
+---@param source integer
+---@param moneyType TSSMoneyType
+---@param amount number
+---@param reason? string
+---@return boolean success
+function TSS.Money.Remove(source, moneyType, amount, reason)
+    return mutate('remove', source, moneyType, amount, reason)
+end
+
+--- Sets a player's account balance.
+---@param source integer
+---@param moneyType TSSMoneyType
+---@param amount number
+---@param reason? string
+---@return boolean success
+function TSS.Money.Set(source, moneyType, amount, reason)
+    return mutate('set', source, moneyType, amount, reason)
 end

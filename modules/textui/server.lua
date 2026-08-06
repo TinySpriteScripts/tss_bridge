@@ -1,6 +1,11 @@
 TSSModuleLoader.Define({
     name = 'TextUI',
-    files = { 'modules/textui/shared.lua' },
+    files = {
+        'modules/textui/shared.lua',
+        'modules/textui/adapters/ox.lua',
+        'modules/textui/adapters/qb.lua',
+        'modules/textui/adapters/native.lua',
+    },
     server = function(context)
         local shown = {}
         ---@type TSSTextUIServerModule

@@ -156,7 +156,47 @@ modules/
 ```
 
 Module-specific integrations stay in the same directory as well; for example,
-inventory adapters live under `modules/inventory/adapters/`.
+all integrations use `modules/<name>/adapters/`:
+
+```text
+modules/
+â””â”€â”€ notify/
+    â”œâ”€â”€ client.lua
+    â”œâ”€â”€ server.lua
+    â”œâ”€â”€ shared.lua
+    â””â”€â”€ adapters/
+        â”œâ”€â”€ ox.lua
+        â”œâ”€â”€ qb.lua
+        â”œâ”€â”€ qbox.lua
+        â””â”€â”€ native.lua
+```
+
+Framework, Inventory, Money, Groups, Fuel, Notify, ProgressBar, Targets,
+Interaction, TextUI and VehicleKeys all share the same adapter registry. The
+registry handles aliases, config selection, priority-based auto detection,
+availability checks and fallbacks. Public module files only normalize arguments
+and expose the stable bridge API; resource-specific exports stay in adapter
+files.
+
+An adapter registers itself after the module's `shared.lua` creates its registry:
+
+```lua
+-- modules/example/adapters/provider.lua
+TSS.Example.RegisterAdapter('provider', 'provider_resource', {
+    supports = { read = true },
+    read = function(resource, value)
+        local ok, result = TSS.CallExport(resource, 'Read', value)
+        return ok and result or nil
+    end,
+}, {
+    priority = 20,
+    aliases = { 'provider-resource', 'legacy-provider-name' },
+})
+```
+
+Add that adapter path to the module descriptor's lazy `files` list. There is no
+detection switch or central adapter table to edit. `fxmanifest.lua` already
+packages every `modules/**/adapters/*.lua` file for clients.
 
 For example, a client module is one file:
 
@@ -207,6 +247,10 @@ To add a function to an existing module, edit only its `client.lua` or
 new one-realm module needs one file; a module available in both realms needs two.
 Updating `shared/types.lua` is optional at runtime, but recommended when the new
 function should appear in consumer autocomplete.
+
+To add support for another provider, add one adapter file and include it in that
+module's descriptor. Existing adapter files and the shared registry do not need
+changes.
 
 Descriptor options:
 

@@ -7,6 +7,8 @@ local manifest = manifestFile:read('*a')
 manifestFile:close()
 assert(manifest:find("'modules/**/shared.lua'", 1, true),
     'module shared implementations must be included in the client packfile')
+assert(manifest:find("'modules/**/adapters/*.lua'", 1, true),
+    'module adapters must be included in the client packfile')
 
 local registeredExports = {}
 local notifications = {}
@@ -143,6 +145,25 @@ exports = setmetatable({}, {
 
 assert(loadfile(root .. '/shared/config.lua'))()
 assert(loadfile(root .. '/shared/helpers.lua'))()
+assert(loadfile(root .. '/shared/adapters.lua'))()
+
+TSS.Config.RegistrySpec = 'auto'
+local registrySpec = TSS.Adapters.Create('RegistrySpec', { config = 'RegistrySpec', fallback = 'fallback' })
+registrySpec:Register('later', 'LegacyFuel', { supports = { read = true } }, { priority = 20, aliases = { 'legacy' } })
+registrySpec:Register('first', 'qb-core', { supports = { read = true } }, { priority = 10 })
+registrySpec:Register('manual', nil, {}, { priority = 1, auto = false })
+registrySpec:Register('fallback', nil, { supports = { safe = true } }, { priority = 1000 })
+local registrySystem = registrySpec:Resolve()
+assert(registrySystem == 'first', 'registry must choose the lowest-priority available automatic adapter')
+assert(registrySpec:Supports('read'))
+TSS.Config.RegistrySpec = 'legacy'
+assert(registrySpec:Resolve() == 'later', 'registry aliases must resolve to their adapter')
+TSS.Config.RegistrySpec = 'missing-adapter'
+assert(registrySpec:Resolve() == 'fallback', 'unavailable configured adapters must use the declared fallback')
+assert(registrySpec:Supports('safe'))
+TSS.Config.RegistrySpec = 'manual'
+assert(registrySpec:Resolve() == 'manual', 'manual-only adapters must remain directly selectable')
+TSS.Config.RegistrySpec = nil
 local callableReference = setmetatable({ __cfx_functionReference = 'test' }, {
     __call = function() return true end,
 })

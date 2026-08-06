@@ -1,22 +1,21 @@
 -- Lazy client implementation owned by the Interaction module.
 TSS = TSS or {}
 TSS.Interaction = TSS.Interaction or {}
+TSS.Interaction.Utils = TSS.Interaction.Utils or {}
+
+local registry = TSS.Adapters.Create('Interaction', { config = 'Interaction', fallback = 'textui' })
 
 local entries = {}
 local nextId = 0
 local proximityThread = false
 local visibleEntry
 
-local function targetAvailable()
-    local system = TSS.Target.System()
-    return system ~= nil
+local function detect(preferred)
+    return registry:Resolve(preferred)
 end
 
-local function detect(preferred)
-    local configured = tostring(preferred or TSS.Config.Interaction or 'auto'):lower()
-    if configured == 'target' then return targetAvailable() and 'target' or 'textui' end
-    if configured == 'textui' or configured == 'proximity' then return 'textui' end
-    return targetAvailable() and 'target' or 'textui'
+function TSS.Interaction.RegisterAdapter(key, resource, adapter, options)
+    return registry:Register(key, resource, adapter, options)
 end
 
 local function coordsFor(entry)
@@ -112,20 +111,15 @@ local function startProximityThread()
     end)
 end
 
-local function removeTarget(entry)
-    if not entry.target then return end
-    if entry.target.kind == 'entity' then TSS.Target.RemoveEntity(entry.target.value) end
-    if entry.target.kind == 'model' then TSS.Target.RemoveModel(entry.target.value) end
-    if entry.target.kind == 'zone' then TSS.Target.RemoveZone(entry.target.value) end
-    entry.target = nil
-end
+TSS.Interaction.Utils.StartProximity = startProximityThread
 
 --- Detects whether interactions use a target adapter or proximity TextUI.
 ---@param preferred? string Adapter override for this interaction.
 ---@return string system
 ---@return string? resource
 function TSS.Interaction.System(preferred)
-    return detect(preferred)
+    local system, resource = detect(preferred)
+    return system, resource
 end
 
 --- Reports whether an interaction mode supports a feature.
@@ -133,11 +127,9 @@ end
 ---@param preferred? string Adapter override for this check.
 ---@return boolean supported
 function TSS.Interaction.Supports(feature, preferred)
-    local system = detect(preferred)
     feature = tostring(feature or ''):lower()
     if feature == 'callback' or feature == 'event' or feature == 'serverevent' then return true end
-    if system == 'target' then return TSS.Target.Supports(feature) end
-    return feature == 'coords' or feature == 'entity' or feature == 'key'
+    return registry:Supports(feature, preferred)
 end
 
 --- Creates a target or proximity interaction owned by the calling resource.
@@ -159,7 +151,7 @@ function TSS.Interaction.Create(data, owner)
     local entry = {
         id = nextId,
         owner = owner or GetCurrentResourceName(),
-        system = detect(data.adapter),
+        system = nil,
         entity = data.entity,
         model = data.model or data.models,
         coords = data.coords,
@@ -181,53 +173,14 @@ function TSS.Interaction.Create(data, owner)
         args = data.args,
     }
 
-    if entry.system == 'target' then
-        local option = {
-            name = data.name or ('tss_interaction_%s'):format(entry.id),
-            label = entry.label,
-            icon = entry.icon,
-            distance = entry.distance,
-            canInteract = entry.canInteract,
-            onSelect = function(context) activate(entry, context) end,
-            groups = data.groups,
-            job = data.job,
-            gang = data.gang,
-            items = data.items,
-            item = data.item,
-        }
-
-        if entry.entity then
-            TSS.Target.Entity(entry.entity, { option }, entry.distance)
-            entry.target = { kind = 'entity', value = entry.entity }
-        elseif entry.model then
-            TSS.Target.Model(entry.model, { option }, entry.distance)
-            entry.target = { kind = 'model', value = entry.model }
-        elseif entry.coords then
-            local zoneData = {
-                name = option.name,
-                coords = entry.coords,
-                radius = data.radius or entry.distance,
-                length = data.length,
-                width = data.width,
-                minZ = data.minZ,
-                maxZ = data.maxZ,
-                heading = data.heading,
-                debug = data.debug,
-            }
-            local zone = (data.shape == 'box' or data.length or data.width)
-                and TSS.Target.Box(zoneData, { option }, entry.distance)
-                or TSS.Target.Circle(zoneData, { option }, entry.distance)
-            entry.target = { kind = 'zone', value = zone }
-        else
-            return nil
-        end
-    else
-        if not entry.coords and not entry.entity then return nil end
-        entries[entry.id] = entry
-        startProximityThread()
-    end
+    local system, resource, adapter = detect(data.adapter)
+    entry.system = system
+    entry.adapter = adapter
+    entry.adapterResource = resource
+    if not adapter or not adapter.create or adapter.create(resource, entry, data, activate) ~= true then return nil end
 
     entries[entry.id] = entry
+    if system == 'textui' then startProximityThread() end
     return entry.id
 end
 
@@ -238,7 +191,7 @@ function TSS.Interaction.Remove(id)
     local entry = entries[id]
     if not entry then return false end
     if visibleEntry == entry then hideVisible() end
-    removeTarget(entry)
+    if entry.adapter and entry.adapter.remove then entry.adapter.remove(entry.adapterResource, entry) end
     entries[id] = nil
     return true
 end

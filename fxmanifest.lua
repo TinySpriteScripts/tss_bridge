@@ -11,7 +11,7 @@ files {
     'shared/*.lua',
     'shared/locales/*.lua',
     'modules/**/shared.lua',
-    'modules/inventory/adapters/*.lua',
+    'modules/**/adapters/*.lua',
     'html/dist/index.html',
     'html/dist/**/*',
 }
@@ -21,6 +21,7 @@ ui_page 'html/dist/index.html'
 shared_scripts {
     'shared/config.lua',
     'shared/helpers.lua',
+    'shared/adapters.lua',
     'shared/loader.lua',
     'bridge_lab/config.lua',
 }

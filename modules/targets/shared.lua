@@ -1,6 +1,9 @@
 -- Lazy client implementation owned by the Targets module.
 TSS = TSS or {}
 TSS.Target = TSS.Target or {}
+TSS.Target.Utils = TSS.Target.Utils or {}
+
+local registry = TSS.Adapters.Create('Targets', { config = 'Target' })
 
 local tracked = {
     entities = {},
@@ -22,48 +25,23 @@ local function asArray(value)
     return value
 end
 
-local function getTargetSystem()
-    local configured = TSS.Config.Target
-
-    if configured ~= 'auto' then
-        if configured == TSS.Resources.OxTarget then return 'ox' end
-        if configured == TSS.Resources.QbTarget then return 'qb' end
-        if configured == TSS.Resources.TgiannTarget then return 'tgiann' end
-        if configured == TSS.Resources.BtTarget then return 'bt' end
-        return configured
-    end
-
-    if TSS.IsStarted(TSS.Resources.OxTarget) then return 'ox' end
-    if TSS.IsStarted(TSS.Resources.QbTarget) then return 'qb' end
-    if TSS.IsStarted(TSS.Resources.TgiannTarget) then return 'tgiann' end
-    if TSS.IsStarted(TSS.Resources.BtTarget) then return 'bt' end
-
-    return nil
-end
-
-local function getTargetResource(system)
-    if system == 'ox' then return TSS.Resources.OxTarget end
-    if system == 'qb' then return TSS.Resources.QbTarget end
-    if system == 'tgiann' then return TSS.Resources.TgiannTarget end
-    if system == 'bt' then return TSS.Resources.BtTarget end
+function TSS.Target.RegisterAdapter(key, resource, adapter, options)
+    return registry:Register(key, resource, adapter, options)
 end
 
 --- Detects the selected target adapter.
 ---@return string? system
 ---@return string? resource
-function TSS.Target.System()
-    local system = getTargetSystem()
-    return system, getTargetResource(system)
+function TSS.Target.System(preferred)
+    local system, resource = registry:Resolve(preferred)
+    return system, resource
 end
 
 --- Reports whether the selected target adapter supports a feature.
 ---@param feature 'entity'|'model'|'box'|'circle'|'groups'|'items'|string
 ---@return boolean supported
 function TSS.Target.Supports(feature)
-    local system = getTargetSystem()
-    feature = tostring(feature or ''):lower()
-    if not system then return false end
-    return feature == 'entity' or feature == 'model' or feature == 'box' or feature == 'circle' or feature == 'groups' or feature == 'items'
+    return registry:Supports(feature)
 end
 
 local function normaliseOxOptions(options, distance)
@@ -212,91 +190,23 @@ local function addQbCircle(resource, data, options, distance)
     return circle.name
 end
 
-local adapters = {
-    ox = {
-        entity = function(resource, entity, options, distance)
-            return callTarget(resource, 'addLocalEntity', entity, normaliseOxOptions(options, distance))
-        end,
-        model = function(resource, models, options, distance)
-            return callTarget(resource, 'addModel', models, normaliseOxOptions(options, distance))
-        end,
-        box = function(resource, data, options, distance)
-            local box = getBoxData(data)
-            local minZ = box.options.minZ or (box.coords.z - 1.0)
-            local maxZ = box.options.maxZ or (box.coords.z + 1.0)
-
-            return callTarget(resource, 'addBoxZone', {
-                coords = vec3(box.coords.x, box.coords.y, minZ + ((maxZ - minZ) / 2)),
-                size = vec3(box.length, box.width, maxZ - minZ),
-                rotation = box.options.heading or box.options.rotation or 0.0,
-                debug = TSS.ShouldDebugPoly(box.options.debugPoly or box.options.debug),
-                options = normaliseOxOptions(options, distance),
-            })
-        end,
-        circle = function(resource, data, options, distance)
-            local circle = getCircleData(data)
-
-            return callTarget(resource, 'addSphereZone', {
-                coords = circle.coords,
-                radius = circle.radius,
-                debug = TSS.ShouldDebugPoly(circle.options.debugPoly or circle.options.debug),
-                options = normaliseOxOptions(options, distance),
-            })
-        end,
-        removeEntity = function(resource, entity)
-            return callTarget(resource, 'removeLocalEntity', entity)
-        end,
-        removeModel = function(resource, models)
-            return callTarget(resource, 'removeModel', models)
-        end,
-        removeZone = function(resource, zone)
-            return callTarget(resource, 'removeZone', zone)
-        end,
-    },
-    qb = {
-        entity = addQbEntity,
-        model = addQbModel,
-        box = addQbBox,
-        circle = addQbCircle,
-        removeEntity = function(resource, entity) return callTarget(resource, 'RemoveTargetEntity', entity) end,
-        removeModel = function(resource, models) return callTarget(resource, 'RemoveTargetModel', models) end,
-        removeZone = function(resource, zone) return callTarget(resource, 'RemoveZone', zone) end,
-    },
-    tgiann = {
-        entity = addQbEntity,
-        model = addQbModel,
-        box = addQbBox,
-        circle = addQbCircle,
-        removeEntity = function(resource, entity) return callTarget(resource, 'RemoveTargetEntity', entity) end,
-        removeModel = function(resource, models) return callTarget(resource, 'RemoveTargetModel', models) end,
-        removeZone = function(resource, zone) return callTarget(resource, 'RemoveZone', zone) end,
-    },
-    bt = {
-        entity = addQbEntity,
-        model = addQbModel,
-        box = addQbBox,
-        circle = addQbCircle,
-        removeEntity = function(resource, entity) return callTarget(resource, 'RemoveTargetEntity', entity) end,
-        removeModel = function(resource, models) return callTarget(resource, 'RemoveTargetModel', models) end,
-        removeZone = function(resource, zone) return callTarget(resource, 'RemoveZone', zone) end,
-    },
-}
+TSS.Target.Utils.First = first
+TSS.Target.Utils.NormaliseOxOptions = normaliseOxOptions
+TSS.Target.Utils.GetBoxData = getBoxData
+TSS.Target.Utils.GetCircleData = getCircleData
+TSS.Target.Utils.Call = callTarget
+TSS.Target.Utils.AddQbEntity = addQbEntity
+TSS.Target.Utils.AddQbModel = addQbModel
+TSS.Target.Utils.AddQbBox = addQbBox
+TSS.Target.Utils.AddQbCircle = addQbCircle
 
 local function getAdapter()
-    local system = getTargetSystem()
-    local resource = getTargetResource(system)
-
-    if not system or not resource or not adapters[system] then
+    local system, resource, adapter = registry:Resolve()
+    if not system or not resource or not adapter then
         TSS.Warn('No supported target system found')
         return nil, nil, nil
     end
-
-    if not TSS.IsStarted(resource) then
-        TSS.Warn(('Configured target is not started: %s'):format(resource))
-        return nil, nil, nil
-    end
-
-    return adapters[system], resource, system
+    return adapter, resource, system
 end
 
 --- Adds target options to one or more local entities.

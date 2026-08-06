@@ -1,7 +1,11 @@
 TSSModuleLoader.Define({
     name = 'Interaction',
     dependencies = { 'Targets', 'TextUI', 'Player', 'Inventory' },
-    files = { 'modules/interaction/shared.lua' },
+    files = {
+        'modules/interaction/shared.lua',
+        'modules/interaction/adapters/target.lua',
+        'modules/interaction/adapters/textui.lua',
+    },
     client = function(context)
         ---@type TSSInteractionModule
         local public = context.CopyFunctions(TSS.Interaction, { 'System', 'Supports' })
