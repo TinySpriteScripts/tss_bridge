@@ -9,11 +9,18 @@
 ---@alias TSSEntity number
 
 ---@class TSSModuleOptions
----@field strict? boolean Reserved for per-request module options.
+---@field Target? string Target provider for this resource.
+---@field Notify? string Notification provider for this resource.
+---@field ProgressBar? string Progress provider for this resource.
+---@field TextUI? string Text UI provider for this resource.
+---@field Interaction? string Interaction mode for this resource (target/textui/auto).
 
 ---@class TSSModuleContext
 ---@field Caller string Resource that requested the module.
 ---@field Options TSSModuleOptions Options supplied to `GetModules`.
+---@field Preference fun(key: string, preferred?: string): string? Returns the per-call or resource preference.
+---@field ProviderAPI fun(source: table, key: string): table Builds scoped System and Supports functions.
+---@field ProviderData fun(key: string, data?: table|string): table Copies display data with the resource preference.
 ---@field Realm 'client'|'server' Current runtime realm.
 ---@field CopyFunctions fun(source: table, names: string[]): table Copies named functions into a new public API table.
 ---@field OnStop fun(callback: fun()) Registers caller-scoped cleanup.
@@ -369,6 +376,7 @@
 ---@field HideProgress fun(source: integer): boolean
 
 ---@class TSSDebugModule
+---@field Print fun(...: any) Prints when bridge debugging is enabled, prefixed with the caller name.
 ---@field FormatLocationTable fun(entries: table[], tableName?: string): string
 ---@field FormatLocationTables fun(tables: table<string, table[]>, order?: string[]): string
 ---@field FormatChairTable fun(entries: table[], label?: string, icon?: string): string

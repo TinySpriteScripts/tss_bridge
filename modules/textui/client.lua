@@ -8,10 +8,10 @@ TSSModuleLoader.Define({
     },
     client = function(context)
         ---@type TSSTextUIClientModule
-        local public = context.CopyFunctions(TSS.TextUI, { 'System', 'Supports' })
+        local public = context.ProviderAPI(TSS.TextUI, 'TextUI')
 
         function public.Show(data)
-            return TSS.TextUI.Show(data, context.Caller)
+            return TSS.TextUI.Show(context.ProviderData('TextUI', data), context.Caller)
         end
 
         function public.Hide()

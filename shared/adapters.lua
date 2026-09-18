@@ -9,6 +9,18 @@ TSS.Adapters = TSS.Adapters or {}
 
 local registries = {}
 
+-- Server convars win over both per-resource and per-call preferences.
+function TSS.Adapters.Preference(key, preferred)
+    local convar = TSS.ProviderConvars and TSS.ProviderConvars[key]
+    if convar then
+        local forced = GlobalState and GlobalState.tssBridgeProviderOverrides
+        if not IsDuplicityVersion() and forced and forced[key] ~= nil then return forced[key] end
+        local value = GetConvar(convar, '__tss_unset__')
+        if value ~= '__tss_unset__' then return value end
+    end
+    return preferred or TSS.Config[key] or 'auto'
+end
+
 local function normalise(value)
     return type(value) == 'string' and value:lower() or value
 end
@@ -78,10 +90,10 @@ function TSS.Adapters.Create(moduleName, options)
         return adapter
     end
 
-    function registry:IsAvailable(entry)
+    function registry:IsAvailable(entry, context)
         if not entry then return false end
         if type(entry.available) == 'function' then
-            local ok, result = pcall(entry.available, entry.resource, entry.adapter)
+            local ok, result = pcall(entry.available, entry.resource, entry.adapter, context)
             return ok and result == true
         end
         return defaultAvailable(entry)
@@ -99,13 +111,13 @@ function TSS.Adapters.Create(moduleName, options)
     ---@return string? system
     ---@return string? resource
     ---@return table? adapter
-    function registry:Resolve(preferred)
-        local configured = normalise(preferred or TSS.Config[self.config] or 'auto')
+    function registry:Resolve(preferred, context)
+        local configured = normalise(TSS.Adapters.Preference(self.config, preferred))
 
         if configured ~= 'auto' then
             local key = self.aliases[configured] or configured
             local entry = self.entries[key]
-            if entry and self:IsAvailable(entry) then
+            if entry and self:IsAvailable(entry, context) then
                 return entry.key, entry.resource, entry.adapter
             end
 
@@ -120,7 +132,7 @@ function TSS.Adapters.Create(moduleName, options)
 
         for i = 1, #self.order do
             local entry = self.order[i]
-            if entry.auto and entry.key ~= self.fallback and self:IsAvailable(entry) then
+            if entry.auto and entry.key ~= self.fallback and self:IsAvailable(entry, context) then
                 return entry.key, entry.resource, entry.adapter
             end
         end
@@ -132,12 +144,12 @@ function TSS.Adapters.Create(moduleName, options)
     ---@param feature string
     ---@param preferred? string
     ---@return boolean supported
-    function registry:Supports(feature, preferred)
-        local _, _, adapter = self:Resolve(preferred)
+    function registry:Supports(feature, preferred, context)
+        local _, _, adapter = self:Resolve(preferred, context)
         if not adapter then return false end
 
         feature = tostring(feature or ''):lower()
-        if type(adapter.supports) == 'function' then return adapter.supports(feature) == true end
+        if type(adapter.supports) == 'function' then return adapter.supports(feature, context) == true end
         if type(adapter.supports) == 'table' then return adapter.supports[feature] == true end
         return type(adapter[feature]) == 'function'
     end

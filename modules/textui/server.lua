@@ -9,12 +9,12 @@ TSSModuleLoader.Define({
     server = function(context)
         local shown = {}
         ---@type TSSTextUIServerModule
-        local public = context.CopyFunctions(TSS.TextUI, { 'System', 'Supports' })
+        local public = context.ProviderAPI(TSS.TextUI, 'TextUI')
 
         function public.Show(source, data)
             if type(source) ~= 'number' then return false end
             shown[source] = true
-            return TSS.TextUI.Show(source, data, context.Caller)
+            return TSS.TextUI.Show(source, context.ProviderData('TextUI', data), context.Caller)
         end
 
         function public.Hide(source)

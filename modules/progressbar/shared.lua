@@ -4,6 +4,7 @@ TSS.Progress = TSS.Progress or {}
 TSS.Progress.Utils = TSS.Progress.Utils or {}
 
 local active = false
+local running
 local registry = TSS.Adapters.Create('ProgressBar', { config = 'ProgressBar', fallback = 'tss' })
 
 function TSS.Progress.RegisterAdapter(key, resource, adapter, options)
@@ -34,16 +35,18 @@ end
 --- Runs a progress action and waits until it completes or is cancelled.
 ---@param data TSSProgressData|table
 ---@return boolean completed
-function TSS.ProgressBar(data)
-    if active then return false end
+function TSS.ProgressBar(data, owner)
+    if running then return false end
     active = true
     data = data or {}
 
     local system, resource, adapter = registry:Resolve(data.adapter)
+    local action = { adapter = adapter, resource = resource, owner = owner }
+    running = action
     local ok, result = pcall(function()
         return adapter and adapter.start and adapter.start(resource, data) == true or false
     end)
-    active = false
+    if running == action then active, running = false, nil end
 
     if not ok then
         TSS.Warn(('Progress bar failed using %s: %s'):format(tostring(system), result))
@@ -54,10 +57,11 @@ end
 
 --- Cancels the active progress action.
 ---@return boolean stopped
-function TSS.StopProgressBar()
-    local _, resource, adapter = registry:Resolve()
+function TSS.StopProgressBar(owner)
+    local action = running
+    if not action or (owner and action.owner ~= owner) then return false end
     active = false
-    if adapter and adapter.stop then adapter.stop(resource) end
+    if action.adapter and action.adapter.stop then action.adapter.stop(action.resource) end
     return true
 end
 

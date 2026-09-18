@@ -81,7 +81,7 @@ end
 --- TSS.Notify.Send({ title = 'Inventory', description = 'Water added', type = 'success' })
 --- TSS.Notify.Send(source, { title = 'Inventory', description = 'Water added', type = 'success' })
 --- ```
-function TSS.Notify.Send(first, second, third, fourth, fifth)
+function TSS.Notify.Send(first, second, third, fourth, fifth, preferred)
     if TSS.IsServer() then
         local source, data
 
@@ -102,11 +102,14 @@ function TSS.Notify.Send(first, second, third, fourth, fifth)
             return false
         end
 
+        data.adapter = TSS.Adapters.Preference('Notify', data.adapter or preferred)
         TriggerClientEvent('tss_bridge:client:notify', source, data)
         return true
     end
 
-    return clientSend(normalize(first, second, third, fifth or fourth))
+    local data = normalize(first, second, third, fifth or fourth)
+    data.adapter = data.adapter or preferred
+    return clientSend(data)
 end
 
 --- Receives a validated server notification on the client transport.

@@ -8,10 +8,20 @@ TSSModuleLoader.Define({
     },
     client = function(context)
         ---@type TSSInteractionModule
-        local public = context.CopyFunctions(TSS.Interaction, { 'System', 'Supports' })
+        local targets = TSS.Target.CreateAPI(context.Preference('Target'))
+        local public = {}
+        function public.System(preferred)
+            return TSS.Interaction.System(context.Preference('Interaction', preferred), targets)
+        end
+        function public.Supports(feature, preferred)
+            return TSS.Interaction.Supports(feature, context.Preference('Interaction', preferred), targets)
+        end
 
         function public.Create(data)
-            return TSS.Interaction.Create(data, context.Caller)
+            if type(data) ~= 'table' then return nil end
+            local scoped = context.ProviderData('Interaction', data)
+            scoped.textUI = scoped.textUI or context.Preference('TextUI')
+            return TSS.Interaction.Create(scoped, context.Caller, targets)
         end
 
         function public.Remove(id)

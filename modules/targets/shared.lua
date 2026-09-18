@@ -5,11 +5,7 @@ TSS.Target.Utils = TSS.Target.Utils or {}
 
 local registry = TSS.Adapters.Create('Targets', { config = 'Target' })
 
-local tracked = {
-    entities = {},
-    models = {},
-    zones = {},
-}
+local scopedApis = {}
 
 local function first(...)
     for i = 1, select('#', ...) do
@@ -200,128 +196,71 @@ TSS.Target.Utils.AddQbModel = addQbModel
 TSS.Target.Utils.AddQbBox = addQbBox
 TSS.Target.Utils.AddQbCircle = addQbCircle
 
-local function getAdapter()
-    local system, resource, adapter = registry:Resolve()
-    if not system or not resource or not adapter then
-        TSS.Warn('No supported target system found')
-        return nil, nil, nil
+-- Each imported API owns its registrations and remembers the creating provider.
+function TSS.Target.CreateAPI(preferred)
+    local public = {}
+    local tracked = { entities = {}, models = {}, zones = {} }
+    -- Arrays cross resource exports by value, so table identity cannot identify them.
+    local function registrationKey(value)
+        if type(value) ~= 'table' then return value end
+        local keys = {}
+        for i = 1, #value do keys[i] = type(value[i]) .. ':' .. tostring(value[i]) end
+        table.sort(keys)
+        return 'list:' .. table.concat(keys, '|')
     end
-    return adapter, resource, system
-end
-
---- Adds target options to one or more local entities.
----@param entity TSSEntity|TSSEntity[] Entity handle or handles.
----@param options TSSTargetOption[]|TSSTargetOption Target options.
----@param distance? number Default interaction distance.
----@return any result Adapter result.
-function TSS.Target.Entity(entity, options, distance)
-    local adapter, resource = getAdapter()
-    if not adapter then return nil end
-
-    tracked.entities[entity] = true
-    return adapter.entity(resource, entity, options, distance)
-end
-
---- Adds target options to one or more models.
----@param models string|integer|(string|integer)[] Model name, hash, or list.
----@param options TSSTargetOption[]|TSSTargetOption Target options.
----@param distance? number Default interaction distance.
----@return any result Adapter result.
-function TSS.Target.Model(models, options, distance)
-    local adapter, resource = getAdapter()
-    if not adapter then return nil end
-
-    tracked.models[#tracked.models + 1] = models
-    return adapter.model(resource, models, options, distance)
-end
-
---- Creates a box target zone.
----@param data TSSTargetZoneData Zone definition.
----@param options TSSTargetOption[]|TSSTargetOption Target options.
----@param distance? number Default interaction distance.
----@return string|number? zone Adapter zone identifier.
-function TSS.Target.Box(data, options, distance)
-    local adapter, resource = getAdapter()
-    if not adapter then return nil end
-
-    local zone = adapter.box(resource, data, options, distance)
-    tracked.zones[#tracked.zones + 1] = zone
-
-    return zone
-end
-
---- Creates a circle or sphere target zone.
----@param data TSSTargetZoneData Zone definition.
----@param options TSSTargetOption[]|TSSTargetOption Target options.
----@param distance? number Default interaction distance.
----@return string|number? zone Adapter zone identifier.
-function TSS.Target.Circle(data, options, distance)
-    local adapter, resource = getAdapter()
-    if not adapter then return nil end
-
-    local zone = adapter.circle(resource, data, options, distance)
-    tracked.zones[#tracked.zones + 1] = zone
-
-    return zone
-end
-
---- Removes target options from one or more local entities.
----@param entity TSSEntity|TSSEntity[] Entity handle or handles.
----@return any result Adapter result.
-function TSS.Target.RemoveEntity(entity)
-    local adapter, resource = getAdapter()
-    if not adapter then return nil end
-
-    tracked.entities[entity] = nil
-    return adapter.removeEntity(resource, entity)
-end
-
---- Removes target options from one or more models.
----@param models string|integer|(string|integer)[] Model name, hash, or list.
----@return any result Adapter result.
-function TSS.Target.RemoveModel(models)
-    local adapter, resource = getAdapter()
-    if not adapter then return nil end
-
-    return adapter.removeModel(resource, models)
-end
-
---- Removes a target zone.
----@param zone string|number Adapter zone identifier.
----@return any result Adapter result.
-function TSS.Target.RemoveZone(zone)
-    local adapter, resource = getAdapter()
-    if not adapter then return nil end
-
-    return adapter.removeZone(resource, zone)
-end
-
---- Removes every target registered internally by this bridge instance.
-function TSS.Target.Clear()
-    local adapter, resource = getAdapter()
-    if not adapter then return end
-
-    for entity in pairs(tracked.entities) do
-        adapter.removeEntity(resource, entity)
-        tracked.entities[entity] = nil
+    function public.System(override)
+        local system, resource = registry:Resolve(override or preferred)
+        return system, resource
     end
-
-    for i = 1, #tracked.models do
-        adapter.removeModel(resource, tracked.models[i])
-        tracked.models[i] = nil
+    function public.Supports(feature, override)
+        return registry:Supports(feature, override or preferred)
     end
-
-    for i = 1, #tracked.zones do
-        if tracked.zones[i] then
-            adapter.removeZone(resource, tracked.zones[i])
+    local function add(kind, method, value, options, distance)
+        local _, resource, adapter = registry:Resolve(preferred)
+        if not adapter then TSS.Warn('No supported target system found'); return nil end
+        local result = adapter[method](resource, value, options, distance)
+        local key = kind == 'zones' and result or value
+        if key ~= nil then
+            local saved = key
+            if type(key) == 'table' then
+                saved = {}
+                for i = 1, #key do saved[i] = key[i] end
+            end
+            tracked[kind][registrationKey(key)] = { adapter = adapter, resource = resource, value = saved }
         end
-        tracked.zones[i] = nil
+        return result
     end
+    local function remove(kind, method, value)
+        local key = registrationKey(value)
+        local entry = tracked[kind][key]
+        if not entry then return end
+        tracked[kind][key] = nil
+        return entry.adapter[method](entry.resource, entry.value)
+    end
+    function public.Entity(entity, options, distance) return add('entities', 'entity', entity, options, distance) end
+    function public.Model(models, options, distance) return add('models', 'model', models, options, distance) end
+    function public.Box(data, options, distance) return add('zones', 'box', data, options, distance) end
+    function public.Circle(data, options, distance) return add('zones', 'circle', data, options, distance) end
+    function public.RemoveEntity(entity) return remove('entities', 'removeEntity', entity) end
+    function public.RemoveModel(models) return remove('models', 'removeModel', models) end
+    function public.RemoveZone(zone) return remove('zones', 'removeZone', zone) end
+    function public.Clear()
+        for _, entry in pairs(tracked.entities) do public.RemoveEntity(entry.value) end
+        for _, entry in pairs(tracked.models) do public.RemoveModel(entry.value) end
+        for _, entry in pairs(tracked.zones) do public.RemoveZone(entry.value) end
+    end
+    scopedApis[public] = true
+    return public
 end
+
+-- Weak keys allow an unused, cleaned consumer API to be collected.
+setmetatable(scopedApis, { __mode = 'k' })
+local defaultAPI = TSS.Target.CreateAPI()
+for name, fn in pairs(defaultAPI) do TSS.Target[name] = fn end
 
 AddEventHandler('onClientResourceStop', function(resource)
     if resource == GetCurrentResourceName() then
-        TSS.Target.Clear()
+        for api in pairs(scopedApis) do api.Clear() end
     end
 end)
 

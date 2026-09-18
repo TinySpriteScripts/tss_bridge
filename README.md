@@ -587,3 +587,35 @@ The loader test exercises both mocked realms and asserts that client projections
 lua tests/module_loader_spec.lua client <resource-path>
 lua tests/module_loader_spec.lua server <resource-path>
 ```
+
+### Per-resource presentation settings
+
+Pass your script's `Config.TSS` as the second argument on both client and server:
+
+```lua
+Config.TSS = {
+    Target = 'qb',
+    Notify = 'qb',
+    -- ProgressBar = 'ox',
+    -- TextUI = 'ox',
+    -- Interaction = 'target', -- target, textui, or auto
+}
+
+local TSS = exports.tss_bridge:GetModules({ 'Targets', 'Notify', 'Debug' }, Config.TSS)
+TSS.Notify.Send({ message = 'Saved', type = 'success' }) -- client
+TSS.Debug.Print('Saved a blip')
+```
+
+Only Target, Notify, ProgressBar, TextUI and Interaction accept these overrides.
+Inventory, Fuel and other gameplay providers remain bridge-wide. The config key
+is `Target` (singular); the imported module is `Targets` (plural).
+
+Selection order: explicit server convar, per-call `adapter` (where supported),
+`Config.TSS` supplied at import, bridge config, then automatic detection. Explicit
+`auto` requests automatic detection. Missing or unavailable providers retain each
+module's normal fallback behavior. Import settings are copied; restart the consumer
+after changing its config. They do not modify other resources' choices.
+
+Server provider convars are also replicated by the bridge. Restart the bridge after
+changing those convars. `TSS.Debug.Print(...)` uses the bridge's existing debug switch;
+use `setr tss_debug true` before startup to enable it on both client and server.

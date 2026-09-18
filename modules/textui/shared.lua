@@ -28,6 +28,8 @@ end
 
 local function clientShow(data, owner)
     data = normalize(data)
+    if activeAdapter and activeAdapter.hide then activeAdapter.hide(activeResource) end
+    active, activeOwner, activeAdapter, activeResource = nil, nil, nil, nil
     local system, resource, adapter = registry:Resolve(data.adapter)
     local ok = adapter and adapter.show and adapter.show(resource, data) == true
 
@@ -87,7 +89,9 @@ end
 function TSS.TextUI.Show(first, second, owner)
     if TSS.IsServer() then
         if type(first) ~= 'number' then return false end
-        TriggerClientEvent('tss_bridge:client:textui:show', first, normalize(second), owner)
+        local data = normalize(second)
+        data.adapter = TSS.Adapters.Preference('TextUI', data.adapter)
+        TriggerClientEvent('tss_bridge:client:textui:show', first, data, owner)
         return true
     end
     return clientShow(first, second)

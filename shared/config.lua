@@ -21,6 +21,21 @@ TSS.Config.DebugPolyzones = TSS.Config.Debug
 TSS.Config.DebugTools = TSS.Config.Debug
 TSS.Config.FadeEntities = TSS.Config.FadeEntities ~= false
 
+-- These presentation providers may be selected independently by each consumer.
+TSS.ProviderConvars = {
+    Target = 'tss_target', Notify = 'tss_notify', ProgressBar = 'tss_progressbar',
+    TextUI = 'tss_textui', Interaction = 'tss_interaction',
+}
+if IsDuplicityVersion() and GlobalState then
+    local forced = {}
+    for key, convar in pairs(TSS.ProviderConvars) do
+        local value = GetConvar(convar, '__tss_unset__')
+        if value ~= '__tss_unset__' then forced[key] = value end
+    end
+    -- Replicate server-only `set` overrides as well as `setr` overrides.
+    GlobalState.tssBridgeProviderOverrides = forced
+end
+
 TSS.Resources = {
     OxLib = 'ox_lib',
     QBCore = 'qb-core',

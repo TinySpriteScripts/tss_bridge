@@ -5,6 +5,9 @@ TSSModuleLoader.Define({
         local public = context.CopyFunctions(TSS.DebugTools, {
             'FormatLocationTable', 'FormatLocationTables', 'FormatChairTable',
         })
+        public.Print = function(...)
+            return TSS.Debug(('^7[%s]'):format(context.Caller), ...)
+        end
         public.SetEnabled = TSS.SetDebug
         return public
     end,

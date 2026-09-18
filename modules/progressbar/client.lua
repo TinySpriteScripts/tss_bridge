@@ -9,6 +9,12 @@ TSSModuleLoader.Define({
         'modules/progressbar/adapters/native.lua',
     },
     client = function(context)
-        return context.CopyFunctions(TSS.Progress, { 'System', 'Supports', 'Start', 'Stop' })
+        local public = context.ProviderAPI(TSS.Progress, 'ProgressBar')
+        function public.Start(data)
+            return TSS.Progress.Start(context.ProviderData('ProgressBar', data), context.Caller)
+        end
+        function public.Stop() return TSS.Progress.Stop(context.Caller) end
+        context.OnStop(public.Stop)
+        return public
     end,
 })

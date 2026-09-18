@@ -12,6 +12,10 @@ TSSModuleLoader.Define({
         'modules/notify/adapters/native.lua',
     },
     server = function(context)
-        return context.CopyFunctions(TSS.Notify, { 'System', 'Supports', 'Send' })
+        local public = context.ProviderAPI(TSS.Notify, 'Notify')
+        function public.Send(first, second, third, fourth, fifth)
+            return TSS.Notify.Send(first, second, third, fourth, fifth, context.Preference('Notify'))
+        end
+        return public
     end,
 })

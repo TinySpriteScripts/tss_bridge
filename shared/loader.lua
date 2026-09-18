@@ -185,7 +185,27 @@ local function availableModules()
 end
 
 local function createContext(caller, options)
+    local function preference(key, preferred)
+        return preferred or options[key]
+    end
     return {
+        Preference = preference,
+        ProviderAPI = function(source, key)
+            return {
+                System = function(preferred) return source.System(preference(key, preferred)) end,
+                Supports = function(feature, preferred) return source.Supports(feature, preference(key, preferred)) end,
+            }
+        end,
+        ProviderData = function(key, data)
+            local copy = {}
+            if type(data) == 'table' then
+                for field, value in pairs(data) do copy[field] = value end
+            elseif data ~= nil then
+                copy.text = tostring(data)
+            end
+            copy.adapter = preference(key, copy.adapter)
+            return copy
+        end,
         Caller = caller,
         Options = options,
         Realm = realm,
@@ -228,7 +248,7 @@ end
 --- server-only method such as `Banking.RemoveMoney`, even if it asks for `Banking`.
 ---
 ---@param requested string[] Names of the modules to expose to the calling resource.
----@param options? TSSModuleOptions Optional request settings reserved for compatible extensions.
+---@param options? TSSModuleOptions Per-resource presentation provider selections (for example Config.TSS).
 ---@return TSSClientModules|TSSServerModules modules A caller-scoped table containing only the requested modules.
 ---@usage
 --- ```lua
@@ -259,6 +279,19 @@ local function getModules(requested, options)
     if options ~= nil and type(options) ~= 'table' then
         error('[tss_bridge] GetModules options must be a table when provided', 2)
     end
+
+    -- Snapshot only the supported presentation settings; never override gameplay systems.
+    local settings = {}
+    for _, key in ipairs({ 'Target', 'Notify', 'ProgressBar', 'TextUI', 'Interaction' }) do
+        local value = options and options[key]
+        if value ~= nil then
+            if type(value) ~= 'string' or value == '' then
+                error(('[tss_bridge] GetModules option %s must be a non-empty adapter name'):format(key), 2)
+            end
+            settings[key] = value
+        end
+    end
+    options = settings
 
     local caller = GetInvokingResource()
     if not caller or caller == '' then caller = bridgeResource end

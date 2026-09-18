@@ -10,8 +10,8 @@ local nextId = 0
 local proximityThread = false
 local visibleEntry
 
-local function detect(preferred)
-    return registry:Resolve(preferred)
+local function detect(preferred, targets)
+    return registry:Resolve(preferred, targets)
 end
 
 function TSS.Interaction.RegisterAdapter(key, resource, adapter, options)
@@ -117,8 +117,8 @@ TSS.Interaction.Utils.StartProximity = startProximityThread
 ---@param preferred? string Adapter override for this interaction.
 ---@return string system
 ---@return string? resource
-function TSS.Interaction.System(preferred)
-    local system, resource = detect(preferred)
+function TSS.Interaction.System(preferred, targets)
+    local system, resource = detect(preferred, targets)
     return system, resource
 end
 
@@ -126,10 +126,10 @@ end
 ---@param feature string Feature such as `entity`, `coords`, `groups`, or `items`.
 ---@param preferred? string Adapter override for this check.
 ---@return boolean supported
-function TSS.Interaction.Supports(feature, preferred)
+function TSS.Interaction.Supports(feature, preferred, targets)
     feature = tostring(feature or ''):lower()
     if feature == 'callback' or feature == 'event' or feature == 'serverevent' then return true end
-    return registry:Supports(feature, preferred)
+    return registry:Supports(feature, preferred, targets)
 end
 
 --- Creates a target or proximity interaction owned by the calling resource.
@@ -144,12 +144,13 @@ end
 ---     onSelect = function() print('selected') end,
 --- })
 --- ```
-function TSS.Interaction.Create(data, owner)
+function TSS.Interaction.Create(data, owner, targets)
     if type(data) ~= 'table' then return nil end
     nextId = nextId + 1
 
     local entry = {
         id = nextId,
+        targets = targets or TSS.Target,
         owner = owner or GetCurrentResourceName(),
         system = nil,
         entity = data.entity,
@@ -173,7 +174,7 @@ function TSS.Interaction.Create(data, owner)
         args = data.args,
     }
 
-    local system, resource, adapter = detect(data.adapter)
+    local system, resource, adapter = detect(data.adapter, entry.targets)
     entry.system = system
     entry.adapter = adapter
     entry.adapterResource = resource
