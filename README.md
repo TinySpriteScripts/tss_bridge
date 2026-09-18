@@ -351,6 +351,56 @@ local hunger = TSS.Player.Metadata('hunger')
 local cash = TSS.Banking.GetAccount('cash')
 ```
 
+## Usable inventory items
+
+Register an existing item in **server code** using just the Inventory module:
+
+```lua
+local TSS = exports.tss_bridge:GetModules({ 'Inventory' })
+
+local registered, err = TSS.Inventory.CreateUseableItem('gps_beacon', function(source, item)
+    TriggerClientEvent('tss-blipcreator:client:OpenMenu', source)
+end)
+
+if not registered then error(('GPS registration failed: %s'):format(err)) end
+```
+
+`CreateUsableItem` is an alias with the alternate spelling. The item name is
+normalized to lowercase. This registers behavior; it does not create an item
+definition or remove an item. The callback receives a numeric player source and
+an item table with `name`, `metadata`/`info`, plus `slot` and `count`/`amount` when
+the provider supplies them. Other provider fields are retained. Callback return
+values are forwarded to the provider; their meaning remains provider-specific.
+
+Each item has one bridge consumer owner. A second resource cannot overwrite it;
+the same resource can replace its own callback. Stopping the consumer disables
+its callbacks and releases ownership. Providers without an unregister API may
+retain an inert bridge wrapper. Restart consumers after restarting the bridge,
+inventory or framework. Register after those dependencies have started.
+
+`TSS.Inventory.Supports('usable')` reports whether the adapter implements this
+feature. Registration still checks the actual framework/provider and can fail.
+Registration methods are absent from the client API.
+
+For **OX + ESX/Qbox**, use a plain item definition:
+
+```lua
+['gps_beacon'] = {
+    label = 'GPS Beacon',
+    weight = 100,
+    stack = false,
+    close = true,
+},
+```
+
+Omit `consume` (including `consume = 0`), native client use actions and server
+exports when using the framework callback path. Those settings select OX's own
+use pipeline instead. Stock OX with QBCore or no framework is not supported by
+this registration route; a QB-compatible OX fork requires separate verification.
+
+See [adapter routes and research notes](modules/inventory/USABLE_ITEMS.md) for
+all 13 providers, version limitations and source references.
+
 ## TextUI and Interaction
 
 TextUI supports ox, QB-Core and a native fallback:
@@ -423,6 +473,29 @@ TSS.Callbacks.Trigger(source, 'clientCheck', function(value, callbackError) end,
 ```
 
 Namespacing prevents collisions, not cheating. A client can request any server callback it knows, so every server callback must validate `source`, permissions, ownership, ranges and payload values. Requests are rate-limited and time out automatically.
+
+## Blips
+
+Request `Blips` on the client. Each module instance tracks the handles it creates
+and clears them when the consumer stops. `Update` changes only supplied options.
+
+```lua
+local TSS = exports.tss_bridge:GetModules({ 'Blips' })
+local blip = TSS.Blips.Create({
+    coords = vector3(25.7, -1347.3, 29.5),
+    label = 'Shop', sprite = 52, colour = 2, display = 2,
+})
+TSS.Blips.Update(blip, { display = 0 }) -- Hide without replacing the handle.
+TSS.Blips.Update(blip, { display = 2, route = true, routeColor = 2 })
+local coords = TSS.Blips.Coords(blip)
+local colour = TSS.Blips.Colour(blip)
+TSS.Blips.Remove(blip)
+```
+
+`Exists`, `Update`, `Coords` and `Colour` operate on this module instance's owned
+blips. `Clear()` removes all its blips. Options include `hiddenOnLegend`,
+`shortRange`, `category`, `scale`, `route` and `routeColor`; false and zero values
+are preserved. Creation supports either `coords` or `entity`.
 
 ## Vehicle keys and fuel
 

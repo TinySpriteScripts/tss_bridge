@@ -2,6 +2,11 @@
 local Utils = TSS.Inventory.Utils
 
 TSS.Inventory.RegisterAdapter('chezza', TSS.Resources.ChezzaInventory, {
+    -- Chezza Inventory v4 is an ESX inventory.
+    registerUsable = function(_, item, callback)
+        return Utils.RegisterFrameworkUsable(item, callback, { esx = true })
+    end,
+
     add = function(resource, source, item, amount, metadata, slot)
         return Utils.TryExports(resource, { 'AddItem', 'addItem', 'AddInventoryItem' }, source, item, amount or 1, slot, metadata)
     end,

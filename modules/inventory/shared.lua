@@ -81,15 +81,16 @@ function TSS.Inventory.System()
 end
 
 --- Reports whether the active inventory supports a bridge feature in this realm.
----@param feature 'add'|'remove'|'count'|'has'|'carry'|'player'|'items'|'stash'|'open'|'close'|string
+---@param feature 'add'|'remove'|'count'|'has'|'carry'|'player'|'items'|'stash'|'open'|'close'|'usable'|string
 ---@return boolean supported
 function TSS.Inventory.Supports(feature)
     local _, _, adapter = getAdapter()
     feature = tostring(feature or ''):lower()
-    if TSS.IsClient() and (feature == 'add' or feature == 'remove' or feature == 'carry' or feature == 'stash') then
+    if TSS.IsClient() and (feature == 'add' or feature == 'remove' or feature == 'carry' or feature == 'stash' or feature == 'usable' or feature == 'useable') then
         return false
     end
     local methods = {
+        usable = 'registerUsable', useable = 'registerUsable',
         add = 'add', remove = 'remove', count = 'count', has = 'count', carry = 'canCarry',
         player = 'inventory', items = 'items', stash = 'registerStash', open = 'openInventory', close = 'close',
     }

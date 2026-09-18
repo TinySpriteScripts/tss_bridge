@@ -2,6 +2,17 @@
 local Utils = TSS.Inventory.Utils
 
 TSS.Inventory.RegisterAdapter('ox', TSS.Resources.OxInventory, {
+    registerUsable = function(resource, item, callback)
+        local ok, definition = Utils.CallExport(resource, 'Items', item)
+        if not ok or type(definition) ~= 'table' then return false, 'item_not_defined' end
+        -- OX's native use/consume pipeline takes precedence over framework callbacks.
+        -- A simple framework-usable item must omit consume and native use exports.
+        if (definition.consume ~= nil and definition.consume ~= false) or definition.cb then
+            return false, 'ox_item_uses_native_handler: remove consume/client use actions/server export for framework registration'
+        end
+        return Utils.RegisterFrameworkUsable(item, callback, { esx = true, qbox = true })
+    end,
+
     add = function(resource, source, item, amount, metadata, slot)
         return Utils.TryExports(resource, { 'AddItem' }, source, item, amount or 1, metadata, slot)
     end,

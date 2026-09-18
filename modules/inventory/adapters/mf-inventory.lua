@@ -2,6 +2,13 @@
 local Utils = TSS.Inventory.Utils
 
 TSS.Inventory.RegisterAdapter('mf', TSS.Resources.MfInventory, {
+    registerUsable = function(_, item, callback)
+        -- MF changes ESX's callback to (source, removeCallback, item).
+        return Utils.RegisterFrameworkUsable(item, function(source, removeCallback, itemData)
+            return callback(source, itemData, removeCallback)
+        end, { esx = true })
+    end,
+
     add = function(resource, source, item, amount, metadata, slot)
         return Utils.TryExports(resource, { 'AddItem', 'addItem', 'AddInventoryItem' }, source, item, amount or 1, slot, metadata)
     end,

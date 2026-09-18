@@ -2,6 +2,10 @@
 local Utils = TSS.Inventory.Utils
 
 TSS.Inventory.RegisterAdapter('tss', TSS.Resources.TssInventory, {
+    registerUsable = function(resource, item, callback)
+        return Utils.RegisterUsableExport(resource, 'CreateUseableItem', item, callback)
+    end,
+
     add = function(resource, source, item, amount, metadata, slot, reason)
         return Utils.TryExports(resource, { 'AddItem', 'addItem' }, source, item, amount or 1, metadata, slot, reason)
     end,

@@ -2,6 +2,11 @@
 local Utils = TSS.Inventory.Utils
 
 TSS.Inventory.RegisterAdapter('qb', TSS.Resources.QbInventory, {
+    -- This inventory uses the selected framework's usable-item registry.
+    registerUsable = function(_, item, callback)
+        return Utils.RegisterFrameworkUsable(item, callback)
+    end,
+
     add = function(resource, source, item, amount, metadata, slot, reason)
         return Utils.TryExports(resource, { 'AddItem' }, source, item, amount or 1, slot or false, metadata or false, reason or 'tss_inventory')
     end,

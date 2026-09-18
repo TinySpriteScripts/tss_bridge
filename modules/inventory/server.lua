@@ -17,12 +17,33 @@ local files = {
 
 TSSModuleLoader.Define({
     name = 'Inventory',
+    dependencies = { 'Framework' },
     files = files,
+    serverFiles = { 'modules/inventory/usable.lua', 'modules/inventory/framework_usable.lua' },
     server = function(context)
         ---@type TSSInventoryServerModule
         local Inventory = context.CopyFunctions(TSS.Inventory, {
             'System', 'Supports', 'Count', 'Has', 'Player', 'Items', 'Open', 'OpenStash', 'Close',
         })
+
+        local stopped = false
+        context.OnStop(function()
+            stopped = true
+            TSS.Inventory._ClearUseableItems(context.Caller)
+        end)
+
+        --- Registers an existing item for server-side use; does not consume it.
+        ---@param item string Existing inventory item name.
+        ---@param callback fun(source: integer, item: TSSUsedItem) Runs when the inventory uses the item.
+        ---@return boolean registered
+        ---@return string? error Registration failure reason.
+        function Inventory.CreateUseableItem(item, callback)
+            if stopped then return false, 'consumer_stopped' end
+            return TSS.Inventory._CreateUseableItem(context.Caller, item, callback)
+        end
+
+        --- Alternate spelling of CreateUseableItem.
+        Inventory.CreateUsableItem = Inventory.CreateUseableItem
 
         --- Adds an item to a player's inventory.
         ---@param source integer Server player ID.

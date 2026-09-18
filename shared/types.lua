@@ -96,12 +96,23 @@
 ---@field item? string|string[]|table<string, integer>
 
 ---@class TSSBlipData
----@field coords vector3|table Blip coordinates.
+---@field coords? vector3|table Blip coordinates (required for coordinate creation; optional on update).
+---@field pos? vector3|table Alias of coords.
+---@field entity? integer Entity to attach a new blip to.
 ---@field sprite? integer Sprite ID.
----@field colour? integer Colour ID.
+---@field color? integer Colour ID.
+---@field colour? integer Alias of color.
+---@field col? integer Alias of color.
 ---@field scale? number Display scale.
----@field label? string Map label.
+---@field name? string Map label.
+---@field label? string Alias of name.
 ---@field shortRange? boolean Whether the blip is only visible nearby.
+---@field display? integer Display mode, including 0 to hide.
+---@field disp? integer Alias of display.
+---@field category? integer Legend category.
+---@field hiddenOnLegend? boolean Hide the blip from the map legend.
+---@field route? boolean Enable or disable a GPS route.
+---@field routeColor? integer GPS route colour ID.
 
 ---@class TSSEntityCreateData
 ---@field model string|integer Model name or hash.
@@ -211,7 +222,17 @@
 ---@field OpenStash fun(id: string, data?: TSSStashData): boolean
 ---@field Close fun(): boolean
 
+---@class TSSUsedItem
+---@field name string Registered item name.
+---@field metadata table Metadata (normalized from metadata or info).
+---@field info table Alias of metadata.
+---@field slot? integer Provider slot, when supplied.
+---@field count? number Provider count, when supplied.
+---@field amount? number Alias of count.
+
 ---@class TSSInventoryServerModule
+---@field CreateUseableItem fun(item: string, callback: fun(source: integer, item: TSSUsedItem)): registered: boolean, error: string?
+---@field CreateUsableItem fun(item: string, callback: fun(source: integer, item: TSSUsedItem)): registered: boolean, error: string?
 ---@field System fun(): system?: string, resource?: string
 ---@field Supports fun(feature: string): boolean
 ---@field Add fun(source: integer, item: string, amount?: integer, metadata?: table, slot?: integer, reason?: string): boolean
@@ -272,6 +293,10 @@
 ---@field Set fun(vehicle: TSSEntity, amount: number): boolean
 
 ---@class TSSBlipsModule
+---@field Exists fun(blip?: integer): boolean Checks this consumer's blips.
+---@field Update fun(blip: integer, data: TSSBlipData): boolean Changes supplied properties only.
+---@field Coords fun(blip: integer): vector3|nil
+---@field Colour fun(blip: integer): integer|nil
 ---@field Create fun(data: TSSBlipData): blip?: integer
 ---@field CreateEntity fun(data: TSSBlipData): blip?: integer Alias for `Create`.
 ---@field Remove fun(blip: integer)

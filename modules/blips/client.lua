@@ -14,7 +14,29 @@ TSSModuleLoader.Define({
 
         public.CreateEntity = public.Create
 
+        --- Reports whether this consumer's blip still exists.
+        function public.Exists(blip)
+            return blip ~= nil and owned[blip] == true and DoesBlipExist(blip)
+        end
+
+        --- Updates supplied options without replacing the blip handle.
+        function public.Update(blip, data)
+            if not public.Exists(blip) then return false end
+            return TSS.UpdateBlip(blip, data)
+        end
+
+        --- Returns coordinates for a blip owned by this consumer.
+        function public.Coords(blip)
+            if public.Exists(blip) then return GetBlipCoords(blip) end
+        end
+
+        --- Returns the colour ID for a blip owned by this consumer.
+        function public.Colour(blip)
+            if public.Exists(blip) then return GetBlipColour(blip) end
+        end
+
         function public.Remove(blip)
+            if blip == nil then return end
             owned[blip] = nil
             return TSS.RemoveBlip(blip)
         end

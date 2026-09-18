@@ -2,6 +2,11 @@
 local Utils = TSS.Inventory.Utils
 
 TSS.Inventory.RegisterAdapter('codem', TSS.Resources.CodemInventory, {
+    -- This inventory uses the selected framework's usable-item registry.
+    registerUsable = function(_, item, callback)
+        return Utils.RegisterFrameworkUsable(item, callback)
+    end,
+
     add = function(resource, source, item, amount, metadata, slot)
         return Utils.TryExports(resource, { 'AddItem', 'addItem', 'AddInventoryItem' }, source, item, amount or 1, slot, metadata)
     end,
