@@ -195,9 +195,14 @@ local function createContext(caller, options)
                 error('[tss_bridge] Module cleanup callback must be a function', 0)
             end
 
-            AddEventHandler(realm == 'server' and 'onResourceStop' or 'onClientResourceStop', function(resource)
-                if resource == caller then callback() end
-            end)
+            local cleaned = false
+            local function cleanup(resource)
+                if resource ~= caller or cleaned then return end
+                cleaned = true
+                callback()
+            end
+            AddEventHandler('onResourceStop', cleanup)
+            if realm == 'client' then AddEventHandler('onClientResourceStop', cleanup) end
         end,
     }
 end
@@ -220,7 +225,7 @@ end
 --- Returns only the requested modules that are valid for the current realm.
 ---
 --- Client and server module registries are separate. A client cannot request a
---- server-only method such as `Money.Remove`, even if it asks for `Money`.
+--- server-only method such as `Banking.RemoveMoney`, even if it asks for `Banking`.
 ---
 ---@param requested string[] Names of the modules to expose to the calling resource.
 ---@param options? TSSModuleOptions Optional request settings reserved for compatible extensions.

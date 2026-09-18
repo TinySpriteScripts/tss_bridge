@@ -26,7 +26,7 @@ assert(lastMessage.payload.kind == 'api' and lastMessage.payload.moduleCount > 1
 
 local money
 for _, module in ipairs(lastMessage.payload.modules) do
-    if module.name == 'Money' then money = module break end
+    if module.name == 'Banking' then money = module break end
 end
 assert(money)
 local add

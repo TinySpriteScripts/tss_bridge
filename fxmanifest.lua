@@ -31,6 +31,7 @@ client_scripts {
     'shared/export.lua',
     'bridge_lab/client/polyzone_creator.lua',
     'bridge_lab/client/prop_attachment_creator.lua',
+    'bridge_lab/client/ped_spawner.lua',
     'bridge_lab/client/tool_browser.lua',
     'bridge_lab/client/main.lua',
 }
@@ -42,6 +43,7 @@ server_scripts {
     'bridge_lab/configuration.lua',
     'bridge_lab/polyzone_storage.lua',
     'bridge_lab/attachment_storage.lua',
+    'bridge_lab/ped_storage.lua',
     'bridge_lab/server/main.lua',
 }
 

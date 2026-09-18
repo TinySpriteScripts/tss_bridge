@@ -11,6 +11,8 @@ TSS.Config.TextUI = GetConvar('tss_textui', TSS.Config.TextUI or 'auto')
 TSS.Config.Interaction = GetConvar('tss_interaction', TSS.Config.Interaction or 'auto')
 TSS.Config.VehicleKeys = GetConvar('tss_vehiclekeys', TSS.Config.VehicleKeys or 'auto')
 TSS.Config.Fuel = GetConvar('tss_fuel', TSS.Config.Fuel or 'auto')
+TSS.Config.Banking = GetConvar('tss_banking', TSS.Config.Banking or 'auto')
+TSS.Config.Billing = GetConvar('tss_billing', TSS.Config.Billing or 'auto')
 TSS.Config.Locale = GetConvar('tss_locale', TSS.Config.Locale or 'en')
 TSS.Config.CallbackTimeout = tonumber(GetConvar('tss_callback_timeout', tostring(TSS.Config.CallbackTimeout or 10000))) or 10000
 TSS.Config.CallbackTimeout = math.max(1000, math.min(120000, TSS.Config.CallbackTimeout))
@@ -24,6 +26,23 @@ TSS.Resources = {
     QBCore = 'qb-core',
     Qbox = 'qbx_core',
     ESX = 'es_extended',
+    -- Management
+    TssBossMenu = 'tss-bossmenu',
+    QbManagement = 'qb-management',
+    QboxManagement = 'qbx_management',
+    -- Billing
+    JimPayments = 'jim-payments',
+    OkokBilling = 'okokBilling',
+    TggBilling = 'tgg-billing',
+    CodemBilling = 'codem-billing',
+    -- Banking
+    RenewedBanking = 'Renewed-Banking',
+    FdBanking = 'fd_banking',
+    OkokBanking = 'okokBanking',
+    TgiannBank = 'tgiann-bank',
+    QbBanking = 'qb-banking',
+    EsxSociety = 'esx_society',
+    WasabiBanking = 'wasabi_banking',
     -- Notifications
     OkokNotify = 'okokNotify',
     MythicNotify = 'mythic_notify',

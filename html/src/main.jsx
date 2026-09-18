@@ -25,6 +25,7 @@ function App() {
   const [dialog, setDialog] = useState(null);
   const [zoneCreator, setZoneCreator] = useState(null);
   const [attachmentCreator, setAttachmentCreator] = useState(null);
+  const [pedSpawner, setPedSpawner] = useState(null);
   const [bridgeLabBrowser, setBridgeLabBrowser] = useState(null);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function App() {
       if (data.action === 'closeUi') setDialog(null);
       if (data.action === 'zoneCreator') setZoneCreator(data.payload || null);
       if (data.action === 'attachmentCreator') setAttachmentCreator(data.payload || null);
+      if (data.action === 'pedSpawner') setPedSpawner(data.payload || null);
       if (data.action === 'bridgeLabBrowser') setBridgeLabBrowser(data.payload || null);
     };
 
@@ -66,12 +68,24 @@ function App() {
       {debugUi.visible && <LocationDebugPanel data={debugUi} />}
       {zoneCreator?.visible && <ZoneCreatorPanel data={zoneCreator} />}
       {attachmentCreator?.visible && <AttachmentCreatorPanel data={attachmentCreator} />}
+      {pedSpawner?.visible && <PedSpawnerPanel data={pedSpawner} />}
       {bridgeLabBrowser?.visible && <BridgeLabBrowser data={bridgeLabBrowser} />}
       {dialog && <BridgeDialog data={dialog} onClose={() => setDialog(null)} />}
       <NoticeStack notices={notices} />
       {progress && <ProgressBar data={progress} />}
     </div>
   );
+}
+
+function PedSpawnerPanel({ data }) {
+  return <section className="zone-creator-panel ped-spawner-panel">
+    <div className="zone-creator-accent" />
+    <header><div><span>Ped Spawner</span><h2>{data.model || 'Ped placement'}</h2></div><div className="zone-mode"><Crosshair size={14} />{data.mode || 'MOVE'}</div></header>
+    <div className="zone-type">{data.behaviour}<strong>{data.count || 0} placed</strong></div>
+    <div className="zone-metrics">{(data.metrics || []).map((metric) => <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>
+    {data.message && <div className="zone-message">{data.message}</div>}
+    <div className="zone-help">{(data.help || []).map((line) => <p key={line}><MousePointerClick size={13} />{line}</p>)}</div>
+  </section>;
 }
 
 function AttachmentCreatorPanel({ data }) {
@@ -393,6 +407,7 @@ function iconFor(name) {
     mutations: RotateCcw,
     notify: Bell,
     polyzone: Map,
+    ped: CircleDot,
     prop: Package,
     save: Save,
     server: Server,

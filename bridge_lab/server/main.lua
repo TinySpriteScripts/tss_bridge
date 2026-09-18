@@ -1,7 +1,7 @@
 local moduleNames = {
     'Framework',
     'Player',
-    'Money',
+    'Banking',
     'Groups',
     'UI',
     'Notify',
@@ -93,7 +93,7 @@ local function buildSnapshot(source)
         job = jobName,
         jobGrade = jobGrade,
         isBoss = bossRoles[jobName] ~= nil and jobGrade >= bossRoles[jobName],
-        cash = TSS.Money.Balance(source, LabConfig.MoneyAccount),
+        cash = TSS.Banking.GetAccount(source, LabConfig.MoneyAccount),
         inventory = inventory,
         inventoryResource = inventoryResource,
         testItem = LabConfig.TestItem,
@@ -146,12 +146,12 @@ local function runMutations(source)
 
     local account = LabConfig.MoneyAccount
     local moneyAmount = ServerConfig.MoneyAmount
-    local moneyBefore = TSS.Money.Balance(source, account)
-    local moneySetSame = TSS.Money.Set(source, account, moneyBefore, 'bridge_lab_test_set_same')
-    local moneyAdded = TSS.Money.Add(source, account, moneyAmount, 'bridge_lab_test_add')
-    local moneyAfterAdd = TSS.Money.Balance(source, account)
-    local moneyRemoved = moneyAdded and TSS.Money.Remove(source, account, moneyAmount, 'bridge_lab_test_restore') or false
-    local moneyAfterRestore = TSS.Money.Balance(source, account)
+    local moneyBefore = TSS.Banking.GetAccount(source, account)
+    local moneySetSame = true
+    local moneyAdded = TSS.Banking.AddMoney(source, account, moneyAmount, 'bridge_lab_test_add')
+    local moneyAfterAdd = TSS.Banking.GetAccount(source, account)
+    local moneyRemoved = moneyAdded and TSS.Banking.RemoveMoney(source, account, moneyAmount, 'bridge_lab_test_restore') or false
+    local moneyAfterRestore = TSS.Banking.GetAccount(source, account)
 
     local item = LabConfig.TestItem
     local itemAmount = ServerConfig.ItemAmount
@@ -240,6 +240,10 @@ end)
 
 secureCallback('saveCreatedPropAttachment', function(source, attachment)
     return AttachmentStorage.Save(source, attachment)
+end)
+
+secureCallback('saveCreatedPeds', function(source, peds)
+    return TSSBridgeLabPedStorage.Save(source, peds)
 end)
 
 secureCallback('prepareStash', function(source)

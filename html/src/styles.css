@@ -626,6 +626,8 @@ body,
 .zone-creator-panel h2 { margin: 5px 0 0; color: #fff; font-size: 21px; font-weight: 500; }
 .zone-mode { min-height: 28px; padding: 0 9px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,46,46,.36); border-radius: 999px; background: rgba(145,15,15,.17); color: #ff6666; font-size: 10px; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
 .zone-type { margin-top: 8px; color: rgba(255,255,255,.38); font-size: 12px; text-transform: uppercase; }
+.ped-spawner-panel .zone-type { display: flex; justify-content: space-between; gap: 18px; }
+.ped-spawner-panel .zone-type strong { color: #ff3b3b; font-size: 11px; white-space: nowrap; }
 .zone-metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 18px; }
 .zone-metrics > div { min-width: 0; padding: 10px; border: 1px solid rgba(255,255,255,.075); border-radius: 6px; background: rgba(255,255,255,.025); }
 .zone-metrics span, .zone-metrics strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

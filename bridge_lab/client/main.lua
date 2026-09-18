@@ -1,7 +1,7 @@
 local moduleNames = {
     'Framework',
     'Player',
-    'Money',
+    'Banking',
     'Groups',
     'UI',
     'Notify',
@@ -35,6 +35,7 @@ end
 local TSS
 local LabConfig = TSSBridgeLabConfig
 local PolyZoneCreator = TSSBridgeLabPolyZoneCreator
+local PedSpawner = TSSBridgeLabPedSpawner
 local ToolBrowser = TSSBridgeLabToolBrowser
 
 local lab = {
@@ -55,6 +56,7 @@ local openFeedbackMenu
 local openGameplayMenu
 local openToolsMenu
 local openPolyZoneMenu
+local openPedSpawnerMenu
 
 local function notify(message, notifyType, title)
     return TSS.Notify.Send({
@@ -476,9 +478,9 @@ local function runAudit()
             local job = TSS.Player.Job()
             return job and TSS.Player.HasGroup(job.name) or false
         end, function(value) return value == true end)
-        check('Money.Balance', function() return TSS.Money.Balance(LabConfig.MoneyAccount) end,
+        check('Banking.GetAccount', function() return TSS.Banking.GetAccount(LabConfig.MoneyAccount) end,
             function(value) return type(value) == 'number' end)
-        check('Money.Has', function() return TSS.Money.Has(LabConfig.MoneyAccount, 0) end,
+        check('Banking.GetAccount', function() return TSS.Banking.GetAccount(LabConfig.MoneyAccount) >= 0 end,
             function(value) return type(value) == 'boolean' end)
         check('Groups.BossRoles', function()
             local job = TSS.Player.Job()
@@ -509,7 +511,7 @@ local function runAudit()
         check('Locale.Language', TSS.Locale.Language, function(value) return type(value) == 'string' end)
         check('Locale.Exists', function() return TSS.Locale.Exists('callback_timeout') end,
             function(value) return value == true end)
-        check('Capabilities.Module', function() return TSS.Capabilities.Module('Money') end,
+        check('Capabilities.Module', function() return TSS.Capabilities.Module('Banking') end,
             function(value) return value == true end)
         check('Capabilities.Resource', function() return TSS.Capabilities.Resource('tss_bridge') end,
             function(value) return value == true end)
@@ -566,7 +568,7 @@ local function initialiseLab()
             framework = framework or 'none',
             inventory = inventory or 'none',
             playerName = TSS.Player.Name() or GetPlayerName(PlayerId()) or 'unknown',
-            money = TSS.Money.Balance(LabConfig.MoneyAccount),
+            money = TSS.Banking.GetAccount(LabConfig.MoneyAccount),
             locale = TSS.Locale.Language(),
             resource = TSS.World.ResourceName(),
             labActive = lab.active,
@@ -844,6 +846,51 @@ openPolyZoneMenu = function()
     end)
 end
 
+local function requestPedSpawner()
+    TSS.UI.Input({
+        label = 'Bridge Lab / Ped Spawner',
+        title = 'Create Peds',
+        description = 'Enter a ped model and optionally a scenario or animation. Animation takes priority when both are supplied.',
+        confirmLabel = 'Start Gizmo',
+        fields = {
+            { name = 'model', label = 'Ped model', value = LabConfig.PedModel or 'a_m_m_business_01', placeholder = 'a_m_m_business_01' },
+            { name = 'scenario', label = 'Scenario (optional)', value = LabConfig.PedScenario or '', placeholder = 'WORLD_HUMAN_CLIPBOARD' },
+            { name = 'dict', label = 'Animation dictionary (optional)', value = '', placeholder = 'amb@world_human_clipboard@male@idle_a' },
+            { name = 'clip', label = 'Animation clip (optional)', value = '', placeholder = 'idle_c' },
+        },
+    }, function(result)
+        if not result then return openToolsMenu() end
+        local values = result.values or {}
+        -- A plain `restart` keeps FiveM's existing resource metadata. Resolve the
+        -- creator again here so a refreshed manifest is picked up safely.
+        PedSpawner = PedSpawner or TSSBridgeLabPedSpawner
+        if type(PedSpawner) ~= 'table' or type(PedSpawner.Start) ~= 'function' then
+            notify('Ped Spawner module is not loaded. Run `refresh`, then `restart tss_bridge` in the server console.',
+                'error', 'Ped Spawner')
+            return openToolsMenu()
+        end
+        local started, startError = PedSpawner.Start(values, {
+            onSave = function(peds)
+                local response, callbackError = TSS.Callbacks.Await('saveCreatedPeds', 7000, peds)
+                if type(response) == 'table' and response.success then
+                    notify(response.message, 'success', 'Peds Saved')
+                else
+                    notify(type(response) == 'table' and response.error or callbackError or 'Unable to save peds.', 'error', 'Ped Save Failed')
+                end
+                openToolsMenu()
+            end,
+            onCancel = function()
+                notify('Ped draft deleted. Nothing was saved.', 'inform', 'Ped Spawner')
+                openToolsMenu()
+            end,
+        })
+        if not started then
+            notify(startError or 'Unable to start Ped Spawner.', 'error', 'Ped Spawner')
+            openToolsMenu()
+        end
+    end)
+end
+
 local function openApiExplorer()
     local opened, browserError = ToolBrowser.OpenApi(openToolsMenu)
     if not opened then
@@ -941,6 +988,13 @@ openToolsMenu = function()
                 badge = 'AVAILABLE',
             },
             {
+                label = 'Ped Spawner',
+                description = 'Choose a model and idle behaviour, then position one or more peds with a 3D gizmo.',
+                value = 'ped_spawner',
+                icon = 'ped',
+                badge = 'MULTI-PED',
+            },
+            {
                 label = 'Prop Attachment Creator',
                 description = 'Attach a prop to a ped bone, then position and rotate it with local gizmos.',
                 value = 'prop_attachment',
@@ -976,6 +1030,7 @@ openToolsMenu = function()
         handleMenuResult(result, openMainMenu, {
             spawn = spawnLab,
             polyzone = openPolyZoneMenu,
+            ped_spawner = requestPedSpawner,
             prop_attachment = requestPropAttachment,
             api_explorer = openApiExplorer,
             item_browser = openItemBrowser,
@@ -1013,7 +1068,7 @@ openMainMenu = function()
                 description = 'Deploy the lab yard and access upcoming creation tools.',
                 value = 'tools',
                 icon = 'tools',
-                badge = lab.active and 'YARD ACTIVE' or '6 TOOLS',
+                badge = lab.active and 'YARD ACTIVE' or '7 TOOLS',
             },
         },
     }, function(result)

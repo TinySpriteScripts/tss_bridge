@@ -167,6 +167,12 @@ end
 ---@param data? table|string|number Inventory-specific data on the server.
 ---@return boolean opened
 function TSS.Inventory.Open(source, invType, data)
+    if TSS.IsClient() and type(source) == 'string' then
+        data = invType
+        invType = source
+        source = nil
+    end
+
     local _, resource, adapter = getAdapter()
     if not adapter then return false end
     return adapter.openInventory(resource, source, invType, data) == true
@@ -181,6 +187,10 @@ function TSS.Inventory.OpenStash(source, id, data)
     if type(source) == 'table' then
         data = source
         id = data.id or data.name or data.stash
+        source = nil
+    elseif TSS.IsClient() and type(source) == 'string' then
+        data = type(id) == 'table' and id or data
+        id = source
         source = nil
     end
 

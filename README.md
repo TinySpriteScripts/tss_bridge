@@ -31,7 +31,7 @@ local TSS = exports.tss_bridge:GetModules({
 local TSS = exports.tss_bridge:GetModules({
     'Framework',
     'Player',
-    'Money',
+    'Banking',
     'Inventory',
     'Notify',
 })
@@ -56,7 +56,7 @@ local TSS = exports.tss_bridge:GetModules({ 'Notify', 'Interaction' })
 ```lua
 -- server/main.lua
 ---@type TSSServerModules
-local TSS = exports.tss_bridge:GetModules({ 'Callbacks', 'Money', 'Inventory' })
+local TSS = exports.tss_bridge:GetModules({ 'Callbacks', 'Banking', 'Inventory' })
 ```
 
 Each public function also has an EmmyLua/LuaLS documentation block in its
@@ -118,7 +118,8 @@ before attempting to edit a previously convar-controlled setting.
 | --- | --- | --- |
 | `Framework` | Framework detection and current player data | Framework detection and player lookup |
 | `Player` | Read-only current player data | Read-only player lookup and permissions |
-| `Money` | `Balance`, `Has` | `Balance`, `Has`, `Add`, `Remove`, `Set` |
+| `Banking` | Player account reads and provider detection | Player mutations and society accounts |
+| `Billing` | Opens the selected billing interface | Unavailable |
 | `Inventory` | Read/open operations | Read, mutation, stash and open operations |
 | `Notify` | Adapter selection and local notifications | Notifications delivered to a player source |
 | `TextUI` | Local show/hide/state | Show/hide for a player source |
@@ -171,7 +172,7 @@ modules/
         â””â”€â”€ native.lua
 ```
 
-Framework, Inventory, Money, Groups, Fuel, Notify, ProgressBar, Targets,
+Framework, Inventory, Banking, Billing, Groups, Fuel, Notify, ProgressBar, Targets,
 Interaction, TextUI and VehicleKeys all share the same adapter registry. The
 registry handles aliases, config selection, priority-based auto detection,
 availability checks and fallbacks. Public module files only normalize arguments
@@ -316,37 +317,38 @@ TSS.Notify.Send('Inventory', 'Water added', 'success')
 TSS.Notify.Send('Inventory', 'Water added', 'success', source, 5000) -- server
 ```
 
-## Framework, Player and Money
+## Framework, Player, Banking and Billing
 
 Framework adapters support QB-Core, Qbox and ESX.
 
 ```lua
-local TSS = exports.tss_bridge:GetModules({ 'Framework', 'Player', 'Money' })
+local TSS = exports.tss_bridge:GetModules({ 'Framework', 'Player', 'Banking' })
 
 local framework, resource = TSS.Framework.System()
 local playerData = TSS.Player.Data(source)
 local citizenId = TSS.Player.Identifier(source, 'citizenid')
 local job = TSS.Player.Job(source)
 local isPolice = TSS.Player.HasGroup(source, { police = 2 })
-local cash = TSS.Money.Balance(source, 'cash')
+local cash = TSS.Banking.GetAccount(source, 'cash')
 ```
 
-Money mutations are server-only and validate sources and amounts:
+Player and society mutations are server-only and validate amounts:
 
 ```lua
-if TSS.Money.Has(source, 'cash', 500) then
-    TSS.Money.Remove(source, 'cash', 500, 'shop_purchase')
+if TSS.Banking.GetAccount(source, 'cash') >= 500 then
+    TSS.Banking.RemoveMoney(source, 'cash', 500, 'shop_purchase')
 end
 
-TSS.Money.Add(source, 'bank', 1000, 'mission_reward')
+TSS.Banking.AddMoney(source, 'bank', 1000, 'mission_reward')
+TSS.Banking.FundSociety('police', 1000, 'job', 'mission_reward')
 ```
 
-Client Player and Money calls omit `source`:
+Client player-account calls omit `source`:
 
 ```lua
 local citizenId = TSS.Player.Identifier('citizenid')
 local hunger = TSS.Player.Metadata('hunger')
-local cash = TSS.Money.Balance('cash')
+local cash = TSS.Banking.GetAccount('cash')
 ```
 
 ## TextUI and Interaction
@@ -393,11 +395,11 @@ Callback names are automatically scoped to the consuming resource.
 
 ```lua
 -- server/main.lua
-local TSS = exports.tss_bridge:GetModules({ 'Callbacks', 'Money' })
+local TSS = exports.tss_bridge:GetModules({ 'Callbacks', 'Banking' })
 
 TSS.Callbacks.Register('getBalance', function(source, account)
     -- Validate source and arguments here.
-    return TSS.Money.Balance(source, account)
+    return TSS.Banking.GetAccount(source, account)
 end)
 ```
 
@@ -449,7 +451,7 @@ TSS.Fuel.Set(vehicle, 75.0)
 ```lua
 local TSS = exports.tss_bridge:GetModules({ 'Capabilities', 'Diagnostics' })
 
-print(TSS.Capabilities.Module('Money'))
+print(TSS.Capabilities.Module('Banking'))
 print(TSS.Capabilities.Resource('ox_lib'))
 local snapshot = TSS.Capabilities.Snapshot()
 TSS.Diagnostics.Print()
@@ -494,7 +496,7 @@ Missing languages and keys fall back to English.
 
 ## Security
 
-- Client module registries never contain Inventory, Money, or VehicleKeys mutation methods.
+- Client module registries never contain Inventory, Banking, or VehicleKeys mutation methods.
 - Server APIs require a player source where relevant and do not trust client-provided sources.
 - Callback handlers and consuming resource network events must still perform authorization and data validation.
 - Debug table saving requires debug mode, rate limiting and the `tss_bridge.debug` ACE permission.

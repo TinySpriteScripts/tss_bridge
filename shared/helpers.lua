@@ -36,13 +36,19 @@ function TSS.CallExport(resource, exportName, ...)
         return false, ('missing export %s:%s'):format(resource, exportName)
     end
 
-    -- FiveM resource exports are proxy methods (`exports.resource:Name(...)`).
-    -- Pass the proxy first so consumer arguments retain their positions.
+    -- FiveM resource exports are proxy methods. When the callable is obtained
+    -- through __index and invoked later, the resource proxy must be supplied
+    -- as self or the provider loses its first real argument.
     local ok, result, extra = pcall(export, proxy, ...)
     if ok then return true, result, extra end
 
-    -- Retain compatibility with plain callable export shims used by some
-    -- resources and standalone test environments.
+    -- The provider was entered and raised its own error. Retrying without the
+    -- proxy shifts the arguments and obscures the original failure.
+    if type(result) == 'string' and result:find(('@%s/'):format(resource), 1, true) then
+        return false, result
+    end
+
+    -- Retain compatibility with plain callable shims used by standalone tests.
     ok, result, extra = pcall(export, ...)
     if ok then return true, result, extra end
     return false, result

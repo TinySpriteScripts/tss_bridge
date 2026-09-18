@@ -231,7 +231,7 @@ local modules = getModules({ 'framework', 'Inventory', 'Inventory' })
 
 assert(modules.Framework)
 assert(modules.Inventory)
-assert(modules.Money == nil)
+assert(modules.Banking == nil)
 assert(includes(TSSModuleLoader.ListLoaded(), 'Inventory'))
 assert(modules.Inventory.System)
 assert(modules.Inventory.Utils == nil)
@@ -251,13 +251,13 @@ end
 local expandedNames
 if realm == 'client' then
     expandedNames = {
-        'Locale', 'Capabilities', 'Diagnostics', 'Player', 'Money', 'Notify', 'TextUI',
+        'Locale', 'Capabilities', 'Diagnostics', 'Player', 'Banking', 'Billing', 'Notify', 'TextUI',
         'Callbacks', 'Interaction', 'VehicleKeys', 'Fuel', 'ProgressBar', 'Blips', 'Peds',
         'Props', 'Vehicles', 'World', 'Groups', 'Targets', 'Debug'
     }
 else
     expandedNames = {
-        'Locale', 'Capabilities', 'Diagnostics', 'Player', 'Money', 'Notify', 'TextUI',
+        'Locale', 'Capabilities', 'Diagnostics', 'Player', 'Banking', 'Notify', 'TextUI',
         'Callbacks', 'VehicleKeys', 'Groups', 'Debug'
     }
 end
@@ -282,8 +282,9 @@ else
 end
 
 if realm == 'client' then
-    assert(expanded.Money.Balance)
-    assert(expanded.Money.Add == nil)
+    assert(expanded.Banking.GetAccount)
+    assert(expanded.Banking.AddMoney == nil)
+    assert(expanded.Billing.Open)
     assert(expanded.VehicleKeys.Give == nil)
     assert(expanded.Interaction.Create)
     assert(expanded.Fuel.Set)
@@ -296,11 +297,17 @@ if realm == 'client' then
     assert(expanded.World.Face)
     assert(expanded.Groups.BossRoles)
     assert(expanded.Targets.System)
+    assert(expanded.Targets.CreateZoneAndProps)
+    assert(expanded.Groups.ManagementSystem)
+    assert(expanded.Groups.IsJobBoss)
+    assert(expanded.Groups.IsGangBoss)
+    assert(expanded.Groups.OpenBossMenu)
+    assert(expanded.Groups.OpenGangMenu)
     assert(expanded.Player.Identifier('citizenid') == 'TEST123')
     assert(expanded.Player.Metadata('hunger') == 50)
     assert(expanded.Player.HasGroup({ police = 2 }))
-    assert(expanded.Money.Balance('cash') == 1000)
-    assert(expanded.Money.Has('bank', 2000))
+    assert(expanded.Banking.GetAccount('cash') == 1000)
+    assert(expanded.Banking.GetAccount('bank') >= 2000)
     assert(expanded.VehicleKeys.Has(10))
     assert(not expanded.VehicleKeys.Supports('give'))
     assert(not modules.Inventory.Supports('add'))
@@ -312,17 +319,17 @@ if realm == 'client' then
     assert(expanded.TextUI.IsOpen())
     assert(expanded.TextUI.Hide())
 else
-    assert(expanded.Money.Add)
-    assert(expanded.Money.Remove)
+    assert(expanded.Banking.AddMoney)
+    assert(expanded.Banking.RemoveMoney)
     assert(expanded.VehicleKeys.Give)
     assert(expanded.VehicleKeys.Remove)
     assert(expanded.Player.Identifier(7, 'license') == 'license:test')
     assert(expanded.Player.Name(7) == 'Test Player')
     assert(expanded.Player.HasGroup(7, { police = 2 }))
-    assert(expanded.Money.Balance(7, 'cash') == 1000)
-    assert(expanded.Money.Add(7, 'cash', 100, 'test'))
-    assert(expanded.Money.Balance(7, 'cash') == 1100)
-    assert(expanded.Money.Remove(7, 'cash', 100, 'test'))
+    assert(expanded.Banking.GetAccount(7, 'cash') == 1000)
+    assert(expanded.Banking.AddMoney(7, 'cash', 100, 'test'))
+    assert(expanded.Banking.GetAccount(7, 'cash') == 1100)
+    assert(expanded.Banking.RemoveMoney(7, 'cash', 100, 'test'))
     assert(expanded.VehicleKeys.Has(7, 'TEST'))
     assert(expanded.VehicleKeys.Give(7, 'TEST'))
     assert(expanded.VehicleKeys.Supports('give'))

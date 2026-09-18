@@ -12,7 +12,12 @@ TSS.Target.RegisterAdapter('ox', TSS.Resources.OxTarget, {
         local box = utils.GetBoxData(data)
         local minZ = box.options.minZ or (box.coords.z - 1.0)
         local maxZ = box.options.maxZ or (box.coords.z + 1.0)
+        -- Calls into ox_target are owned by tss_bridge, not by the consuming
+        -- resource. Preserve the consumer's deterministic zone name so a
+        -- restart can replace stale zones instead of stacking options.
+        if box.name then utils.Call(resource, 'removeZone', box.name, true) end
         return utils.Call(resource, 'addBoxZone', {
+            name = box.name,
             coords = vec3(box.coords.x, box.coords.y, minZ + ((maxZ - minZ) / 2)),
             size = vec3(box.length, box.width, maxZ - minZ),
             rotation = box.options.heading or box.options.rotation or 0.0,
@@ -23,6 +28,7 @@ TSS.Target.RegisterAdapter('ox', TSS.Resources.OxTarget, {
     circle = function(resource, data, options, distance)
         local circle = utils.GetCircleData(data)
         return utils.Call(resource, 'addSphereZone', {
+            name = circle.name,
             coords = circle.coords, radius = circle.radius,
             debug = TSS.ShouldDebugPoly(circle.options.debugPoly or circle.options.debug),
             options = utils.NormaliseOxOptions(options, distance),

@@ -150,16 +150,25 @@
 ---@field IsLoaded fun(source: integer): boolean
 ---@field HasPermission fun(source: integer, permission: string|string[]): boolean
 
----@class TSSMoneyClientModule
----@field Balance fun(moneyType?: TSSMoneyType): number
----@field Has fun(moneyType: TSSMoneyType, amount: number): boolean
+---@class TSSBankingClientModule
+---@field System fun(preferred?: string): system?: string, resource?: string
+---@field Supports fun(feature: string, preferred?: string): boolean
+---@field GetAccount fun(accountType?: TSSMoneyType): number
 
----@class TSSMoneyServerModule
----@field Balance fun(source: integer, moneyType?: TSSMoneyType): number
----@field Has fun(source: integer, moneyType: TSSMoneyType, amount: number): boolean
----@field Add fun(source: integer, moneyType: TSSMoneyType, amount: number, reason?: string): boolean
----@field Remove fun(source: integer, moneyType: TSSMoneyType, amount: number, reason?: string): boolean
----@field Set fun(source: integer, moneyType: TSSMoneyType, amount: number, reason?: string): boolean
+---@class TSSBankingServerModule
+---@field System fun(preferred?: string): system?: string, resource?: string
+---@field Supports fun(feature: string, preferred?: string): boolean
+---@field GetAccount fun(source: integer, accountType?: TSSMoneyType): number
+---@field AddMoney fun(source: integer, accountType: TSSMoneyType, amount: number, reason?: string): boolean
+---@field RemoveMoney fun(source: integer, accountType: TSSMoneyType, amount: number, reason?: string): boolean
+---@field GetSociety fun(society: string, kind?: 'job'|'gang', preferred?: string): number
+---@field ChargeSociety fun(society: string, amount: number, kind?: 'job'|'gang', reason?: string, preferred?: string): boolean
+---@field FundSociety fun(society: string, amount: number, kind?: 'job'|'gang', reason?: string, preferred?: string): boolean
+
+---@class TSSBillingModule
+---@field System fun(preferred?: string): system?: string, resource?: string
+---@field Supports fun(feature: string, preferred?: string): boolean
+---@field Open fun(data: table, preferred?: string): boolean
 
 ---@class TSSNotifyModule
 ---@field System fun(preferred?: string): system?: string, resource?: string
@@ -230,6 +239,8 @@
 ---@field Model fun(models: string|integer|(string|integer)[], options: TSSTargetOption[]|TSSTargetOption, distance?: number): any
 ---@field Box fun(data: TSSTargetZoneData, options: TSSTargetOption[], distance?: number): string|number|nil
 ---@field Circle fun(data: TSSTargetZoneData, options: TSSTargetOption[], distance?: number): string|number|nil
+---@field CreateZoneAndProps fun(name: string, coords: vector3|vector4|table, radius: number?, length: number?, width: number?, heading: number?, minZ: number?, maxZ: number?, model1: string|integer?, model2: string|integer?, kind: 'circle'|'model'|'box'|string?, options: TSSTargetOption[]|TSSTargetOption, props?: table[], peds?: table[], debug?: boolean): zone: string|number|table|nil
+---@field RemoveZoneAndProps fun(name: string)
 ---@field RemoveEntity fun(entity: TSSEntity|TSSEntity[]): any
 ---@field RemoveModel fun(models: string|integer|(string|integer)[]): any
 ---@field RemoveZone fun(zone: string|number): any
@@ -312,6 +323,11 @@
 ---@field System fun(): system?: TSSFrameworkName, resource?: string
 ---@field Supports fun(feature: string): boolean
 ---@field BossRoles fun(role: string): table<string, integer>
+---@field ManagementSystem fun(): system?: string, resource?: string
+---@field IsJobBoss fun(role?: string, source?: integer): boolean
+---@field IsGangBoss fun(role?: string, source?: integer): boolean
+---@field OpenBossMenu? fun(role?: string): boolean Client only.
+---@field OpenGangMenu? fun(role?: string): boolean Client only.
 
 ---@class TSSUIClientModule
 ---@field Notify fun(data: TSSNotifyData): boolean
@@ -336,7 +352,8 @@
 ---@class TSSClientModules
 ---@field Framework? TSSFrameworkModule
 ---@field Player? TSSPlayerClientModule
----@field Money? TSSMoneyClientModule
+---@field Banking? TSSBankingClientModule
+---@field Billing? TSSBillingModule
 ---@field Notify? TSSNotifyModule
 ---@field TextUI? TSSTextUIClientModule
 ---@field Callbacks? TSSCallbacksClientModule
@@ -361,7 +378,7 @@
 ---@class TSSServerModules
 ---@field Framework? TSSFrameworkModule
 ---@field Player? TSSPlayerServerModule
----@field Money? TSSMoneyServerModule
+---@field Banking? TSSBankingServerModule
 ---@field Notify? TSSNotifyModule
 ---@field TextUI? TSSTextUIServerModule
 ---@field Callbacks? TSSCallbacksServerModule
