@@ -619,3 +619,25 @@ after changing its config. They do not modify other resources' choices.
 Server provider convars are also replicated by the bridge. Restart the bridge after
 changing those convars. `TSS.Debug.Print(...)` uses the bridge's existing debug switch;
 use `setr tss_debug true` before startup to enable it on both client and server.
+
+### Menu icons
+
+`UI.Menu` and `UI.Context` options accept existing named icons, Font Awesome Free
+class names, or image URLs. Both the option row and selected-item preview display
+the same icon. Images preserve their original colours; missing images show a placeholder.
+Font Awesome Free is bundled locally (solid, regular and brands; no Pro icons).
+
+```lua
+{ label = 'Tools', icon = 'wrench' }
+{ label = 'Home', icon = 'fas fa-house' }
+{ label = 'My marker', icon = {
+    type = 'image',
+    src = 'https://cfx-nui-my_resource/images/40.png',
+} }
+```
+
+A full image URL can also be supplied directly as `icon`. Put local images in the
+calling resource and list them in that resource's `files` manifest; no image pack
+needs to be installed in the bridge. Blipcreator demonstrates this with its own
+`images/blips/<sprite ID>.png` previews. Replace those images to match custom YTDs;
+the UI does not read live map textures.

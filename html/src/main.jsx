@@ -6,7 +6,9 @@ import {
   MousePointerClick, Package, Play, RotateCcw, Save, Search, Server, Settings,
   ShieldCheck, SquareMousePointer, Timer, Trash2, Type, Wrench, X, Zap,
 } from 'lucide-react';
+import '@fortawesome/fontawesome-free/css/all.min.css';
 import './styles.css';
+import MenuIcon from './MenuIcon';
 
 const initialDebug = {
   visible: false,
@@ -296,7 +298,7 @@ function BridgeDialog({ data, onClose }) {
   const items = data.options || data.items || [];
   const [selected, setSelected] = useState(Math.max(0, data.selected || 0));
   const selectedOption = items[selected] || {};
-  const SelectedIcon = iconFor(selectedOption.icon);
+
 
   useEffect(() => setSelected(Math.max(0, data.selected || 0)), [data]);
 
@@ -343,7 +345,7 @@ function BridgeDialog({ data, onClose }) {
         <div className={data.kind === 'menu' ? 'bridge-menu-body' : undefined}>
           <div className="bridge-options">
             {items.map((option, index) => {
-              const Icon = iconFor(option.icon);
+
               return (
                 <button
                   className={`bridge-option ${selected === index ? 'selected' : ''}`}
@@ -352,7 +354,7 @@ function BridgeDialog({ data, onClose }) {
                   onMouseEnter={() => setSelected(index)}
                   onClick={() => choose(index)}
                 >
-                  {Icon && <Icon size={20} strokeWidth={1.7} />}
+                  <MenuIcon icon={option.icon} size={20} />
                   <span className="bridge-option-copy">
                     <strong>{option.label || option.title}</strong>
                     {option.description && <small>{option.description}</small>}
@@ -367,7 +369,7 @@ function BridgeDialog({ data, onClose }) {
           </div>
           {data.kind === 'menu' && (
             <aside className={`bridge-menu-preview ${selectedOption.disabled ? 'disabled' : ''}`}>
-              <div className="preview-icon">{SelectedIcon && <SelectedIcon size={30} strokeWidth={1.5} />}</div>
+              <div className="preview-icon"><MenuIcon icon={selectedOption.icon} size={30} /></div>
               <span className="preview-label">{selectedOption.eyebrow || data.previewLabel || 'Selected item'}</span>
               <h3>{selectedOption.label || selectedOption.title || 'No options available'}</h3>
               <p>{selectedOption.description || 'Select this option to continue.'}</p>
@@ -380,49 +382,6 @@ function BridgeDialog({ data, onClose }) {
       </section>
     </div>
   );
-}
-
-function iconFor(name) {
-  if (!name) return CircleDot;
-  return {
-    activity: Activity,
-    api: Code2,
-    audit: ClipboardCheck,
-    boxzone: Box,
-    check: Check,
-    circlezone: Circle,
-    cleanup: Trash2,
-    close: X,
-    configuration: Settings,
-    deploy: Play,
-    feedback: MessageSquare,
-    framework: Cpu,
-    fuel: Fuel,
-    gameplay: Car,
-    input: Keyboard,
-    items: Package,
-    interaction: MousePointerClick,
-    keys: KeyRound,
-    menu: MessageSquare,
-    mutations: RotateCcw,
-    notify: Bell,
-    polyzone: Map,
-    ped: CircleDot,
-    prop: Package,
-    save: Save,
-    server: Server,
-    stash: Package,
-    target: Crosshair,
-    tests: FlaskConical,
-    text: Type,
-    timer: Timer,
-    tools: Wrench,
-    vehicle: Car,
-    shield: ShieldCheck,
-    wrench: Wrench,
-    x: X,
-    zap: Zap,
-  }[String(name).toLowerCase()] || CircleDot;
 }
 
 function InputDialog({ data, close, onClose }) {

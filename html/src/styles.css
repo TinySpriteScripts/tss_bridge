@@ -992,3 +992,7 @@ body,
   .debug-panel { top: 24px; transform: none; max-height: calc(100vh - 48px); overflow-y: auto; }
   .selector-row { height: 40px; }
 }
+
+/* Shared icons accept Font Awesome classes, existing named icons, or images. */
+.bridge-image-icon { display: block; object-fit: contain; flex-shrink: 0; }
+.bridge-font-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
