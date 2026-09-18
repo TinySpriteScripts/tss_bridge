@@ -382,7 +382,31 @@
 ---@field FormatChairTable fun(entries: table[], label?: string, icon?: string): string
 ---@field SetEnabled fun(state: boolean)
 
+---@class TSSCommandArgument
+---@field name string Key supplied to the callback's parsed arguments.
+---@field type? 'string'|'number'|'integer'|'boolean'|'rest' Defaults to string. Rest must be last.
+---@field optional? boolean Defaults to false.
+---@field help? string Argument description.
+---@field options? (string|table)[] Autocomplete choices; these do not restrict accepted values.
+
+---@class TSSCommandOptions
+---@field description? string Help text.
+---@field category? string Suggestion category, defaults to general.
+---@field arguments? TSSCommandArgument[] Ordered arguments.
+---@field permission? string|string[]|false Server ACE name(s), OR command.<name>. Defaults to public.
+---@field allowConsole? boolean Server console access, defaults to true.
+---@field hidden? boolean Hide suggestions without disabling execution.
+---@field debugOnly? boolean Requires the bridge's debug setting for execution and suggestions.
+
+---@class TSSCommandsModule
+---@field Register fun(name: string, options: TSSCommandOptions, handler: fun(source: integer, args: table, rawCommand: string, rawArgs: string[])): boolean, string? Registers or updates a command owned by this resource.
+---@field Unregister fun(name: string): boolean Disables a command owned by this resource and removes suggestions.
+---@field Clear fun() Disables all commands owned by this resource.
+---@field List fun(source?: integer): table[] Lists visible owned commands; server source defaults to console.
+---@field Refresh fun() Refreshes command suggestions after permission/debug changes.
+
 ---@class TSSClientModules
+---@field Commands? TSSCommandsModule
 ---@field Framework? TSSFrameworkModule
 ---@field Player? TSSPlayerClientModule
 ---@field Banking? TSSBankingClientModule
@@ -409,6 +433,7 @@
 ---@field Debug? TSSDebugModule
 
 ---@class TSSServerModules
+---@field Commands? TSSCommandsModule
 ---@field Framework? TSSFrameworkModule
 ---@field Player? TSSPlayerServerModule
 ---@field Banking? TSSBankingServerModule

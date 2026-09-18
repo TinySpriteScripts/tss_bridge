@@ -641,3 +641,52 @@ calling resource and list them in that resource's `files` manifest; no image pac
 needs to be installed in the bridge. Blipcreator demonstrates this with its own
 `images/blips/<sprite ID>.png` previews. Replace those images to match custom YTDs;
 the UI does not read live map textures.
+
+### Commands
+
+Import `Commands` in the realm where the handler should run. Registration uses
+FiveM natives, so it works with QBCore, Qbox, ESX, or no framework. Server commands
+are automatically supplied to tss-chat's command provider when it is running;
+otherwise the default chat receives standard suggestions. Client commands receive
+standard suggestions in either chat. No tss-chat dependency or manual registration
+is needed, including when tss-chat starts later or restarts.
+
+```lua
+-- server.lua in your resource (with dependency 'tss_bridge')
+local TSS = exports.tss_bridge:GetModules({ 'Commands', 'Notify' })
+local ok, err = TSS.Commands.Register('announce', {
+    description = 'Send a server announcement',
+    category = 'admin',
+    permission = 'my_script.announce',
+    arguments = {
+        { name = 'message', type = 'rest', help = 'Announcement text' },
+    },
+}, function(source, args, rawCommand, rawArgs)
+    TSS.Notify.Send(-1, { title = 'Announcement', message = args.message })
+end)
+assert(ok, err)
+```
+
+Grant the configured ACE (for example `add_ace group.admin my_script.announce allow`),
+or grant `command.announce`. Permission strings are ACE names, not framework job or
+group names. A permission array allows any listed ACE. Omit permission (or use false
+or `user`) for public commands. Permissions are checked on every execution. Console
+source 0 is allowed unless `allowConsole = false`. Register restricted actions server-side;
+the client module rejects restricted permission settings.
+
+`arguments` are required unless `optional = true`. Types: string, number, integer,
+boolean (`true`/`false`), and rest (remaining text, last argument only). The callback
+receives named, converted `args`, plus the untouched command text and positional
+`rawArgs`. `options` on an argument supplies autocomplete choices, not validation.
+Additional positional arguments remain available in `rawArgs`.
+
+`hidden = true` hides a command; `debugOnly = true` also blocks execution unless bridge
+debugging is enabled. `List(source)` returns visible commands owned by the caller.
+`Refresh()` refreshes suggestions after permission or debug changes; tss-chat also
+rechecks server command visibility whenever it requests its command list.
+
+`Unregister(name)` and `Clear()` disable handlers and remove suggestions. Resource-stop
+cleanup runs automatically. Native command wrappers remain inert until the bridge
+stops, and can be reused on consumer restart. Another consumer cannot overwrite or
+remove your registration. Names already registered outside this module are rejected.
+Register again from the consumer's startup after restarting the bridge itself.
