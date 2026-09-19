@@ -122,6 +122,7 @@
 ---@field routeColor? integer GPS route colour ID.
 
 ---@class TSSEntityCreateData
+---@field custom? table Custom GTA ped appearance; randomize=true applies random appearance before explicit overrides.
 ---@field model string|integer Model name or hash.
 ---@field coords? vector3|vector4|table Spawn coordinates.
 ---@field heading? number Spawn heading.
@@ -227,6 +228,7 @@
 ---@field Has fun(item: string, amount?: integer, metadata?: table|string): boolean
 ---@field Player fun(): table|nil
 ---@field Items fun(): table
+---@field Image fun(item: string): string? Item image URL when supported.
 ---@field Open fun(invType: string, data?: table|string|number): boolean
 ---@field OpenStash fun(id: string, data?: TSSStashData): boolean
 ---@field Close fun(): boolean
@@ -254,6 +256,7 @@
 ---@field CanCarry fun(source: integer, item: string, amount?: integer, metadata?: table): boolean
 ---@field Player fun(source: integer): table|nil
 ---@field Items fun(): table
+---@field Image fun(item: string): string? Item image URL when supported.
 ---@field RegisterStash fun(data: TSSStashData): boolean
 ---@field Open fun(source: integer, invType: string, data?: table|string|number): boolean
 ---@field OpenStash fun(source: integer, id: string, data?: TSSStashData): boolean
@@ -315,6 +318,7 @@
 ---@field Clear fun()
 
 ---@class TSSPedsModule
+---@field LookAt fun(target: TSSEntity|vector3|vector4|table, ped?: TSSEntity, timeout?: integer): boolean
 ---@field Create fun(data: TSSEntityCreateData|string|integer, coords?: vector3|vector4|table, options?: TSSEntityCreateOptions): ped?: TSSEntity
 ---@field CreateScenario fun(data: TSSEntityCreateData|string|integer, coords: vector3|vector4|table, scenario: string, options?: TSSEntityCreateOptions): ped?: TSSEntity
 ---@field CreateAnimated fun(data: TSSEntityCreateData|string|integer, coords: vector3|vector4|table, anim: table, options?: TSSEntityCreateOptions): ped?: TSSEntity

@@ -53,6 +53,11 @@ TSS.Inventory.RegisterAdapter('qb', TSS.Resources.QbInventory, {
         return Utils.TryExports(resource, { 'CanAddItem' }, source, item, amount or 1) == true
     end,
 
+    image = function(resource, item, definition)
+        local filename = definition.image or (item .. '.png')
+        return ('https://cfx-nui-%s/html/images/%s'):format(resource, filename)
+    end,
+
     items = function()
         if not TSS.IsStarted(TSS.Resources.QBCore) then return end
 

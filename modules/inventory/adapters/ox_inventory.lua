@@ -47,6 +47,11 @@ TSS.Inventory.RegisterAdapter('ox', TSS.Resources.OxInventory, {
         return Utils.TryExports(resource, { 'CanCarryItem' }, source, item, amount or 1, metadata) == true
     end,
 
+    image = function(resource, item, definition)
+        local filename = definition.image or (definition.client and definition.client.image) or (item .. '.png')
+        return ('https://cfx-nui-%s/web/images/%s'):format(resource, filename)
+    end,
+
     items = function(resource)
         return Utils.TryExports(resource, { 'Items' })
     end,

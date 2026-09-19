@@ -4,7 +4,7 @@ TSSModuleLoader.Define({
     client = function(context)
         local owned = {}
         ---@type TSSPedsModule
-        local public = {}
+        local public = context.CopyFunctions(TSS.Peds, { 'LookAt' })
 
         function public.Create(data, coords, options)
             local ped = TSS.CreatePed(data, coords, options)

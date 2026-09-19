@@ -30,26 +30,7 @@ end
 ---@param timeout? integer Turn duration in milliseconds.
 ---@return boolean success
 function TSS.World.Face(target, ped, timeout)
-    if TSS.IsServer() then return false end
-
-    ped = ped or PlayerPedId()
-    timeout = timeout or 1500
-
-    local coords = targetCoords(target)
-    if not coords then return false end
-
-    if not IsPedHeadingTowardsPosition(ped, coords.x, coords.y, coords.z, 30.0) then
-        TaskTurnPedToFaceCoord(ped, coords.x, coords.y, coords.z, timeout)
-        Wait(timeout)
-    end
-
-    if type(target) == 'number' and DoesEntityExist(target) then
-        TaskLookAtEntity(ped, target, 5000, 1, 1)
-    else
-        TaskLookAtCoord(ped, coords.x, coords.y, coords.z, 5000, 1, 1)
-    end
-
-    return true
+    return TSS.Peds.LookAt(target, ped, timeout)
 end
 
 local function createDistanceEntity(kind, data, options)
@@ -72,30 +53,38 @@ local function createDistanceEntity(kind, data, options)
         active = true,
     }
 
+    local spawning = false
+    local function deleteEntity(entity)
+        if kind == 'Prop' then TSS.DeleteProp(entity) else TSS.DeletePed(entity) end
+    end
+
     local function spawn()
+        if spawning or not controller.active then return end
         if controller.entity and DoesEntityExist(controller.entity) then return end
-
-        if kind == 'Prop' then
-            controller.entity = TSS.CreateProp(data, coords, options)
-        else
-            controller.entity = TSS.CreatePed(data, coords, options)
+        spawning = true
+        local entity
+        if kind == 'Prop' then entity = TSS.CreateProp(data, coords, options)
+        else entity = TSS.CreatePed(data, coords, options) end
+        spawning = false
+        -- Model loading can yield while the owning resource stops or the player leaves.
+        if not entity or entity == 0 then return end
+        if not controller.active or #(GetEntityCoords(PlayerPedId()) - origin) > despawnRange then
+            deleteEntity(entity)
+            return
         end
-
-        if controller.entity and options.onSpawn then
-            options.onSpawn(controller.entity)
-        end
+        controller.entity = entity
+        if options.onSpawn then options.onSpawn(entity) end
     end
 
     local function despawn()
-        if not controller.entity then return end
-
-        if kind == 'Prop' then
-            TSS.DeleteProp(controller.entity)
-        else
-            TSS.DeletePed(controller.entity)
-        end
-
+        local entity = controller.entity
+        if not entity then return end
         controller.entity = nil
+        if options.onDespawn then
+            local ok, err = pcall(options.onDespawn, entity)
+            if not ok then TSS.Warn(('Distance entity cleanup failed: %s'):format(err)) end
+        end
+        deleteEntity(entity)
     end
 
     function controller.remove()

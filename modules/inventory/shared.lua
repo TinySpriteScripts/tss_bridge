@@ -211,3 +211,16 @@ function TSS.Inventory.Close(source)
     if not adapter then return false end
     return adapter.close(resource, source) == true
 end
+
+--- Returns a provider-owned item image URL, or nil when unavailable.
+function TSS.Inventory.Image(item)
+    if type(item) ~= 'string' or item == '' then return nil end
+    local _, resource, adapter = getAdapter()
+    if not adapter then return nil end
+    local definition = TSS.Inventory.Items()[item]
+    if not definition then return nil end
+    local image = definition.image or (definition.client and definition.client.image)
+    if type(image) == 'string' and (image:match('^https?://') or image:match('^nui://')) then return image end
+    if adapter.image then return adapter.image(resource, item, definition) end
+    return nil
+end

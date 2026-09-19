@@ -746,3 +746,20 @@ required, min, max and step. Submitted values remain keyed by field name.
 
 Regression checks: lua tests/restaurant_capabilities_spec.lua. Restaurant integration
 checks live in tss-restaurant/tests/bridge_spec.lua.
+
+### Dialogue NPC support
+
+Peds.Create and World.CreateDistancePed accept data.custom for freemode head blend,
+face sliders, hair, overlays, clothing and props. Custom fields follow the existing
+TSS dialogue definitions; custom.randomize randomizes appearance before applying
+explicit overrides, and a negative prop index clears that accessory. Unspecified
+fields use safe defaults for non-randomized custom peds.
+
+Distance controllers accept options.onDespawn(entity), called before deletion so
+consumers can remove targets and close UI. Repeated remove calls are harmless;
+peds finishing model loading after cancellation or leaving range are discarded.
+Run lua tests/dialogue_peds_spec.lua for mocked appearance/lifecycle checks.
+
+`Inventory.Image(item)` returns an item image URL for QB Inventory and OX Inventory (including custom image filenames), preserves absolute image URLs, and returns `nil` for unknown items or unsupported image providers.
+
+`Peds.LookAt(target, ped?, timeout?)` turns the local player (or supplied ped) toward an entity or coordinates and looks for five seconds. The turn defaults to 1500 ms and yields only when needed. Invalid/despawned entities return `false`. `World.Face` remains a compatible alias.

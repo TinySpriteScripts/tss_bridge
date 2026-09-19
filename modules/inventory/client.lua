@@ -20,7 +20,7 @@ TSSModuleLoader.Define({
     files = files,
     client = function(context)
         return context.CopyFunctions(TSS.Inventory, {
-            'System', 'Supports', 'Count', 'Has', 'Player', 'Items', 'Open', 'OpenStash', 'Close',
+            'System', 'Supports', 'Count', 'Has', 'Player', 'Items', 'Image', 'Open', 'OpenStash', 'Close',
         })
     end,
 })

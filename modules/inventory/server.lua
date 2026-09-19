@@ -23,7 +23,7 @@ TSSModuleLoader.Define({
     server = function(context)
         ---@type TSSInventoryServerModule
         local Inventory = context.CopyFunctions(TSS.Inventory, {
-            'System', 'Supports', 'Count', 'Has', 'Player', 'Items', 'Open', 'OpenStash', 'Close',
+            'System', 'Supports', 'Count', 'Has', 'Player', 'Items', 'Image', 'Open', 'OpenStash', 'Close',
         })
 
         local stopped = false
