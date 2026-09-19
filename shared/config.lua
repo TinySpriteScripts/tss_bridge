@@ -65,6 +65,7 @@ TSS.Resources = {
     -- Progressbars
     ProgressBar = 'progressbar',
     -- Targets
+    TssInteract = 'tss-interactions',
     OxTarget = 'ox_target',
     QbTarget = 'qb-target',
     TgiannTarget = 'tgiann-target',

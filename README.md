@@ -690,3 +690,39 @@ cleanup runs automatically. Native command wrappers remain inert until the bridg
 stops, and can be reused on consumer restart. Another consumer cannot overwrite or
 remove your registration. Names already registered outside this module are rejected.
 Register again from the consumer's startup after restarting the bridge itself.
+
+## TSS interaction target adapter
+
+Use `tss_interact` as the target provider to route existing bridge target calls to `tss-interactions`:
+
+```lua
+local TSS = exports.tss_bridge:GetModules({ 'Targets', 'Interaction' }, {
+    Target = 'tss_interact',
+    Interaction = 'target',
+})
+
+local desk = TSS.Targets.Box({
+    name = 'reception_desk',
+    coords = vector3(307.2, -595.3, 43.3),
+    length = 2.0,
+    width = 2.0,
+}, {
+    {
+        label = 'Speak to reception',
+        icon = 'fas fa-comment',
+        onSelect = function(context)
+            print('hello', context.coords)
+        end,
+    },
+}, 2.5)
+
+-- TSS.Targets.RemoveZone(desk)
+```
+
+Or select it server-wide with `setr tss_target tss_interact`. Server overrides take precedence over per-resource preferences. Start `tss-interactions` before resources registering these interactions. Restart those consumers after changing providers or restarting `tss-interactions`.
+
+Entity and model calls retain their anchors. Box and circle calls become coordinate points: dimensions, radius, heading, Z bounds and debug-zone settings are ignored. The distance argument controls interaction range (default 2 metres). Removal and consumer-stop cleanup use the existing bridge API.
+
+`onSelect` receives a context table containing `entity`, `coords` and `args`; native `action` callbacks receive `(entity, data)`. Bridge `groups` and `items` filters use the bridge's Player and Inventory providers. Native TSS fields such as `job`, `gang` and `citizenid` remain available and use the interaction resource's player data.
+
+Aliases `tss-interactions` and `tss_interactions` also work. Auto detection prefers existing ox/qb/tgiann/bt providers before TSS so installing this adapter does not change those selections; select `tss_interact` explicitly to use it alongside another target resource.

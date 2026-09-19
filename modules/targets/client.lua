@@ -1,12 +1,13 @@
 TSSModuleLoader.Define({
     name = 'Targets',
-    dependencies = { 'World' },
+    dependencies = { 'World', 'Player', 'Inventory' },
     files = {
         'modules/targets/shared.lua',
         'modules/targets/adapters/ox.lua',
         'modules/targets/adapters/qb.lua',
         'modules/targets/adapters/tgiann.lua',
         'modules/targets/adapters/bt.lua',
+        'modules/targets/adapters/tss_interact.lua',
     },
     client = function(context)
         local target = TSS.Target.CreateAPI(context.Preference('Target'))
