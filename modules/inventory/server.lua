@@ -95,6 +95,27 @@ TSSModuleLoader.Define({
             return adapter.registerStash(resource, data) == true
         end
 
+        --- Register a server-owned shop. Returns false when unsupported.
+        function Inventory.RegisterShop(data)
+            local _, resource, adapter = TSS.Inventory._GetAdapter()
+            if not adapter or not adapter.registerShop then return false, 'unsupported_shop' end
+            return adapter.registerShop(resource, data)
+        end
+
+        function Inventory.OpenShop(source, id)
+            local _, resource, adapter = TSS.Inventory._GetAdapter()
+            if not adapter or not adapter.openShop then return false, 'unsupported_shop' end
+            return adapter.openShop(resource, source, id)
+        end
+
+        --- Update metadata on an exact, server-verified inventory slot.
+        function Inventory.SetMetadata(source, slot, metadata)
+            local _, resource, adapter = TSS.Inventory._GetAdapter()
+            if not adapter or not adapter.setMetadata then return false, 'unsupported_metadata' end
+            if type(metadata) ~= 'table' or not tonumber(slot) then return false end
+            return adapter.setMetadata(resource, source, tonumber(slot), metadata)
+        end
+
         return Inventory
     end,
 })

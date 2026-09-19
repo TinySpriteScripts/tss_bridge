@@ -411,7 +411,7 @@ function InputDialog({ data, close, onClose }) {
         <div className="input-fields">
           {fields.map((field, index) => {
             const name = field.name || 'value';
-            return <label key={name}><span>{field.label}</span><div className="field-wrap"><input autoFocus={index === 0} type={field.type || 'text'} value={values[name]} placeholder={field.placeholder || ''} min={field.min} max={field.max} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))} />{field.suffix && <em>{field.suffix}</em>}</div></label>;
+            return <label key={name}><span>{field.label}</span><div className="field-wrap">{field.type === 'select' ? <select autoFocus={index === 0} required={field.required} value={values[name]} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))}><option value="" disabled>Select...</option>{(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label || option.text || option.value}</option>)}</select> : <input autoFocus={index === 0} required={field.required} step={field.step} type={field.type || 'text'} value={values[name]} placeholder={field.placeholder || ''} min={field.min} max={field.max} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))} />}{field.suffix && <em>{field.suffix}</em>}</div></label>;
           })}
         </div>
         <div className="input-actions"><button type="submit" className="confirm">{data.confirmLabel || 'Confirm'}<Check size={20} /></button><button type="button" onClick={close}>{data.cancelLabel || 'Cancel'}<X size={20} /></button></div>

@@ -24,3 +24,9 @@ TSSModuleLoader.Define({
         })
     end,
 })
+
+RegisterNetEvent('tss_bridge:client:openRegisteredShop', function(id)
+    if TSSModuleLoader.Ensure('Inventory') then
+        TSS.Inventory.Open('shop', { type = id, id = 1 })
+    end
+end)

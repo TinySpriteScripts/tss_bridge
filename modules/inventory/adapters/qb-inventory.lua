@@ -7,6 +7,20 @@ TSS.Inventory.RegisterAdapter('qb', TSS.Resources.QbInventory, {
         return Utils.RegisterFrameworkUsable(item, callback)
     end,
 
+    registerShop = function(resource, data)
+        return Utils.TryExportOk(resource, { 'CreateShop' }, {
+            name = data.id, label = data.label, items = data.items, coords = data.coords,
+        })
+    end,
+    openShop = function(resource, source, id)
+        return Utils.TryExportOk(resource, { 'OpenShop' }, source, id)
+    end,
+    setMetadata = function(resource, source, slot, metadata)
+        local item = Utils.TryExports(resource, { 'GetItemBySlot' }, source, slot)
+        if not item then return false end
+        return Utils.TryExports(resource, { 'SetItemData' }, source, item.name, 'info', metadata, slot) == true
+    end,
+
     add = function(resource, source, item, amount, metadata, slot, reason)
         return Utils.TryExports(resource, { 'AddItem' }, source, item, amount or 1, slot or false, metadata or false, reason or 'tss_inventory')
     end,

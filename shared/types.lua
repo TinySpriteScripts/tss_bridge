@@ -158,6 +158,8 @@
 ---@field IsLoaded fun(): boolean
 
 ---@class TSSPlayerServerModule
+---@field SetDuty fun(source: integer, duty: boolean): boolean
+---@field AddNeeds fun(source: integer, needs: table): boolean
 ---@field Data fun(source: integer): table|nil
 ---@field Identifier fun(source: integer, kind?: string): string|nil
 ---@field Name fun(source: integer): string|nil
@@ -238,6 +240,9 @@
 ---@field amount? number Alias of count.
 
 ---@class TSSInventoryServerModule
+---@field RegisterShop fun(data: table): boolean, string?
+---@field OpenShop fun(source: integer, id: string): boolean, string?
+---@field SetMetadata fun(source: integer, slot: integer, metadata: table): boolean, string?
 ---@field CreateUseableItem fun(item: string, callback: fun(source: integer, item: TSSUsedItem)): registered: boolean, error: string?
 ---@field CreateUsableItem fun(item: string, callback: fun(source: integer, item: TSSUsedItem)): registered: boolean, error: string?
 ---@field System fun(): system?: string, resource?: string

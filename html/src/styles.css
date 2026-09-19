@@ -996,3 +996,5 @@ body,
 /* Shared icons accept Font Awesome classes, existing named icons, or images. */
 .bridge-image-icon { display: block; object-fit: contain; flex-shrink: 0; }
 .bridge-font-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+.field-wrap select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #343434; border-radius: 8px; background: #171717; color: #fff; font: inherit; }

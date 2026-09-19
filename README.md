@@ -726,3 +726,23 @@ Entity and model calls retain their anchors. Box and circle calls become coordin
 `onSelect` receives a context table containing `entity`, `coords` and `args`; native `action` callbacks receive `(entity, data)`. Bridge `groups` and `items` filters use the bridge's Player and Inventory providers. Native TSS fields such as `job`, `gang` and `citizenid` remain available and use the interaction resource's player data.
 
 Aliases `tss-interactions` and `tss_interactions` also work. Auto detection prefers existing ox/qb/tgiann/bt providers before TSS so installing this adapter does not change those selections; select `tss_interact` explicitly to use it alongside another target resource.
+
+## Restaurant integration capabilities
+
+Server Inventory also exposes RegisterShop(data), OpenShop(source, id), and
+SetMetadata(source, slot, metadata). Shop data contains id, label, items and optional
+coords/groups. QB and OX adapters implement these operations; other adapters return
+false with unsupported_shop or unsupported_metadata. Supports('shop') and
+Supports('metadata') advertise availability on the server. Consumers must validate
+shop access and exact bag ownership before calling these methods.
+
+Server Player.SetDuty(source, boolean) uses QB/Qbox SetJobDuty or ESX tss_duty
+metadata. Player.AddNeeds(source, { hunger=delta, thirst=delta, stress=delta }) applies
+server-authorized changes, clamped to 0..100 for QB/Qbox; ESX hunger/thirst use
+esx_status. These mutation methods are not exposed on the client.
+
+UI.Input fields support type='select', options={ {value='bank', label='Bank'} },
+required, min, max and step. Submitted values remain keyed by field name.
+
+Regression checks: lua tests/restaurant_capabilities_spec.lua. Restaurant integration
+checks live in tss-restaurant/tests/bridge_spec.lua.

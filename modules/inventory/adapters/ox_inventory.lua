@@ -13,6 +13,20 @@ TSS.Inventory.RegisterAdapter('ox', TSS.Resources.OxInventory, {
         return Utils.RegisterFrameworkUsable(item, callback, { esx = true, qbox = true })
     end,
 
+    registerShop = function(resource, data)
+        return Utils.TryExportOk(resource, { 'RegisterShop' }, data.id, {
+            name = data.label, inventory = data.items, groups = data.groups,
+            locations = data.coords and { vector3(data.coords.x, data.coords.y, data.coords.z) } or nil,
+        })
+    end,
+    openShop = function(resource, source, id)
+        TriggerClientEvent('tss_bridge:client:openRegisteredShop', source, id)
+        return true
+    end,
+    setMetadata = function(resource, source, slot, metadata)
+        return Utils.TryExportOk(resource, { 'SetMetadata' }, source, slot, metadata)
+    end,
+
     add = function(resource, source, item, amount, metadata, slot)
         return Utils.TryExports(resource, { 'AddItem' }, source, item, amount or 1, metadata, slot)
     end,
