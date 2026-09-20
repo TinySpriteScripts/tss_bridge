@@ -13,6 +13,16 @@ TSS.Inventory.RegisterAdapter('ox', TSS.Resources.OxInventory, {
         return Utils.RegisterFrameworkUsable(item, callback, { esx = true, qbox = true })
     end,
 
+    stashItems = function(resource, id)
+        return Utils.TryExports(resource, { 'GetInventoryItems' }, id)
+    end,
+    stashAdd = function(resource, id, item, amount, metadata, slot)
+        return Utils.TryExports(resource, { 'AddItem' }, id, item, amount, metadata, slot) == true
+    end,
+    stashRemove = function(resource, id, item, amount, metadata, slot)
+        return Utils.TryExports(resource, { 'RemoveItem' }, id, item, amount, metadata, slot) == true
+    end,
+
     registerShop = function(resource, data)
         return Utils.TryExportOk(resource, { 'RegisterShop' }, data.id, {
             name = data.label, inventory = data.items, groups = data.groups,

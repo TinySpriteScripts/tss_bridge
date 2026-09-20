@@ -763,3 +763,9 @@ Run lua tests/dialogue_peds_spec.lua for mocked appearance/lifecycle checks.
 `Inventory.Image(item)` returns an item image URL for QB Inventory and OX Inventory (including custom image filenames), preserves absolute image URLs, and returns `nil` for unknown items or unsupported image providers.
 
 `Peds.LookAt(target, ped?, timeout?)` turns the local player (or supplied ped) toward an entity or coordinates and looks for five seconds. The turn defaults to 1500 ms and yields only when needed. Invalid/despawned entities return `false`. `World.Face` remains a compatible alias.
+
+### Server stash transactions
+
+`Inventory.Stash(id)`, `Inventory.RemoveFromStash(id, item, amount, metadata, slot, reason)` and `Inventory.AddToStash(...)` operate on non-player stashes. These are server-only operations; validate the stash ID and player access in the consuming resource. Check `Supports('stashitems')`, `Supports('stashremove')` and `Supports('stashadd')` first. Unsupported adapters return nil/false explicitly.
+
+Currently implemented for ox_inventory and qb-inventory. QB mutations also persist the live stash through oxmysql because its normal stash save occurs on UI close. Failed persistence is logged. Exact slots and metadata are preserved for refunds.

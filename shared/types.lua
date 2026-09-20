@@ -242,6 +242,9 @@
 ---@field amount? number Alias of count.
 
 ---@class TSSInventoryServerModule
+---@field Stash fun(id: string): table?, string?
+---@field AddToStash fun(id: string, item: string, amount: integer, metadata?: table, slot?: integer, reason?: string): boolean
+---@field RemoveFromStash fun(id: string, item: string, amount: integer, metadata?: table, slot?: integer, reason?: string): boolean
 ---@field RegisterShop fun(data: table): boolean, string?
 ---@field OpenShop fun(source: integer, id: string): boolean, string?
 ---@field SetMetadata fun(source: integer, slot: integer, metadata: table): boolean, string?

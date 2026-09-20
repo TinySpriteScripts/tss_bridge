@@ -1,10 +1,39 @@
 -- qb-inventory adapter owned by the Inventory module.
 local Utils = TSS.Inventory.Utils
 
+-- QB only saves non-player inventories when its UI closes. Server-side stash
+-- transactions must also persist the live inventory so a restart cannot resell it.
+local function saveStash(resource, id)
+    local inventory = Utils.TryExports(resource, { 'GetInventory' }, id)
+    if not inventory then return end
+    local items = json.encode(inventory.items or {})
+    local ok, result = Utils.CallExport('oxmysql', 'update_async',
+        'INSERT INTO inventories (identifier, items) VALUES (?, ?) ON DUPLICATE KEY UPDATE items = ?',
+        { id, items, items })
+    if not ok or result == nil or result == false then
+        TSS.Warn('Failed to persist QB stash transaction: ' .. id)
+    end
+end
+
 TSS.Inventory.RegisterAdapter('qb', TSS.Resources.QbInventory, {
     -- This inventory uses the selected framework's usable-item registry.
     registerUsable = function(_, item, callback)
         return Utils.RegisterFrameworkUsable(item, callback)
+    end,
+
+    stashItems = function(resource, id)
+        local inventory = Utils.TryExports(resource, { 'GetInventory' }, id)
+        return inventory and inventory.items
+    end,
+    stashAdd = function(resource, id, item, amount, metadata, slot, reason)
+        local success = Utils.TryExports(resource, { 'AddItem' }, id, item, amount, slot or false, metadata or false, reason) == true
+        if success then saveStash(resource, id) end
+        return success
+    end,
+    stashRemove = function(resource, id, item, amount, metadata, slot, reason)
+        local success = Utils.TryExports(resource, { 'RemoveItem' }, id, item, amount, slot or false, reason) == true
+        if success then saveStash(resource, id) end
+        return success
     end,
 
     registerShop = function(resource, data)

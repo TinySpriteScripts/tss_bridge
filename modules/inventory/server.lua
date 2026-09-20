@@ -95,6 +95,28 @@ TSSModuleLoader.Define({
             return adapter.registerStash(resource, data) == true
         end
 
+        --- Read a non-player stash. Unsupported adapters fail explicitly.
+        function Inventory.Stash(id)
+            local _, resource, adapter = TSS.Inventory._GetAdapter()
+            if type(id) ~= 'string' or id == '' then return nil, 'invalid_stash' end
+            if not adapter or not adapter.stashItems then return nil, 'unsupported_stash_items' end
+            return adapter.stashItems(resource, id)
+        end
+
+        function Inventory.AddToStash(id, item, amount, metadata, slot, reason)
+            local _, resource, adapter = TSS.Inventory._GetAdapter()
+            if type(id) ~= 'string' or id == '' then return false end
+            if not adapter or not adapter.stashAdd then return false, 'unsupported_stash_add' end
+            return adapter.stashAdd(resource, id, item, amount, metadata, slot, reason) == true
+        end
+
+        function Inventory.RemoveFromStash(id, item, amount, metadata, slot, reason)
+            local _, resource, adapter = TSS.Inventory._GetAdapter()
+            if type(id) ~= 'string' or id == '' then return false end
+            if not adapter or not adapter.stashRemove then return false, 'unsupported_stash_remove' end
+            return adapter.stashRemove(resource, id, item, amount, metadata, slot, reason) == true
+        end
+
         --- Register a server-owned shop. Returns false when unsupported.
         function Inventory.RegisterShop(data)
             local _, resource, adapter = TSS.Inventory._GetAdapter()
