@@ -6,7 +6,7 @@ TSS.VehicleKeys.Utils = TSS.VehicleKeys.Utils or {}
 local registry = TSS.Adapters.Create('VehicleKeys', { config = 'VehicleKeys' })
 
 function TSS.VehicleKeys.Utils.NormalizePlate(value)
-    if type(value) == 'number' and TSS.IsClient() and DoesEntityExist(value) then
+    if type(value) == 'number' and DoesEntityExist(value) then
         value = GetVehicleNumberPlateText(value)
     end
     if type(value) ~= 'string' then return nil end
