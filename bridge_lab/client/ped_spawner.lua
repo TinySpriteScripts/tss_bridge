@@ -3,6 +3,7 @@ TSSBridgeLabPedSpawner = {}
 
 local Creator = TSSBridgeLabPedSpawner
 local editor = { active = false }
+local hud
 
 local function vec(x, y, z) return vector3(x + 0.0, y + 0.0, z + 0.0) end
 local function add(a, b) return vec(a.x + b.x, a.y + b.y, a.z + b.z) end
@@ -109,13 +110,19 @@ local function updateDrag(mouseX, mouseY)
 end
 
 local function applyIdle(ped)
+    ClearPedTasksImmediately(ped)
     if editor.dict ~= '' and editor.clip ~= '' then
         RequestAnimDict(editor.dict)
         local expires = GetGameTimer() + 5000
         while editor.active and not HasAnimDictLoaded(editor.dict) and GetGameTimer() < expires do Wait(0) end
-        if HasAnimDictLoaded(editor.dict) then TaskPlayAnim(ped, editor.dict, editor.clip, 8.0, -8.0, -1, 1, 0.0, false, false, false) end
+        if HasAnimDictLoaded(editor.dict) then TaskPlayAnim(ped, editor.dict, editor.clip, 8.0, -8.0, -1, editor.flag or 1, 0.0, false, false, false) end
     elseif editor.scenario ~= '' then
-        TaskStartScenarioInPlace(ped, editor.scenario, 0, true)
+        if editor.animationEditor then
+            local c = GetEntityCoords(ped)
+            TaskStartScenarioAtPosition(ped, editor.scenario, c.x, c.y, c.z, GetEntityHeading(ped), 0, false, true)
+        else
+            TaskStartScenarioInPlace(ped, editor.scenario, 0, true)
+        end
     end
 end
 
@@ -123,6 +130,12 @@ local function spawnPed(coords, heading)
     local ped = CreatePed(4, editor.modelHash, coords.x, coords.y, coords.z, heading, false, false)
     if not ped or ped == 0 then return nil end
     SetEntityAsMissionEntity(ped, true, true)
+    if editor.animationEditor then
+        SetPedDefaultComponentVariation(ped)
+        SetEntityAlpha(ped, 150, false)
+        SetEntityCollision(ped, false, false)
+        SetPedCanRagdoll(ped, false)
+    end
     SetEntityInvincible(ped, true)
     SetBlockingOfNonTemporaryEvents(ped, true)
     FreezeEntityPosition(ped, true)
@@ -130,17 +143,25 @@ local function spawnPed(coords, heading)
     return ped
 end
 
-local function hud(message)
+hud = function(message)
     local coords = GetEntityCoords(editor.ped)
     SendNUIMessage({ action = 'pedSpawner', payload = {
-        visible = true, model = editor.model, mode = editor.drag and 'DRAGGING' or editor.mode:upper(),
+        visible = true, animationEditor = editor.animationEditor, settingsOpen = editor.settingsOpen,
+        title = editor.animationEditor and 'Ped Animation Editor' or 'Ped Spawner',
+        pose = { dict = editor.dict, clip = editor.clip, scenario = editor.scenario, flag = editor.flag or 1 },
+        output = editor.output or '', model = editor.model, mode = editor.drag and 'DRAGGING' or editor.mode:upper(),
         behaviour = editor.dict ~= '' and ('Anim: ' .. editor.dict .. ' / ' .. editor.clip) or (editor.scenario ~= '' and ('Scenario: ' .. editor.scenario) or 'No idle behaviour'),
         count = #editor.entries, message = message,
         metrics = {
             { label = 'X / Y / Z', value = ('%.3f  %.3f  %.3f'):format(coords.x, coords.y, coords.z) },
             { label = 'Heading', value = ('%.2f degrees'):format(GetEntityHeading(editor.ped)) },
         },
-        help = {
+        help = editor.animationEditor and {
+            'Tab Move/Rotate - Left-drag gizmo - Ctrl precision',
+            'Hold RMB to look - WASD camera - Q/E down/up',
+            'Enter captures placement - G prints batch (keeps editing)',
+            'F opens pose settings and Exit editor',
+        } or {
             'Tab switches Move/Rotate - Left-drag gizmo - Ctrl precision',
             'Hold RMB to look - WASD camera - Q/E down/up',
             'Enter adds another ped - G saves all - Backspace cancels',
@@ -148,7 +169,7 @@ local function hud(message)
     } })
 end
 
-local disabled = { 1,2,14,15,16,17,24,25,29,30,31,32,33,34,35,36,37,38,44,47,140,141,142,143,177,191,200,201,239,240,257,263,264 }
+local disabled = { 23,21,1,2,14,15,16,17,24,25,29,30,31,32,33,34,35,36,37,38,44,47,140,141,142,143,177,191,200,201,239,240,257,263,264 }
 local function controls()
     for i = 1, #disabled do DisableControlAction(0, disabled[i], true) end
     DisablePlayerFiring(PlayerId(), true)
@@ -182,6 +203,7 @@ local function cleanup(cancelled)
     RenderScriptCams(false, true, 250, true, true)
     if camera and DoesCamExist(camera) then DestroyCam(camera, false) end
     ClearFocus()
+    if editor.animationEditor then SetNuiFocus(false, false) end
     for i = 1, #entities do if DoesEntityExist(entities[i]) then DeleteEntity(entities[i]) end end
     FreezeEntityPosition(player, editor.wasFrozen == true)
     SetPlayerInvincible(PlayerId(), editor.wasInvincible == true)
@@ -190,12 +212,42 @@ local function cleanup(cancelled)
     if callback then callback(entries) end
 end
 
+local function formatPose(entry)
+    local c = entry.coords
+    local lines = { '{', ('    model = %q,'):format(entry.model),
+        ('    coords = vector4(%.3f, %.3f, %.3f, %.3f),'):format(c.x, c.y, c.z, c.w) }
+    if entry.anim then
+        lines[#lines + 1] = ('    anim = { dict = %q, clip = %q, flag = %d },'):format(entry.anim.dict, entry.anim.clip, entry.anim.flag)
+    elseif entry.scenario then
+        lines[#lines + 1] = ('    scenario = %q,'):format(entry.scenario)
+        lines[#lines + 1] = '    useEnterAnim = false,'
+    end
+    lines[#lines + 1] = '},'
+    return table.concat(lines, '\n')
+end
+
+local function exportPoses()
+    local rows = { '-- Ped animation placements; coords are the ped origin (no seat-height offset).', 'local placements = {' }
+    for _, entry in ipairs(editor.entries) do rows[#rows + 1] = formatPose(entry) end
+    rows[#rows + 1] = '}'
+    editor.output = table.concat(rows, '\n')
+    print(editor.output)
+    hud('Batch printed to F8. Continue placing, or open settings to copy it.')
+end
+
 local function addPed()
     local coords, heading = GetEntityCoords(editor.ped), GetEntityHeading(editor.ped)
     local entry = { model = editor.model, coords = { x = coords.x, y = coords.y, z = coords.z, w = heading } }
-    if editor.dict ~= '' and editor.clip ~= '' then entry.anim = { dict = editor.dict, clip = editor.clip }
+    if editor.dict ~= '' and editor.clip ~= '' then entry.anim = { dict = editor.dict, clip = editor.clip, flag = editor.flag or 1 }
     elseif editor.scenario ~= '' then entry.scenario = editor.scenario end
+    if #editor.entries >= 100 then hud('100 placements captured. Print/copy the batch, then clear captures in settings.') return end
     editor.entries[#editor.entries + 1] = entry
+    if editor.animationEditor then
+        editor.output = formatPose(entry)
+        print(editor.output)
+        hud(('Placement %d printed to F8. Move this ghost to the next seat.'):format(#editor.entries))
+        return
+    end
     local nextCoords = add(coords, vec(1, 0, 0))
     local nextPed = spawnPed(nextCoords, heading)
     if nextPed then editor.entities[#editor.entities + 1] = nextPed; editor.ped = nextPed end
@@ -205,7 +257,10 @@ end
 local function loop()
     while editor.active do
         Wait(0)
-        controls(); cameraUpdate()
+        if not editor.active then break end
+        controls()
+        if not editor.settingsOpen then
+        cameraUpdate()
         local hovered
         if not IsDisabledControlPressed(0, 25) then
             SetMouseCursorActiveThisFrame()
@@ -213,15 +268,22 @@ local function loop()
             hovered = editor.drag and editor.drag.handle or findHandle(mx, my)
             if IsDisabledControlJustPressed(0, 24) then startDrag(hovered, mx, my) end
             if editor.drag and IsDisabledControlPressed(0, 24) then updateDrag(mx, my) end
-            if editor.drag and IsDisabledControlJustReleased(0, 24) then editor.drag = nil end
+            if editor.drag and IsDisabledControlJustReleased(0, 24) then
+                editor.drag = nil
+                if editor.animationEditor and editor.scenario ~= '' then applyIdle(editor.ped) end
+            end
         end
         drawGizmo(hovered)
         if IsDisabledControlJustPressed(0, 37) then editor.mode = editor.mode == 'move' and 'rotate' or 'move'; editor.drag = nil; hud() end
         if IsDisabledControlJustPressed(0, 191) or IsDisabledControlJustPressed(0, 201) then addPed() end
         if IsDisabledControlJustPressed(0, 47) then
             if #editor.entries == 0 then addPed() end
-            cleanup(false)
-        elseif IsDisabledControlJustPressed(0, 177) then cleanup(true) end
+            if editor.animationEditor then exportPoses() else cleanup(false) end
+        elseif IsDisabledControlJustPressed(0, 177) and not editor.animationEditor then cleanup(true) end
+        if editor.animationEditor and IsDisabledControlJustPressed(0, 23) then
+            editor.settingsOpen = true; editor.drag = nil; SetNuiFocus(true, true); hud()
+        end
+        end
         if editor.active and GetGameTimer() > (editor.nextHud or 0) then editor.nextHud = GetGameTimer() + 100; hud() end
     end
 end
@@ -233,12 +295,24 @@ function Creator.Start(options, callbacks)
     local dict, clip = trim(options.dict, 128), trim(options.clip, 96)
     if model == '' then return false, 'Enter a ped model' end
     if (dict == '') ~= (clip == '') then return false, 'Animation dictionary and clip must both be supplied' end
+    if options.animationEditor and model ~= 'mp_m_freemode_01' and model ~= 'mp_f_freemode_01' then return false, 'Choose mp_m_freemode_01 or mp_f_freemode_01' end
     local hash = joaat(model)
     if not IsModelInCdimage(hash) or not IsModelValid(hash) then return false, ('Invalid ped model %s'):format(model) end
     RequestModel(hash)
     local expires = GetGameTimer() + 7000
     while not HasModelLoaded(hash) and GetGameTimer() < expires do Wait(0) end
     if not HasModelLoaded(hash) then return false, ('Unable to load ped model %s'):format(model) end
+    if options.animationEditor then
+        if dict ~= '' then
+            RequestAnimDict(dict)
+            local deadline = GetGameTimer() + 5000
+            while not HasAnimDictLoaded(dict) and GetGameTimer() < deadline do Wait(0) end
+            if not HasAnimDictLoaded(dict) or GetAnimDuration(dict, clip) <= 0 then
+                SetModelAsNoLongerNeeded(hash)
+                return false, 'Animation dictionary or clip could not be loaded'
+            end
+        end
+    end
     local player = PlayerPedId()
     local start = GetOffsetFromEntityInWorldCoords(player, 0.0, 2.0, 0.0)
     local camera = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
@@ -246,7 +320,7 @@ function Creator.Start(options, callbacks)
     SetCamCoord(camera, cameraCoords.x, cameraCoords.y, cameraCoords.z); SetCamRot(camera, cameraRot.x, 0, cameraRot.z, 2)
     SetCamFov(camera, GetGameplayCamFov()); RenderScriptCams(true, true, 250, true, true)
     editor = {
-        active = true, model = model, modelHash = hash, scenario = scenario, dict = dict, clip = clip,
+        active = true, animationEditor = options.animationEditor == true, flag = 1, settingsOpen = false, model = model, modelHash = hash, scenario = scenario, dict = dict, clip = clip,
         player = player, camera = camera, entries = {}, entities = {}, mode = 'move',
         wasFrozen = type(IsEntityPositionFrozen) == 'function' and IsEntityPositionFrozen(player) or false,
         wasInvincible = GetPlayerInvincible(PlayerId()), onSave = callbacks and callbacks.onSave, onCancel = callbacks and callbacks.onCancel,
@@ -263,9 +337,39 @@ function Creator.Start(options, callbacks)
     return true
 end
 
+RegisterNUICallback('pedAnimationAction', function(data, reply)
+    if not editor.active or not editor.animationEditor or not editor.settingsOpen then reply({ ok = false }) return end
+    if data.action == 'exit' then reply({ ok = true }); cleanup(true); return end
+    if data.action == 'resume' then
+        editor.settingsOpen = false; SetNuiFocus(false, false); hud(); reply({ ok = true }); return
+    end
+    if data.action == 'export' then exportPoses(); reply({ ok = true }); return end
+    if data.action == 'clear' then editor.entries = {}; editor.output = ''; hud('Captured placements cleared.'); reply({ ok = true }); return end
+    if data.action ~= 'apply' and data.action ~= 'replay' then reply({ ok = false }) return end
+    local session = editor
+    local dict, clip, scenario = trim(data.dict, 128), trim(data.clip, 96), trim(data.scenario, 96)
+    local flag = tonumber(data.flag)
+    if (dict == '') ~= (clip == '') or not flag or flag % 1 ~= 0 or flag < 0 or flag > 51 then
+        reply({ ok = false, error = 'Supply both dictionary and clip, and an integer flag between 0 and 51.' }); return
+    end
+    if dict ~= '' then
+        RequestAnimDict(dict)
+        local deadline = GetGameTimer() + 5000
+        while editor.active and not HasAnimDictLoaded(dict) and GetGameTimer() < deadline do Wait(0) end
+        if editor ~= session or not editor.active then reply({ ok = false }); return end
+        if not HasAnimDictLoaded(dict) or GetAnimDuration(dict, clip) <= 0 then
+            reply({ ok = false, error = 'Animation dictionary or clip could not be loaded.' }); return
+        end
+    end
+    editor.dict, editor.clip, editor.scenario, editor.flag = dict, clip, scenario, flag
+    applyIdle(editor.ped)
+    hud('Pose applied. Resume gizmo to keep placing.')
+    reply({ ok = true })
+end)
+
 function Creator.IsActive() return editor.active == true end
 function Creator.Stop() cleanup(true) end
 
 AddEventHandler('onClientResourceStop', function(resource)
-    if resource == GetCurrentResourceName() and editor.active then cleanup(true) end
+    if resource == GetCurrentResourceName() and editor.active then editor.onCancel = nil; cleanup(true) end
 end)

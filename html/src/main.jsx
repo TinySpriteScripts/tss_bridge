@@ -80,12 +80,43 @@ function App() {
 }
 
 function PedSpawnerPanel({ data }) {
-  return <section className="zone-creator-panel ped-spawner-panel">
+  const [pose, setPose] = useState(data.pose || {});
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (data.settingsOpen) { setPose(data.pose || {}); setError(''); } }, [data.settingsOpen]);
+  const send = async (action) => {
+    setBusy(true);
+    try {
+      const response = await postNui('pedAnimationAction', { action, ...pose });
+      const result = await response?.json();
+      setError(result?.ok ? '' : result?.error || 'Editor did not respond.');
+    } catch { setError('Unable to update pose.'); }
+    finally { setBusy(false); }
+  };
+  return <section className={`zone-creator-panel ped-spawner-panel ${data.settingsOpen ? 'settings-open' : ''}`}>
     <div className="zone-creator-accent" />
-    <header><div><span>Ped Spawner</span><h2>{data.model || 'Ped placement'}</h2></div><div className="zone-mode"><Crosshair size={14} />{data.mode || 'MOVE'}</div></header>
+    <header><div><span>{data.title || 'Ped Spawner'}</span><h2>{data.model || 'Ped placement'}</h2></div><div className="zone-mode"><Crosshair size={14} />{data.mode || 'MOVE'}</div></header>
     <div className="zone-type">{data.behaviour}<strong>{data.count || 0} placed</strong></div>
     <div className="zone-metrics">{(data.metrics || []).map((metric) => <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>
     {data.message && <div className="zone-message">{data.message}</div>}
+    {data.animationEditor && data.settingsOpen && <div className="attachment-settings">
+      <p>Animation overrides scenario. Clear both animation fields to use a scenario.</p>
+      <label><span>Scenario</span><input value={pose.scenario || ''} onChange={(e) => setPose({ ...pose, scenario: e.target.value })} /></label>
+      <label><span>Animation dictionary</span><input value={pose.dict || ''} onChange={(e) => setPose({ ...pose, dict: e.target.value })} /></label>
+      <label><span>Animation clip</span><input value={pose.clip || ''} onChange={(e) => setPose({ ...pose, clip: e.target.value })} /></label>
+      <label><span>Animation flag (1 = full-body loop)</span><input type="number" min="0" max="51" value={pose.flag ?? 1} onChange={(e) => setPose({ ...pose, flag: e.target.value })} /></label>
+      {error && <div className="zone-message" role="alert">{error}</div>}
+      <div className="attachment-actions">
+        <button disabled={busy} onClick={() => send('apply')}>Apply / replay pose</button>
+        <button disabled={busy} onClick={() => send('resume')}>Resume gizmo</button>
+      </div>
+      <div className="attachment-actions">
+        <button disabled={busy} onClick={() => send('export')}>Print all captures</button>
+        <button disabled={busy} onClick={() => send('clear')}>Clear captures</button>
+      </div>
+      {data.output && <><textarea className="ped-pose-output" aria-label="Exported Lua placements" value={data.output} readOnly /><CopyButton value={data.output} label="Copy Lua" /></>}
+      <button className="ped-editor-exit" disabled={busy} onClick={() => send('exit')}>Exit editor</button>
+    </div>}
     <div className="zone-help">{(data.help || []).map((line) => <p key={line}><MousePointerClick size={13} />{line}</p>)}</div>
   </section>;
 }

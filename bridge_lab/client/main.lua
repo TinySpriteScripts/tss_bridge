@@ -846,6 +846,25 @@ openPolyZoneMenu = function()
     end)
 end
 
+local function requestPedAnimationEditor()
+    TSS.UI.Input({
+        label = 'Bridge Lab / Developer Tools', title = 'Ped Animation Editor', confirmLabel = 'Start Editor',
+        description = 'Place a ghost ped on seats or beds. Capture multiple poses without leaving the editor.',
+        fields = {
+            { name = 'model', label = 'Freemode model', value = 'mp_m_freemode_01', placeholder = 'mp_f_freemode_01 for female' },
+            { name = 'scenario', label = 'Scenario (optional)', value = 'PROP_HUMAN_SEAT_CHAIR_MP_PLAYER' },
+            { name = 'dict', label = 'Animation dictionary (overrides scenario)', value = '' },
+            { name = 'clip', label = 'Animation clip', value = '' },
+        },
+    }, function(result)
+        if not result then return openToolsMenu() end
+        local values = result.values or {}
+        values.animationEditor = true
+        local started, err = TSSBridgeLabPedSpawner.Start(values, { onCancel = openToolsMenu })
+        if not started then notify(err or 'Unable to start editor.', 'error'); openToolsMenu() end
+    end)
+end
+
 local function requestPedSpawner()
     TSS.UI.Input({
         label = 'Bridge Lab / Ped Spawner',
@@ -988,6 +1007,11 @@ openToolsMenu = function()
                 badge = 'AVAILABLE',
             },
             {
+                label = 'Ped Animation Editor',
+                description = 'Pose a ghost freemode ped for seats and beds; capture multiple placements without exiting.',
+                value = 'ped_animation', icon = 'ped', badge = 'PERSISTENT',
+            },
+            {
                 label = 'Ped Spawner',
                 description = 'Choose a model and idle behaviour, then position one or more peds with a 3D gizmo.',
                 value = 'ped_spawner',
@@ -1031,6 +1055,7 @@ openToolsMenu = function()
             spawn = spawnLab,
             polyzone = openPolyZoneMenu,
             ped_spawner = requestPedSpawner,
+            ped_animation = requestPedAnimationEditor,
             prop_attachment = requestPropAttachment,
             api_explorer = openApiExplorer,
             item_browser = openItemBrowser,

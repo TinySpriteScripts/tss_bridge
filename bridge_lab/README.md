@@ -163,3 +163,29 @@ the temporary value behind.
 
 Shared visual/entity settings are in `config.lua`. Sensitive settings and
 identifier allowlists belong only in `server_config.lua`.
+
+## Ped Animation Editor
+
+Open **Developer Tools > Ped Animation Editor**. Choose `mp_m_freemode_01` or
+`mp_f_freemode_01`, then a scenario or animation dictionary/clip. The editor
+spawns a local, translucent, non-colliding ghost; your player is frozen while
+editing. Animation takes priority over scenario when both are supplied.
+
+- **Tab:** switch move/heading gizmos. Drag with the left mouse button; hold Ctrl for precision.
+- **Right mouse + WASD:** look and move the camera. Q/E moves down/up; Shift increases speed.
+- **Enter:** capture and print the current placement to F8, then move the same ghost to the next seat.
+- **G:** print all captured placements as a Lua table. This does not exit the editor.
+- **F:** open pose settings to change/replay the animation, resume placement, copy the Lua output, or explicitly exit.
+
+Backspace does not exit this editor. Captures stay in memory until cleared or
+exited (maximum 100); print/copy the batch before exiting. No server file is
+written. Exported vector4 coordinates are the ped origin, with no automatic
+chair-height offset. Animation exports include dictionary, clip and flag;
+scenario exports include `useEnterAnim = false`. Match these settings when
+replaying placements in your script. Invalid animation dictionaries/clips are
+rejected; scenario names should be known GTA scenario types.
+
+The existing Ped Spawner keeps its separate add-ped/save-and-exit workflow.
+Restart cleanup deletes the ghost and camera and restores the player's prior
+freeze/invincibility state. Automated checks: `lua tests/ped_animation_spec.lua`.
+In-game placement and animation alignment still need verification in FiveM.
