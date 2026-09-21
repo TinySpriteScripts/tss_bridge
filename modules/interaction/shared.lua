@@ -64,46 +64,60 @@ local function startProximityThread()
     proximityThread = true
 
     CreateThread(function()
+        local nextScan = 0
         while next(entries) do
-            local playerCoords = GetEntityCoords(PlayerPedId())
-            local closest, closestDistance
-            local hasProximity = false
+            local now = GetGameTimer()
+            -- Only key polling needs to run every frame, not distance/access checks.
+            if now >= nextScan then
+                nextScan = now + 250
+                local playerCoords = GetEntityCoords(PlayerPedId())
+                local closest, closestDistance
+                local hasProximity = false
 
-            for _, entry in pairs(entries) do
-                if entry.system == 'textui' then
-                    hasProximity = true
-                    local coords = coordsFor(entry)
-                    if coords then
-                        local distance = #(playerCoords - vec3(coords.x, coords.y, coords.z))
-                        if distance <= entry.distance and canUse(entry, { entity = entry.entity, coords = entry.coords, distance = distance })
-                            and (not closestDistance or distance < closestDistance) then
-                            closest = entry
-                            closestDistance = distance
+                for _, entry in pairs(entries) do
+                    if entry.system == 'textui' then
+                        hasProximity = true
+                        local coords = coordsFor(entry)
+                        if coords then
+                            local distance = #(playerCoords - vec3(coords.x, coords.y, coords.z))
+                            if distance <= entry.distance and (not closestDistance or distance < closestDistance)
+                                and canUse(entry, { entity = entry.entity, coords = entry.coords, distance = distance }) then
+                                closest = entry
+                                closestDistance = distance
+                            end
                         end
+                    end
+                end
+
+                if not hasProximity then break end
+
+                if closest ~= visibleEntry then
+                    hideVisible()
+                    if closest then
+                        TSS.TextUI.Show({
+                            text = closest.text or ('[%s] %s'):format(closest.keyLabel, closest.label),
+                            position = closest.position,
+                            icon = closest.icon,
+                            adapter = closest.textUI,
+                        }, closest.owner)
+                        visibleEntry = closest
                     end
                 end
             end
 
-            if not hasProximity then break end
-
-            if closest ~= visibleEntry then
-                hideVisible()
-                if closest then
-                    TSS.TextUI.Show({
-                        text = closest.text or ('[%s] %s'):format(closest.keyLabel, closest.label),
-                        position = closest.position,
-                        icon = closest.icon,
-                        adapter = closest.textUI,
-                    }, closest.owner)
-                    visibleEntry = closest
+            local current = visibleEntry
+            if current and entries[current.id] == current and IsControlJustReleased(0, current.control) then
+                -- Recheck position and access on activation: the cached prompt may be stale.
+                local coords = coordsFor(current)
+                if coords then
+                    local distance = #(GetEntityCoords(PlayerPedId()) - vec3(coords.x, coords.y, coords.z))
+                    if distance <= current.distance then
+                        activate(current, { entity = current.entity, coords = current.coords, distance = distance })
+                    end
                 end
             end
 
-            if closest and IsControlJustReleased(0, closest.control) then
-                activate(closest, { entity = closest.entity, coords = closest.coords, distance = closestDistance })
-            end
-
-            Wait(closest and 0 or 250)
+            Wait(visibleEntry and 0 or 250)
         end
 
         hideVisible()
