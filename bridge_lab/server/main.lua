@@ -26,11 +26,49 @@ local AttachmentStorage = TSSBridgeLabAttachmentStorage
 
 local mutationCooldowns = {}
 local openCooldowns = {}
+local itemSpawnLimits = {}
 local registeredStashes = {}
 local allowedIdentifiers, allowedCount = Authorization.Build(ServerConfig)
 
 local function isAuthorized(source)
     return Authorization.IsAllowed(source, allowedIdentifiers)
+end
+
+local function itemSpawnAllowed(source)
+    local now = GetGameTimer()
+    local limit = itemSpawnLimits[source]
+    if not limit or now < limit.startedAt or now - limit.startedAt >= 60000 then
+        limit = { startedAt = now, lastAt = 0, count = 0 }
+        itemSpawnLimits[source] = limit
+    end
+
+    if limit.lastAt > 0 and now - limit.lastAt < 1000 then
+        return false, 'Wait one second before spawning another item'
+    end
+    if limit.count >= 20 then
+        return false, 'Item spawn limit reached; wait before trying again'
+    end
+
+    limit.lastAt = now
+    limit.count = limit.count + 1
+    return true
+end
+
+local function serverItemExists(itemName)
+    local ok, items = pcall(TSS.Inventory.Items)
+    if not ok or type(items) ~= 'table' then return false, 'The server item registry is unavailable' end
+
+    if type(rawget(items, itemName)) == 'table' then return true end
+    for key, definition in pairs(items) do
+        if type(definition) == 'table' then
+            local name = definition.name
+            if name == nil and type(key) == 'string' then name = key end
+            if name == nil then name = definition.id end
+            if name ~= nil and tostring(name) == itemName then return true end
+        end
+    end
+
+    return false, 'That item does not exist in the server item registry'
 end
 
 local function systemName(module)
@@ -242,12 +280,49 @@ secureCallback('saveCreatedPropAttachment', function(source, attachment)
     return AttachmentStorage.Save(source, attachment)
 end)
 
-secureCallback('saveCreatedPeds', function(source, peds)
-    return TSSBridgeLabPedStorage.Save(source, peds)
+secureCallback('saveCreatedPedAnimations', function(source, peds)
+    return TSSBridgeLabPedAnimationStorage.Save(source, peds)
 end)
 
 secureCallback('prepareStash', function(source)
     return prepareStash(source)
+end)
+
+secureCallback('spawnBrowserItem', function(source, itemName)
+    itemName = type(itemName) == 'string' and itemName:match('^%s*(.-)%s*$') or ''
+    if itemName == '' or #itemName > 128 or itemName:find('%c') then
+        return { success = false, error = 'Invalid item code' }
+    end
+
+    local allowed, limitError = itemSpawnAllowed(source)
+    if not allowed then return { success = false, error = limitError } end
+
+    local exists, registryError = serverItemExists(itemName)
+    if not exists then
+        print(('[bridge_lab] rejected item spawn from %s: %s'):format(source, itemName))
+        return { success = false, error = registryError }
+    end
+
+    local canCarryOk, canCarry = pcall(TSS.Inventory.CanCarry, source, itemName, 1, nil)
+    if not canCarryOk then
+        print(('[bridge_lab] item carry check failed for %s (%s): %s'):format(source, itemName, tostring(canCarry)))
+        return { success = false, error = 'The inventory carry check failed' }
+    end
+    if canCarry ~= true then return { success = false, error = 'You cannot carry this item' } end
+
+    local addOk, added = pcall(TSS.Inventory.Add, source, itemName, 1, nil, nil, 'bridge_lab_item_browser')
+    if not addOk or added ~= true then
+        print(('[bridge_lab] item grant failed for %s (%s): %s'):format(source, itemName, tostring(added)))
+        return { success = false, error = 'The inventory could not add this item' }
+    end
+
+    print(('[bridge_lab] authorized item spawn: player %s received 1x %s'):format(source, itemName))
+    return {
+        success = true,
+        item = itemName,
+        amount = 1,
+        message = ('Added 1x %s to your inventory.'):format(itemName),
+    }
 end)
 
 secureCallback('runMutations', function(source)
@@ -377,6 +452,7 @@ end
 AddEventHandler('playerDropped', function()
     mutationCooldowns[source] = nil
     openCooldowns[source] = nil
+    itemSpawnLimits[source] = nil
     registeredStashes[('bridge_lab_%s'):format(source)] = nil
 end)
 

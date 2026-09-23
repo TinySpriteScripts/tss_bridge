@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import {
   Activity, Bell, Box, Car, Check, ChevronRight, Circle, CircleDot, Clipboard, ClipboardCheck, Code2, Cpu,
   Crosshair, FlaskConical, Fuel, ImageOff, KeyRound, Keyboard, Map, MessageSquare,
-  MousePointerClick, Package, Play, RotateCcw, Save, Search, Server, Settings,
+  MousePointerClick, Package, PackagePlus, Play, RotateCcw, Save, Search, Server, Settings,
   ShieldCheck, SquareMousePointer, Timer, Trash2, Type, Wrench, X, Zap,
 } from 'lucide-react';
 import '@fortawesome/fontawesome-free/css/all.min.css';
@@ -27,7 +27,7 @@ function App() {
   const [dialog, setDialog] = useState(null);
   const [zoneCreator, setZoneCreator] = useState(null);
   const [attachmentCreator, setAttachmentCreator] = useState(null);
-  const [pedSpawner, setPedSpawner] = useState(null);
+  const [pedAnimationEditor, setPedAnimationEditor] = useState(null);
   const [bridgeLabBrowser, setBridgeLabBrowser] = useState(null);
 
   useEffect(() => {
@@ -57,7 +57,7 @@ function App() {
       if (data.action === 'closeUi') setDialog(null);
       if (data.action === 'zoneCreator') setZoneCreator(data.payload || null);
       if (data.action === 'attachmentCreator') setAttachmentCreator(data.payload || null);
-      if (data.action === 'pedSpawner') setPedSpawner(data.payload || null);
+      if (data.action === 'pedAnimationEditor') setPedAnimationEditor(data.payload || null);
       if (data.action === 'bridgeLabBrowser') setBridgeLabBrowser(data.payload || null);
     };
 
@@ -70,7 +70,7 @@ function App() {
       {debugUi.visible && <LocationDebugPanel data={debugUi} />}
       {zoneCreator?.visible && <ZoneCreatorPanel data={zoneCreator} />}
       {attachmentCreator?.visible && <AttachmentCreatorPanel data={attachmentCreator} />}
-      {pedSpawner?.visible && <PedSpawnerPanel data={pedSpawner} />}
+      {pedAnimationEditor?.visible && <PedAnimationEditorPanel data={pedAnimationEditor} />}
       {bridgeLabBrowser?.visible && <BridgeLabBrowser data={bridgeLabBrowser} />}
       {dialog && <BridgeDialog data={dialog} onClose={() => setDialog(null)} />}
       <NoticeStack notices={notices} />
@@ -79,7 +79,114 @@ function App() {
   );
 }
 
-function PedSpawnerPanel({ data }) {
+function useAnimationCatalog(dictionary, enabled = true) {
+  const [catalog, setCatalog] = useState({ dictionaries: [], clips: [], exact: false, loading: false });
+
+  useEffect(() => {
+    const query = String(dictionary || '').trim();
+    if (!enabled || !query) {
+      setCatalog({ dictionaries: [], clips: [], exact: false, loading: false });
+      return undefined;
+    }
+
+    let cancelled = false;
+    setCatalog((current) => ({ ...current, loading: true }));
+    const timer = window.setTimeout(async () => {
+      try {
+        const response = await postNui('pedAnimationSearch', { query });
+        const result = await response?.json();
+        if (!cancelled) {
+          setCatalog({
+            dictionaries: Array.isArray(result?.dictionaries) ? result.dictionaries : [],
+            clips: Array.isArray(result?.clips) ? result.clips : [],
+            exact: result?.exact === true,
+            loading: false,
+          });
+        }
+      } catch {
+        if (!cancelled) setCatalog({ dictionaries: [], clips: [], exact: false, loading: false });
+      }
+    }, 120);
+
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [dictionary, enabled]);
+
+  return catalog;
+}
+
+function AnimationDictionaryField({ value, onChange, autoFocus = false, required = false, placeholder = '' }) {
+  const catalog = useAnimationCatalog(value);
+  const [open, setOpen] = useState(false);
+  const [highlighted, setHighlighted] = useState(0);
+  const suggestions = catalog.dictionaries;
+
+  useEffect(() => setHighlighted(0), [value, suggestions.length]);
+
+  const choose = (dictionary) => {
+    onChange(dictionary);
+    setOpen(false);
+  };
+  const keyDown = (event) => {
+    if (!open || suggestions.length === 0) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setHighlighted((current) => (current + 1) % suggestions.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setHighlighted((current) => (current - 1 + suggestions.length) % suggestions.length);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      choose(suggestions[highlighted]);
+    } else if (event.key === 'Escape') {
+      setOpen(false);
+    }
+  };
+
+  return <div className="animation-dictionary-picker">
+    <input
+      autoComplete="off"
+      autoFocus={autoFocus}
+      required={required}
+      value={value || ''}
+      placeholder={placeholder}
+      onFocus={() => setOpen(true)}
+      onBlur={() => window.setTimeout(() => setOpen(false), 100)}
+      onKeyDown={keyDown}
+      onChange={(event) => { onChange(event.target.value); setOpen(true); }}
+    />
+    {open && String(value || '').trim() && suggestions.length > 0 && <div className="animation-dictionary-results">
+      {suggestions.map((dictionary, index) => <button
+        type="button"
+        className={index === highlighted ? 'highlighted' : ''}
+        key={dictionary}
+        onMouseDown={(event) => event.preventDefault()}
+        onMouseEnter={() => setHighlighted(index)}
+        onClick={() => choose(dictionary)}
+      >{dictionary}</button>)}
+    </div>}
+    {open && String(value || '').trim() && !catalog.loading && suggestions.length === 0 && <small className="animation-catalog-empty">No dictionaries contain that text.</small>}
+    {catalog.loading && <small className="animation-catalog-status">Searching animation dictionaries...</small>}
+  </div>;
+}
+
+function AnimationClipField({ dictionary, value, onChange, autoFocus = false, required = false, placeholder = '' }) {
+  const catalog = useAnimationCatalog(dictionary);
+  if (catalog.exact) {
+    return <select autoFocus={autoFocus} required={required} value={value || ''} onChange={(event) => onChange(event.target.value)}>
+      <option value="">Select a clip...</option>
+      {catalog.clips.map((clip) => <option value={clip} key={clip}>{clip}</option>)}
+    </select>;
+  }
+  return <input
+    autoFocus={autoFocus}
+    required={required}
+    value={value || ''}
+    placeholder={dictionary ? 'Select an exact dictionary first' : placeholder}
+    onChange={(event) => onChange(event.target.value)}
+  />;
+}
+
+function PedAnimationEditorPanel({ data }) {
   const [pose, setPose] = useState(data.pose || {});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -93,17 +200,17 @@ function PedSpawnerPanel({ data }) {
     } catch { setError('Unable to update pose.'); }
     finally { setBusy(false); }
   };
-  return <section className={`zone-creator-panel ped-spawner-panel ${data.settingsOpen ? 'settings-open' : ''}`}>
+  return <section className={`zone-creator-panel ped-animation-panel ${data.settingsOpen ? 'settings-open' : ''}`}>
     <div className="zone-creator-accent" />
-    <header><div><span>{data.title || 'Ped Spawner'}</span><h2>{data.model || 'Ped placement'}</h2></div><div className="zone-mode"><Crosshair size={14} />{data.mode || 'MOVE'}</div></header>
+    <header><div><span>{data.title || 'Ped Animation Editor'}</span><h2>{data.model || 'Ped placement'}</h2></div><div className="zone-mode"><Crosshair size={14} />{data.mode || 'MOVE'}</div></header>
     <div className="zone-type">{data.behaviour}<strong>{data.count || 0} placed</strong></div>
     <div className="zone-metrics">{(data.metrics || []).map((metric) => <div key={metric.label}><span>{metric.label}</span><strong>{metric.value}</strong></div>)}</div>
     {data.message && <div className="zone-message">{data.message}</div>}
-    {data.animationEditor && data.settingsOpen && <div className="attachment-settings">
+    {data.settingsOpen && <div className="attachment-settings">
       <p>Animation overrides scenario. Clear both animation fields to use a scenario.</p>
       <label><span>Scenario</span><input value={pose.scenario || ''} onChange={(e) => setPose({ ...pose, scenario: e.target.value })} /></label>
-      <label><span>Animation dictionary</span><input value={pose.dict || ''} onChange={(e) => setPose({ ...pose, dict: e.target.value })} /></label>
-      <label><span>Animation clip</span><input value={pose.clip || ''} onChange={(e) => setPose({ ...pose, clip: e.target.value })} /></label>
+      <label><span>Animation dictionary</span><AnimationDictionaryField value={pose.dict || ''} onChange={(dict) => setPose({ ...pose, dict, clip: '' })} /></label>
+      <label><span>Animation clip</span><AnimationClipField dictionary={pose.dict || ''} value={pose.clip || ''} onChange={(clip) => setPose({ ...pose, clip })} /></label>
       <label><span>Animation flag (1 = full-body loop)</span><input type="number" min="0" max="51" value={pose.flag ?? 1} onChange={(e) => setPose({ ...pose, flag: e.target.value })} /></label>
       {error && <div className="zone-message" role="alert">{error}</div>}
       <div className="attachment-actions">
@@ -111,8 +218,9 @@ function PedSpawnerPanel({ data }) {
         <button disabled={busy} onClick={() => send('resume')}>Resume gizmo</button>
       </div>
       <div className="attachment-actions">
-        <button disabled={busy} onClick={() => send('export')}>Print all captures</button>
-        <button disabled={busy} onClick={() => send('clear')}>Clear captures</button>
+        <button className="done" disabled={busy || !(data.count > 0)} onClick={() => send('save')}>Save file</button>
+        <button disabled={busy} onClick={() => send('export')}>Print / copy Lua</button>
+        <button disabled={busy} onClick={() => send('clear')}>Clear placed peds</button>
       </div>
       {data.output && <><textarea className="ped-pose-output" aria-label="Exported Lua placements" value={data.output} readOnly /><CopyButton value={data.output} label="Copy Lua" /></>}
       <button className="ped-editor-exit" disabled={busy} onClick={() => send('exit')}>Exit editor</button>
@@ -195,6 +303,28 @@ function CopyButton({ value, label = 'Copy' }) {
   return <button type="button" className="browser-copy" onClick={copy}><Clipboard size={13} />{copied ? 'Copied' : label}</button>;
 }
 
+function SpawnItemButton({ item }) {
+  const [state, setState] = useState('idle');
+
+  useEffect(() => setState('idle'), [item]);
+
+  const spawn = async () => {
+    if (state === 'loading') return;
+    setState('loading');
+    try {
+      const response = await postNui('bridgeLabBrowserSpawnItem', { item });
+      const result = await response?.json();
+      setState(result?.success ? 'success' : 'error');
+    } catch {
+      setState('error');
+    }
+    window.setTimeout(() => setState('idle'), 1400);
+  };
+
+  const label = state === 'loading' ? 'Spawning...' : state === 'success' ? 'Spawned' : state === 'error' ? 'Failed' : 'Spawn item';
+  return <button type="button" className={`browser-spawn ${state}`} onClick={spawn} disabled={state === 'loading'}><PackagePlus size={13} />{label}</button>;
+}
+
 function ItemImage({ item }) {
   const candidates = item.imageCandidates || [];
   const [index, setIndex] = useState(0);
@@ -275,7 +405,7 @@ function ItemBrowser({ data }) {
     </aside>
     <main className="browser-detail">
       {selected ? <>
-        <div className="item-heading"><ItemImage item={selected} /><div><span>Shared item definition</span><h2>{selected.label}</h2><code>{selected.name}</code></div><CopyButton value={selected.name} label="Copy item code" /></div>
+        <div className="item-heading"><ItemImage item={selected} /><div><span>Shared item definition</span><h2>{selected.label}</h2><code>{selected.name}</code></div><div className="item-heading-actions"><CopyButton value={selected.name} label="Copy item code" /><SpawnItemButton item={selected.name} /></div></div>
         <div className="item-fields">
           {selected.fields.map((field) => <div className="item-field" key={field.name}><span><strong>{field.name}</strong><small>{field.valueType}</small></span><code>{field.value}</code><CopyButton value={field.value} /></div>)}
         </div>
@@ -296,7 +426,7 @@ function BridgeLabBrowser({ data }) {
   return <section className="bridge-lab-browser">
     <header className="browser-header"><div><span>Bridge Lab / Developer Tools</span><h1>{data.title}</h1></div><div className="browser-summary">{data.kind === 'api' ? `${data.moduleCount} modules · ${data.functionCount} functions` : `${data.itemCount} items · ${data.system} / ${data.resource}`}</div><button type="button" onClick={() => postNui('bridgeLabBrowserClose')}><X size={18} /></button></header>
     {data.kind === 'api' ? <ApiExplorer data={data} /> : <ItemBrowser data={data} />}
-    <footer><kbd>ESC</kbd><span>Return to Developer Tools</span><i>Click any copy button to place its exact value on your clipboard</i></footer>
+    <footer><kbd>ESC</kbd><span>Return to Developer Tools</span><i>{data.kind === 'items' ? 'Spawn grants one item to your inventory through the secured server callback' : 'Click any copy button to place its exact value on your clipboard'}</i></footer>
   </section>;
 }
 
@@ -442,7 +572,30 @@ function InputDialog({ data, close, onClose }) {
         <div className="input-fields">
           {fields.map((field, index) => {
             const name = field.name || 'value';
-            return <label key={name}><span>{field.label}</span><div className="field-wrap">{field.type === 'select' ? <select autoFocus={index === 0} required={field.required} value={values[name]} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))}><option value="" disabled>Select...</option>{(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label || option.text || option.value}</option>)}</select> : <input autoFocus={index === 0} required={field.required} step={field.step} type={field.type || 'text'} value={values[name]} placeholder={field.placeholder || ''} min={field.min} max={field.max} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))} />}{field.suffix && <em>{field.suffix}</em>}</div></label>;
+            let control;
+            if (field.type === 'select') {
+              control = <select autoFocus={index === 0} required={field.required} value={values[name]} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))}><option value="" disabled>Select...</option>{(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label || option.text || option.value}</option>)}</select>;
+            } else if (field.type === 'animation-dict') {
+              control = <AnimationDictionaryField
+                autoFocus={index === 0}
+                required={field.required}
+                value={values[name]}
+                placeholder={field.placeholder || ''}
+                onChange={(dict) => setValues((current) => ({ ...current, [name]: dict, [field.clipField || 'clip']: '' }))}
+              />;
+            } else if (field.type === 'animation-clip') {
+              control = <AnimationClipField
+                autoFocus={index === 0}
+                required={field.required}
+                dictionary={values[field.dictField || 'dict']}
+                value={values[name]}
+                placeholder={field.placeholder || ''}
+                onChange={(clip) => setValues((current) => ({ ...current, [name]: clip }))}
+              />;
+            } else {
+              control = <input autoFocus={index === 0} required={field.required} step={field.step} type={field.type || 'text'} value={values[name]} placeholder={field.placeholder || ''} min={field.min} max={field.max} onChange={(event) => setValues((current) => ({ ...current, [name]: event.target.value }))} />;
+            }
+            return <label key={name}><span>{field.label}</span><div className="field-wrap">{control}{field.suffix && <em>{field.suffix}</em>}</div></label>;
           })}
         </div>
         <div className="input-actions"><button type="submit" className="confirm">{data.confirmLabel || 'Confirm'}<Check size={20} /></button><button type="button" onClick={close}>{data.cancelLabel || 'Cancel'}<X size={20} /></button></div>

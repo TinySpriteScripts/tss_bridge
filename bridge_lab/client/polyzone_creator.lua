@@ -4,6 +4,9 @@ TSSBridgeLabPolyZoneCreator = {}
 local Creator = TSSBridgeLabPolyZoneCreator
 local editor = { active = false }
 local minimumSize = 0.1
+-- Requesting the module also loads its shared implementation. Reading
+-- TSS.Gizmo directly here is too early because bridge modules are lazy-loaded.
+local Gizmo = TSSModuleLoader.GetModules({ 'Gizmo' }).Gizmo
 
 local function vector(x, y, z)
     return vec3(x + 0.0, y + 0.0, z + 0.0)
@@ -143,172 +146,96 @@ local function rotationRadius()
     return gizmoLength() * 0.9
 end
 
-local function faceHandles()
-    local zone = editor.zone
-    if editor.type == 'circle' then
-        local direction = vector(1.0, 0.0, 0.0)
-        return { {
-            kind = 'radius', label = 'Radius', direction = direction, distance = zone.radius,
-            position = add(zone.coords, multiply(direction, zone.radius)),
-        } }
-    end
-
-    local right, forward = boxBasis(zone.heading)
-    local up = vector(0.0, 0.0, 1.0)
-    local handles = {}
-    local axes = {
-        { direction = right, dimension = 'width', distance = zone.width / 2.0 },
-        { direction = forward, dimension = 'length', distance = zone.length / 2.0 },
-        { direction = up, dimension = 'height', distance = zone.height / 2.0 },
-    }
-
-    for i = 1, #axes do
-        for _, sign in ipairs({ -1.0, 1.0 }) do
-            local direction = multiply(axes[i].direction, sign)
-            handles[#handles + 1] = {
-                kind = 'resize', dimension = axes[i].dimension, direction = direction,
-                distance = axes[i].distance,
-                position = add(zone.coords, multiply(direction, axes[i].distance)),
-            }
-        end
-    end
-    return handles
-end
-
-local function moveHandles()
-    local length = gizmoLength()
-    return {
-        { kind = 'move', axis = 'x', direction = vector(1.0, 0.0, 0.0), distance = length, color = { 255, 55, 55 } },
-        { kind = 'move', axis = 'y', direction = vector(0.0, 1.0, 0.0), distance = length, color = { 65, 235, 100 } },
-        { kind = 'move', axis = 'z', direction = vector(0.0, 0.0, 1.0), distance = length, color = { 55, 125, 255 } },
-    }
-end
-
 local function screenDistance(x1, y1, x2, y2)
     local dx, dy = x1 - x2, y1 - y2
     return math.sqrt((dx * dx) + (dy * dy))
 end
 
-local function rotationCandidate(mouseX, mouseY)
-    if editor.type ~= 'box' then return nil end
-    local radius = rotationRadius()
-    local best = 1.0
-    for i = 0, 47 do
-        local angle = (math.pi * 2.0) * (i / 48)
-        local point = vector(editor.zone.coords.x + math.cos(angle) * radius,
-            editor.zone.coords.y + math.sin(angle) * radius, editor.zone.coords.z)
-        local visible, x, y = project(point)
-        if visible then best = math.min(best, screenDistance(mouseX, mouseY, x, y)) end
-    end
-    if best <= 0.014 then return { kind = 'rotate', distance = radius } end
-end
-
-local function findHandle(mouseX, mouseY)
-    local closest, closestDistance = nil, 0.024
-    local resize = faceHandles()
-    for i = 1, #resize do
-        local visible, x, y = project(resize[i].position)
-        if visible then
-            local distance = screenDistance(mouseX, mouseY, x, y)
-            if distance < closestDistance then closest, closestDistance = resize[i], distance end
-        end
+local function zoneGizmoHandles()
+    local zone, center = editor.zone, editor.zone.coords
+    local world = Gizmo.WorldAxes()
+    local handles, length = {}, gizmoLength()
+    for _, axis in ipairs({ 'x', 'y', 'z' }) do
+        handles[#handles + 1] = Gizmo.AxisHandle('move_' .. axis, center, world[axis], length, axis,
+            { size = 0.04, hoverSize = 0.06, data = { kind = 'move', distance = length } })
     end
 
-    local moves = moveHandles()
-    for i = 1, #moves do
-        moves[i].position = add(editor.zone.coords, multiply(moves[i].direction, moves[i].distance))
-        local visible, x, y = project(moves[i].position)
-        if visible then
-            local distance = screenDistance(mouseX, mouseY, x, y)
-            if distance < closestDistance then closest, closestDistance = moves[i], distance end
-        end
+    if editor.type == 'circle' then
+        local position = add(center, multiply(world.x, zone.radius))
+        handles[#handles + 1] = Gizmo.PointHandle('radius', position, {
+            direction = world.x,
+            data = { kind = 'radius', distance = zone.radius },
+        })
+        return handles
     end
 
-    return closest or rotationCandidate(mouseX, mouseY)
-end
-
-local function sameHandle(a, b)
-    if not a or not b or a.kind ~= b.kind then return false end
-    return a.dimension == b.dimension and a.axis == b.axis and a.direction and b.direction
-        and dot(a.direction, b.direction) > 0.99
-end
-
-local function drawGizmo(hovered)
-    local center = editor.zone.coords
-    local moves = moveHandles()
-    for i = 1, #moves do
-        local handle = moves[i]
-        local endpoint = add(center, multiply(handle.direction, handle.distance))
-        local color = handle.color
-        line(center, endpoint, color[1], color[2], color[3], 245)
-        marker(endpoint, sameHandle(hovered, handle) and 0.06 or 0.04, color[1], color[2], color[3], 240)
-    end
-
-    local resize = faceHandles()
-    for i = 1, #resize do
-        local selected = sameHandle(hovered, resize[i])
-        marker(resize[i].position, selected and 0.075 or 0.05, selected and 255 or 235,
-            selected and 210 or 45, selected and 45 or 45, 245)
-    end
-
-    if editor.type == 'box' then
-        drawCircle(center, rotationRadius(), 'z', 255, 205, 65, hovered and hovered.kind == 'rotate' and 255 or 180)
-    end
-end
-
-local function startDrag(handle, mouseX, mouseY)
-    if not handle then return end
-    local visibleCenter, centerX, centerY = project(editor.zone.coords)
-    local endpoint = handle.position or add(editor.zone.coords, multiply(handle.direction or vector(1.0, 0.0, 0.0), handle.distance or 1.0))
-    local visibleEnd, endX, endY = project(endpoint)
-    if not visibleCenter or (handle.kind ~= 'rotate' and not visibleEnd) then return end
-
-    editor.drag = {
-        handle = handle,
-        mouseX = mouseX,
-        mouseY = mouseY,
-        center = copy(editor.zone.coords),
-        width = editor.zone.width,
-        length = editor.zone.length,
-        height = editor.zone.height,
-        radius = editor.zone.radius,
-        heading = editor.zone.heading,
-        centerX = centerX,
-        centerY = centerY,
-        screenX = (endX or centerX) - centerX,
-        screenY = (endY or centerY) - centerY,
-        reference = handle.distance or 1.0,
-        angle = math.atan(mouseY - centerY, mouseX - centerX),
+    local right, forward = boxBasis(zone.heading)
+    local dimensions = {
+        { name = 'width', direction = right, distance = zone.width / 2.0 },
+        { name = 'length', direction = forward, distance = zone.length / 2.0 },
+        { name = 'height', direction = world.z, distance = zone.height / 2.0 },
     }
+    for i = 1, #dimensions do
+        local dimension = dimensions[i]
+        for _, sign in ipairs({ -1.0, 1.0 }) do
+            local direction = multiply(dimension.direction, sign)
+            handles[#handles + 1] = Gizmo.PointHandle(
+                ('resize_%s_%s'):format(dimension.name, sign < 0 and 'negative' or 'positive'),
+                add(center, multiply(direction, dimension.distance)), {
+                    direction = direction,
+                    data = { kind = 'resize', dimension = dimension.name, distance = dimension.distance },
+                })
+        end
+    end
+    handles[#handles + 1] = Gizmo.RingHandle('heading', center, world.x, world.y, rotationRadius(),
+        { axis = 'z', hitRadius = 0.014 })
+    return handles
 end
 
-local function updateDrag(mouseX, mouseY)
-    local drag = editor.drag
-    if not drag then return end
-    local handle = drag.handle
-
-    if handle.kind == 'rotate' then
-        local angle = math.atan(mouseY - drag.centerY, mouseX - drag.centerX)
-        editor.zone.heading = (drag.heading + math.deg(angle - drag.angle)) % 360.0
-        return
-    end
-
-    local axisLength = (drag.screenX * drag.screenX) + (drag.screenY * drag.screenY)
-    if axisLength < 0.000001 then return end
-    local deltaX, deltaY = mouseX - drag.mouseX, mouseY - drag.mouseY
-    local displacement = (((deltaX * drag.screenX) + (deltaY * drag.screenY)) / axisLength) * drag.reference
-
-    if handle.kind == 'move' then
-        editor.zone.coords = add(drag.center, multiply(handle.direction, displacement))
-    elseif handle.kind == 'radius' then
-        editor.zone.radius = math.max(minimumSize, drag.radius + displacement)
-    elseif handle.kind == 'resize' then
-        local original = drag[handle.dimension]
-        local nextValue = math.max(minimumSize, original + displacement)
-        local applied = nextValue - original
-        editor.zone[handle.dimension] = nextValue
-        editor.zone.coords = add(drag.center, multiply(handle.direction, applied / 2.0))
-    end
+local function createZoneGizmo()
+    return Gizmo.Create({
+        mode = 'transform',
+        handles = zoneGizmoHandles,
+        onDragStart = function(handle, mouseX, mouseY)
+            local zone = editor.zone
+            local state = {
+                center = copy(zone.coords), width = zone.width, length = zone.length,
+                height = zone.height, radius = zone.radius, heading = zone.heading,
+            }
+            if handle.kind == 'ring' then
+                local visible, centerX, centerY = project(zone.coords)
+                if not visible then return false end
+                state.centerX, state.centerY = centerX, centerY
+                state.angle = math.atan(mouseY - centerY, mouseX - centerX)
+            else
+                state.linear = Gizmo.LinearDrag(zone.coords, handle.position, mouseX, mouseY,
+                    handle.data and handle.data.distance)
+                if not state.linear then return false end
+            end
+            return state
+        end,
+        onDrag = function(handle, state, mouseX, mouseY, precision)
+            if handle.kind == 'ring' then
+                local angle = math.atan(mouseY - state.centerY, mouseX - state.centerX)
+                editor.zone.heading = (state.heading + math.deg(angle - state.angle)) % 360.0
+                return
+            end
+            local displacement = Gizmo.LinearDisplacement(state.linear, mouseX, mouseY, precision)
+            local kind = handle.data and handle.data.kind
+            if kind == 'move' then
+                editor.zone.coords = add(state.center, multiply(handle.direction, displacement))
+            elseif kind == 'radius' then
+                editor.zone.radius = math.max(minimumSize, state.radius + displacement)
+            elseif kind == 'resize' then
+                local dimension = handle.data.dimension
+                local original = state[dimension]
+                local nextValue = math.max(minimumSize, original + displacement)
+                local applied = nextValue - original
+                editor.zone[dimension] = nextValue
+                editor.zone.coords = add(state.center, multiply(handle.direction, applied / 2.0))
+            end
+        end,
+    })
 end
 
 local disabledControls = { 1, 2, 14, 15, 16, 17, 24, 25, 30, 31, 32, 33, 34, 35, 36, 37, 38, 44, 140, 141, 142, 177, 191, 200, 201, 239, 240 }
@@ -506,7 +433,7 @@ local function hudPayload(message)
         title = editor.name,
         zoneType = editor.type,
         mode = editor.type == 'poly' and (editor.polyDrag and 'MOVING POINT' or 'DRAW MODE')
-            or (editor.drag and 'DRAGGING' or 'GIZMO MODE'),
+            or (editor.gizmo and editor.gizmo:IsDragging() and 'DRAGGING' or 'GIZMO MODE'),
         metrics = metrics,
         message = message or editor.message,
         help = editor.type == 'poly' and {
@@ -532,6 +459,7 @@ end
 
 local function stopEditor(cancelled)
     if not editor.active then return end
+    if editor.gizmo then editor.gizmo:FinishDrag(true) end
     local onCancel = editor.onCancel
     editor.active = false
 
@@ -565,6 +493,12 @@ local function editorLoop()
         Wait(0)
         blockControls()
         local polyMode = editor.type == 'poly'
+        local looking = IsDisabledControlPressed(0, 25)
+        if looking then
+            -- RMB is also reported as frontend cancel (177) by GTA. Keep a
+            -- short release grace period so camera look can never close the editor.
+            editor.ignoreCancelUntil = GetGameTimer() + 150
+        end
         updateCamera(polyMode)
 
         if polyMode then
@@ -572,10 +506,6 @@ local function editorLoop()
             updatePolygonHeight()
             local hoveredPoint = editor.polyDrag or polygonPointAtCrosshair()
             local rightClick = IsDisabledControlJustPressed(0, 25)
-
-            -- GTA also reports RMB through its shared frontend/cellphone cancel input.
-            -- Remember the mouse press so the keyboard cancel handler cannot consume it.
-            if rightClick then editor.ignoreCancelUntil = GetGameTimer() + 250 end
 
             if IsDisabledControlJustPressed(0, 24) then
                 if hoveredPoint then
@@ -606,24 +536,12 @@ local function editorLoop()
             end
             drawPolygon(hoveredPoint)
         else
-            local looking = IsDisabledControlPressed(0, 25)
-            local hovered
-            if not looking then
-                SetMouseCursorActiveThisFrame()
-                local mouseX, mouseY = GetDisabledControlNormal(0, 239), GetDisabledControlNormal(0, 240)
-                hovered = editor.drag and editor.drag.handle or findHandle(mouseX, mouseY)
-                if IsDisabledControlJustPressed(0, 24) then startDrag(hovered, mouseX, mouseY) end
-                if editor.drag and IsDisabledControlPressed(0, 24) then updateDrag(mouseX, mouseY) end
-                if editor.drag and IsDisabledControlJustReleased(0, 24) then editor.drag = nil end
-            end
-            if editor.drag and not IsDisabledControlPressed(0, 24) then editor.drag = nil end
-
             if editor.type == 'box' then drawBox(editor.zone) else drawSphere(editor.zone) end
-            drawGizmo(hovered)
+            editor.gizmo:Tick({ enabled = not looking, cursor = not looking })
         end
 
         if IsDisabledControlJustPressed(0, 191) or IsDisabledControlJustPressed(0, 201) then saveEditor() end
-        if editor.active and IsDisabledControlJustPressed(0, 177)
+        if editor.active and not looking and IsDisabledControlJustPressed(0, 177)
             and GetGameTimer() > (editor.ignoreCancelUntil or 0) then
             stopEditor(true)
         end
@@ -674,6 +592,7 @@ function Creator.Start(zoneType, name, callbacks)
         onSave = callbacks and callbacks.onSave,
         onCancel = callbacks and callbacks.onCancel,
     }
+    if zoneType ~= 'poly' then editor.gizmo = createZoneGizmo() end
 
     FreezeEntityPosition(ped, true)
     SetPlayerInvincible(PlayerId(), true)

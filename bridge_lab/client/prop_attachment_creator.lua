@@ -3,6 +3,9 @@ TSSBridgeLabPropAttachmentCreator = {}
 
 local Creator = TSSBridgeLabPropAttachmentCreator
 local editor = { active = false }
+-- Requesting the module also loads its shared implementation. Reading
+-- TSS.Gizmo directly here is too early because bridge modules are lazy-loaded.
+local Gizmo = TSSModuleLoader.GetModules({ 'Gizmo' }).Gizmo
 
 local function isCallable(value)
     if type(value) == 'function' then return true end
@@ -51,24 +54,6 @@ local function normalise(a)
     return length > 0.00001 and multiply(a, 1.0 / length) or vector(0.0, 0.0, 0.0)
 end
 
-local function project(coords)
-    local visible, x, y = GetScreenCoordFromWorldCoord(coords.x, coords.y, coords.z)
-    return visible, x, y
-end
-
-local function screenDistance(aX, aY, bX, bY)
-    return math.sqrt(((aX - bX) ^ 2) + ((aY - bY) ^ 2))
-end
-
-local function line(a, b, r, g, blue, alpha)
-    DrawLine(a.x, a.y, a.z, b.x, b.y, b.z, r, g, blue, alpha or 240)
-end
-
-local function marker(coords, size, r, g, blue, alpha)
-    DrawMarker(28, coords.x, coords.y, coords.z, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        size, size, size, r, g, blue, alpha or 230, false, false, 2, false, nil, nil, false)
-end
-
 local function cameraBasis(rotation)
     local pitch, yaw = math.rad(rotation.x), math.rad(rotation.z)
     local cosPitch = math.cos(pitch)
@@ -96,12 +81,6 @@ local function boneAxes()
     return { x = x, y = y, z = z }
 end
 
-local axisData = {
-    { component = 'x', color = { 255, 65, 65 } },
-    { component = 'y', color = { 65, 220, 105 } },
-    { component = 'z', color = { 65, 135, 255 } },
-}
-
 local function applyAttachment()
     local bone = currentBone()
     local boneIndex = GetPedBoneIndex(editor.ped, bone.id)
@@ -116,120 +95,59 @@ local function gizmoSize()
     return math.max(0.18, math.min(0.52, distance * 0.055))
 end
 
-local function ringPoint(center, first, second, radius, angle)
-    return add(center, add(multiply(first, math.cos(angle) * radius), multiply(second, math.sin(angle) * radius)))
-end
-
-local function ringBasis(component, axes)
-    if component == 'x' then return axes.y, axes.z end
-    if component == 'y' then return axes.x, axes.z end
-    return axes.x, axes.y
-end
-
-local function drawRing(center, first, second, radius, color, selected)
-    local previous
-    for i = 0, 48 do
-        local point = ringPoint(center, first, second, radius, (math.pi * 2.0) * (i / 48))
-        if previous then line(previous, point, color[1], color[2], color[3], selected and 255 or 190) end
-        previous = point
-    end
-end
-
-local function rotationHandle(mouseX, mouseY, center, axes, radius)
-    local closest, best = nil, 0.015
-    for i = 1, #axisData do
-        local axis = axisData[i]
-        local first, second = ringBasis(axis.component, axes)
-        for segment = 0, 47 do
-            local point = ringPoint(center, first, second, radius, (math.pi * 2.0) * (segment / 48))
-            local visible, x, y = project(point)
-            if visible then
-                local distance = screenDistance(mouseX, mouseY, x, y)
-                if distance < best then closest, best = axis, distance end
+local function createAttachmentGizmo()
+    return Gizmo.Create({
+        mode = editor.mode,
+        handles = function(mode)
+            local center, axes, size = GetEntityCoords(editor.prop), boneAxes(), gizmoSize()
+            local handles = {}
+            for _, component in ipairs({ 'x', 'y', 'z' }) do
+                if mode == 'move' then
+                    handles[#handles + 1] = Gizmo.AxisHandle('move_' .. component, center,
+                        axes[component], size, component, { size = 0.038, hoverSize = 0.055 })
+                else
+                    local first, second = Gizmo.RingBasis(component, axes)
+                    handles[#handles + 1] = Gizmo.RingHandle('rotate_' .. component, center,
+                        first, second, size * 0.82, { axis = component })
+                end
             end
-        end
-    end
-    return closest
-end
-
-local function findHandle(mouseX, mouseY)
-    local center = GetEntityCoords(editor.prop)
-    local axes, size = boneAxes(), gizmoSize()
-    if editor.mode == 'rotate' then return rotationHandle(mouseX, mouseY, center, axes, size * 0.82) end
-
-    local closest, best = nil, 0.025
-    for i = 1, #axisData do
-        local axis = axisData[i]
-        local endpoint = add(center, multiply(axes[axis.component], size))
-        local visible, x, y = project(endpoint)
-        if visible then
-            local distance = screenDistance(mouseX, mouseY, x, y)
-            if distance < best then closest, best = axis, distance end
-        end
-    end
-    return closest
-end
-
-local function drawGizmo(hovered)
-    local center = GetEntityCoords(editor.prop)
-    local axes, size = boneAxes(), gizmoSize()
-    for i = 1, #axisData do
-        local axis = axisData[i]
-        local selected = hovered and hovered.component == axis.component
-        if editor.mode == 'move' then
-            local endpoint = add(center, multiply(axes[axis.component], size))
-            line(center, endpoint, axis.color[1], axis.color[2], axis.color[3], 250)
-            marker(endpoint, selected and 0.055 or 0.038, axis.color[1], axis.color[2], axis.color[3], 245)
-        else
-            local first, second = ringBasis(axis.component, axes)
-            drawRing(center, first, second, size * 0.82, axis.color, selected)
-        end
-    end
-end
-
-local function startDrag(handle, mouseX, mouseY)
-    if not handle then return end
-    local original = editor.mode == 'move' and editor.offset[handle.component] or editor.rotation[handle.component]
-    local drag = { handle = handle, mouseX = mouseX, mouseY = mouseY, original = original }
-    if editor.mode == 'move' then
-        local center = GetEntityCoords(editor.prop)
-        local direction = boneAxes()[handle.component]
-        local endpoint = add(center, multiply(direction, gizmoSize()))
-        local centerVisible, centerX, centerY = project(center)
-        local endVisible, endX, endY = project(endpoint)
-        if not centerVisible or not endVisible then return end
-        local x, y = endX - centerX, endY - centerY
-        local length = math.sqrt(x * x + y * y)
-        if length < 0.002 then return end
-        drag.screenX, drag.screenY, drag.screenLength = x / length, y / length, length
-    end
-    editor.drag = drag
-end
-
-local function updateDrag(mouseX, mouseY)
-    local drag = editor.drag
-    if not drag then return end
-    local precision = IsDisabledControlPressed(0, 36) and 0.2 or 1.0
-    if editor.mode == 'move' then
-        local screenMovement = ((mouseX - drag.mouseX) * drag.screenX) + ((mouseY - drag.mouseY) * drag.screenY)
-        local nextValue = drag.original + ((screenMovement / drag.screenLength) * gizmoSize() * precision)
-        local offset = editor.offset
-        editor.offset = transform(
-            drag.handle.component == 'x' and nextValue or offset.x,
-            drag.handle.component == 'y' and nextValue or offset.y,
-            drag.handle.component == 'z' and nextValue or offset.z
-        )
-    else
-        local movement = (mouseX - drag.mouseX) - (mouseY - drag.mouseY)
-        local nextValue = (drag.original + movement * 360.0 * precision) % 360.0
-        local rotation = editor.rotation
-        editor.rotation = transform(
-            drag.handle.component == 'x' and nextValue or rotation.x,
-            drag.handle.component == 'y' and nextValue or rotation.y,
-            drag.handle.component == 'z' and nextValue or rotation.z
-        )
-    end
-    applyAttachment()
+            return handles
+        end,
+        onDragStart = function(handle, mouseX, mouseY)
+            local component = handle.axis
+            local state = {
+                mouseX = mouseX, mouseY = mouseY, component = component,
+                original = editor.mode == 'move' and editor.offset[component] or editor.rotation[component],
+            }
+            if handle.kind == 'axis' then
+                state.linear = Gizmo.LinearDrag(handle.origin, handle.position, mouseX, mouseY, handle.distance)
+                if not state.linear then return false end
+            end
+            return state
+        end,
+        onDrag = function(handle, state, mouseX, mouseY, precision)
+            local nextValue
+            if handle.kind == 'axis' then
+                nextValue = state.original + Gizmo.LinearDisplacement(state.linear, mouseX, mouseY, precision)
+                local offset = editor.offset
+                editor.offset = transform(
+                    state.component == 'x' and nextValue or offset.x,
+                    state.component == 'y' and nextValue or offset.y,
+                    state.component == 'z' and nextValue or offset.z
+                )
+            else
+                local movement = (mouseX - state.mouseX) - (mouseY - state.mouseY)
+                nextValue = (state.original + movement * 360.0 * precision) % 360.0
+                local rotation = editor.rotation
+                editor.rotation = transform(
+                    state.component == 'x' and nextValue or rotation.x,
+                    state.component == 'y' and nextValue or rotation.y,
+                    state.component == 'z' and nextValue or rotation.z
+                )
+            end
+            applyAttachment()
+        end,
+    })
 end
 
 local disabledControls = {
@@ -279,7 +197,7 @@ local function hudPayload(message)
         visible = true,
         title = editor.name,
         model = editor.model,
-        mode = editor.drag and 'DRAGGING' or editor.mode:upper(),
+        mode = editor.gizmo and editor.gizmo:IsDragging() and 'DRAGGING' or editor.mode:upper(),
         bone = ('%s · 0x%04X'):format(bone.name, bone.id),
         boneIndex = editor.boneIndex,
         bones = boneOptions,
@@ -308,7 +226,7 @@ local sendHud
 local function setSettingsOpen(state)
     if not editor.active then return end
     editor.settingsOpen = state == true
-    editor.drag = nil
+    if editor.gizmo then editor.gizmo:FinishDrag(false) end
     SetNuiFocus(editor.settingsOpen, editor.settingsOpen)
     sendHud(true)
 end
@@ -363,6 +281,7 @@ end
 
 local function stopEditor(cancelled)
     if not editor.active then return end
+    if editor.gizmo then editor.gizmo:FinishDrag(true) end
     local onCancel, props, prop = editor.onCancel, editor.props, editor.prop
     local camera, ped = editor.camera, editor.ped
     local wasFrozen, wasInvincible = editor.wasFrozen, editor.wasInvincible
@@ -408,7 +327,7 @@ end
 
 local function cycleBone(direction)
     editor.boneIndex = ((editor.boneIndex - 1 + direction) % #bones) + 1
-    editor.drag = nil
+    if editor.gizmo then editor.gizmo:FinishDrag(false) end
     applyAttachment()
     sendHud(true, ('Bone changed to %s'):format(currentBone().name))
 end
@@ -417,7 +336,6 @@ local function editorLoop()
     while editor.active do
         Wait(0)
         blockControls()
-        local hovered
         if not editor.settingsOpen then
             updateCamera()
             local rightClick = IsDisabledControlJustPressed(0, 25)
@@ -428,22 +346,15 @@ local function editorLoop()
             if IsDisabledControlJustPressed(0, 175) then cycleBone(1) end
             if IsDisabledControlJustPressed(0, 37) then
                 editor.mode = editor.mode == 'move' and 'rotate' or 'move'
-                editor.drag = nil
+                editor.gizmo:SetMode(editor.mode)
                 sendHud(true)
             end
 
             local looking = IsDisabledControlPressed(0, 25)
-            if not looking and not editor.settingsOpen then
-                SetMouseCursorActiveThisFrame()
-                local mouseX, mouseY = GetDisabledControlNormal(0, 239), GetDisabledControlNormal(0, 240)
-                hovered = editor.drag and editor.drag.handle or findHandle(mouseX, mouseY)
-                if IsDisabledControlJustPressed(0, 24) then startDrag(hovered, mouseX, mouseY) end
-                if editor.drag and IsDisabledControlPressed(0, 24) then updateDrag(mouseX, mouseY) end
-                if editor.drag and IsDisabledControlJustReleased(0, 24) then editor.drag = nil end
-            end
-            if editor.drag and not IsDisabledControlPressed(0, 24) then editor.drag = nil end
+            editor.gizmo:Tick({ enabled = not looking, cursor = not looking })
+        else
+            editor.gizmo:Draw()
         end
-        drawGizmo(hovered)
 
         if not editor.settingsOpen then
             if IsDisabledControlJustPressed(0, 191) or IsDisabledControlJustPressed(0, 201) then saveEditor() end
@@ -502,6 +413,7 @@ function Creator.Start(name, model, props, callbacks)
     SetPlayerInvincible(PlayerId(), true)
     SetEntityCollision(prop, false, false)
     applyAttachment()
+    editor.gizmo = createAttachmentGizmo()
     sendHud(true)
     CreateThread(function()
         local ok, runtimeError = xpcall(editorLoop, function(message)
@@ -526,8 +438,8 @@ RegisterNUICallback('attachmentCreatorAction', function(data, callback)
     if data.action == 'bone' then
         local index = math.floor(tonumber(data.boneIndex) or editor.boneIndex)
         if bones[index] then
+            if editor.gizmo then editor.gizmo:FinishDrag(false) end
             editor.boneIndex = index
-            editor.drag = nil
             applyAttachment()
             editor.message = ('Bone changed to %s'):format(currentBone().name)
             sendHud(true, editor.message)

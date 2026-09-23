@@ -344,6 +344,57 @@
 ---@field CreateDistanceProp fun(data: table, options?: table): TSSDistanceController|nil
 ---@field CreateDistancePed fun(data: TSSEntityCreateData|string|integer, coords: vector3|vector4|table, options?: table): TSSDistanceController|nil
 
+---@class TSSGizmoState
+---@field entity? TSSEntity
+---@field coords {x: number, y: number, z: number}
+---@field rotation {x: number, y: number, z: number}
+---@field heading number
+---@field mode 'move'|'rotate'|string
+
+---@class TSSGizmoStartOptions
+---@field entity? TSSEntity Entity to edit. Supply `coords` when editing raw transform data.
+---@field coords? vector3|table Initial raw coordinates.
+---@field rotation? vector3|table Initial raw Euler rotation.
+---@field heading? number Initial raw heading when rotation.z is omitted.
+---@field mode? 'move'|'rotate' Initial mode.
+---@field modes? string[] Modes cycled by Tab.
+---@field space? 'world'|'local' Axis orientation; local requires an entity.
+---@field headingOnly? boolean Only expose the Z rotation ring.
+---@field rotationAxes? ('x'|'y'|'z')[] Rotation rings to expose.
+---@field camera? boolean Create and control a detached camera; defaults to true.
+---@field cameraSpeed? number Detached camera movement speed.
+---@field size? number Fixed world-space gizmo size.
+---@field freeze? boolean Freeze an edited entity during the session; defaults to true.
+---@field restoreOnCancel? boolean Restore an entity's initial transform when cancelled; defaults to true.
+---@field onChange? fun(state: TSSGizmoState)
+
+---@class TSSGizmoController
+---@field Tick fun(self: TSSGizmoController, input?: table): handle?: table, dragging: boolean
+---@field Draw fun(self: TSSGizmoController)
+---@field SetMode fun(self: TSSGizmoController, mode: string)
+---@field GetMode fun(self: TSSGizmoController): string
+---@field IsDragging fun(self: TSSGizmoController): boolean
+---@field GetHandle fun(self: TSSGizmoController): table|nil
+---@field SetEnabled fun(self: TSSGizmoController, state: boolean)
+---@field FinishDrag fun(self: TSSGizmoController, cancelled?: boolean)
+
+---@class TSSGizmoModule
+---@field Start fun(options: TSSGizmoStartOptions, callback?: fun(result?: TSSGizmoState, cancelled: boolean)): boolean, error?: string
+---@field Finish fun(): boolean Completes the active standalone editor and returns its state through the callback.
+---@field Stop fun(cancelled?: boolean): boolean Stops the editor; cancellation defaults to true.
+---@field IsActive fun(): boolean
+---@field GetState fun(): TSSGizmoState|nil
+---@field Create fun(options: table): TSSGizmoController Creates an embedded/custom-handle controller.
+---@field StopAll fun(cancelled?: boolean)
+---@field LinearDrag fun(origin: vector3, endpoint: vector3, mouseX: number, mouseY: number, reference?: number): table|nil
+---@field LinearDisplacement fun(drag: table, mouseX: number, mouseY: number, precision?: number): number
+---@field WorldAxes fun(): table
+---@field EntityAxes fun(entity: TSSEntity): table
+---@field RingBasis fun(component: 'x'|'y'|'z', axes: table): vector3, vector3
+---@field AxisHandle fun(id: string, origin: vector3, direction: vector3, distance: number, axis: 'x'|'y'|'z', options?: table): table
+---@field PointHandle fun(id: string, position: vector3, options?: table): table
+---@field RingHandle fun(id: string, center: vector3, first: vector3, second: vector3, radius: number, options?: table): table
+
 ---@class TSSLocaleModule
 ---@field Language fun(): string
 ---@field Translate fun(key: string, ...): string
@@ -438,6 +489,7 @@
 ---@field Props? TSSPropsModule
 ---@field Vehicles? TSSVehiclesModule
 ---@field World? TSSWorldModule
+---@field Gizmo? TSSGizmoModule
 ---@field Locale? TSSLocaleModule
 ---@field Capabilities? TSSCapabilitiesModule
 ---@field Diagnostics? TSSDiagnosticsModule

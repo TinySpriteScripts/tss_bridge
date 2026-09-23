@@ -568,6 +568,11 @@ body,
 
 .browser-copy { height: 29px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid rgba(255, 26, 26, 0.38); color: #fff; background: rgba(255, 26, 26, 0.1); font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
 .browser-copy:hover { border-color: #ff1a1a; background: rgba(255, 26, 26, 0.22); }
+.browser-spawn { height: 29px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid rgba(69, 214, 120, 0.46); color: #fff; background: rgba(42, 177, 90, 0.13); font-size: 10px; font-weight: 800; cursor: pointer; white-space: nowrap; }
+.browser-spawn:hover { border-color: #45d678; background: rgba(42, 177, 90, 0.24); }
+.browser-spawn:disabled { cursor: wait; opacity: 0.6; }
+.browser-spawn.success { border-color: #45d678; background: rgba(42, 177, 90, 0.28); }
+.browser-spawn.error { border-color: #ff4747; background: rgba(255, 26, 26, 0.2); }
 
 .item-list { display: grid; align-content: start; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
 .item-list > button { min-width: 0; height: 65px; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 9px; padding: 7px; border: 1px solid rgba(255, 255, 255, 0.08); color: #fff; background: rgba(255, 255, 255, 0.025); text-align: left; cursor: pointer; }
@@ -581,6 +586,7 @@ body,
 .item-image.missing { color: rgba(255, 255, 255, 0.25); }
 .item-image.missing span { display: none; }
 .item-heading { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; align-items: center; gap: 18px; padding-bottom: 22px; border-bottom: 1px solid rgba(255, 255, 255, 0.09); }
+.item-heading-actions { display: flex; align-items: center; gap: 8px; }
 .item-heading .item-image { width: 92px; height: 92px; }
 .item-heading h2 { font-size: 22px; }
 .item-heading code { display: block; margin-top: 7px; color: rgba(255, 255, 255, 0.5); font-family: Consolas, monospace; }
@@ -626,8 +632,8 @@ body,
 .zone-creator-panel h2 { margin: 5px 0 0; color: #fff; font-size: 21px; font-weight: 500; }
 .zone-mode { min-height: 28px; padding: 0 9px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,46,46,.36); border-radius: 999px; background: rgba(145,15,15,.17); color: #ff6666; font-size: 10px; font-weight: 700; letter-spacing: .08em; white-space: nowrap; }
 .zone-type { margin-top: 8px; color: rgba(255,255,255,.38); font-size: 12px; text-transform: uppercase; }
-.ped-spawner-panel .zone-type { display: flex; justify-content: space-between; gap: 18px; }
-.ped-spawner-panel .zone-type strong { color: #ff3b3b; font-size: 11px; white-space: nowrap; }
+.ped-animation-panel .zone-type { display: flex; justify-content: space-between; gap: 18px; }
+.ped-animation-panel .zone-type strong { color: #ff3b3b; font-size: 11px; white-space: nowrap; }
 .zone-metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 18px; }
 .zone-metrics > div { min-width: 0; padding: 10px; border: 1px solid rgba(255,255,255,.075); border-radius: 6px; background: rgba(255,255,255,.025); }
 .zone-metrics span, .zone-metrics strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -651,6 +657,13 @@ body,
 .attachment-settings input { width: 100%; height: 35px; padding: 0 9px; outline: none; border: 1px solid rgba(255,255,255,.13); border-radius: 4px; color: #fff; background: rgba(9,9,10,.96); font: 11px "Segoe UI", sans-serif; }
 .attachment-settings select:focus,
 .attachment-settings input:focus { border-color: rgba(255,45,45,.8); box-shadow: 0 0 0 2px rgba(255,30,30,.08); }
+.animation-dictionary-picker { position: relative; min-width: 0; }
+.animation-dictionary-results { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; right: 0; max-height: 240px; overflow-y: auto; padding: 4px; border: 1px solid rgba(255,45,45,.55); border-radius: 5px; background: rgba(8,8,9,.98); box-shadow: 0 14px 32px rgba(0,0,0,.72); scrollbar-width: thin; scrollbar-color: rgba(255,42,42,.65) rgba(255,255,255,.04); }
+.animation-dictionary-results button { display: block; width: 100%; padding: 7px 8px; border: 0; border-radius: 3px; overflow: hidden; color: rgba(255,255,255,.76); background: transparent; font: 11px "Segoe UI", sans-serif; text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.animation-dictionary-results button:hover,
+.animation-dictionary-results button.highlighted { color: #fff; background: rgba(190,25,25,.38); }
+.animation-catalog-status { display: block; margin-top: 2px; color: rgba(255,255,255,.42); font-size: 9px; font-weight: 600; }
+.animation-catalog-empty { display: block; margin-top: 4px; color: rgba(255,120,120,.72); font-size: 9px; font-weight: 600; }
 .animation-fields { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, .8fr) 72px; gap: 8px; }
 .attachment-actions { display: grid; grid-template-columns: 1fr .65fr 1fr; gap: 7px; }
 .attachment-actions button { min-height: 34px; display: flex; align-items: center; justify-content: center; gap: 6px; border: 1px solid rgba(255,255,255,.12); border-radius: 4px; color: rgba(255,255,255,.76); background: rgba(255,255,255,.04); font-size: 10px; font-weight: 700; cursor: pointer; }
@@ -999,7 +1012,7 @@ body,
 
 .field-wrap select { width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid #343434; border-radius: 8px; background: #171717; color: #fff; font: inherit; }
 
-.ped-spawner-panel.settings-open { pointer-events: auto; width: min(520px, calc(100vw - 68px)); max-height: calc(100vh - 68px); overflow-y: auto; }
-.ped-spawner-panel .attachment-settings p { margin: 0; color: #aaa; font-size: 12px; }
+.ped-animation-panel.settings-open { pointer-events: auto; width: min(520px, calc(100vw - 68px)); max-height: calc(100vh - 68px); overflow-y: auto; }
+.ped-animation-panel .attachment-settings p { margin: 0; color: #aaa; font-size: 12px; }
 .ped-pose-output { width: 100%; min-height: 110px; resize: vertical; background: #151518; color: #ddd; border: 1px solid #444; padding: 9px; font: 11px monospace; }
 .ped-editor-exit { padding: 10px; color: #fff; border: 1px solid #b44; border-radius: 5px; background: #502525; cursor: pointer; }

@@ -77,7 +77,7 @@ All shapes use detached freecam controls:
 
 The server validates names, coordinates, dimensions, polygon area, point count,
 file size, authorization, and save rate before appending formatted Lua to
-`bridge_lab/created_zones.lua`. Clients never provide raw Lua source. The output
+`bridge_lab/exported_data/created_zones.lua`. Clients never provide raw Lua source. The output
 contains `box`, `circle`, and `poly` records compatible with the familiar
 PolyZone fields while retaining 3D size and ground-height information.
 
@@ -101,7 +101,7 @@ the current player ped.
 
 The server validates the model, bone, offsets, rotations, optional animation,
 authorization, file size, and save rate before appending data to
-`bridge_lab/created_prop_attatchments.lua`. The filename retains the requested
+`bridge_lab/exported_data/created_prop_attatchments.lua`. The filename retains the requested
 `attatchments` spelling. It is a data file and is not loaded automatically.
 
 ## Bridge API Explorer
@@ -117,14 +117,17 @@ the explorer current; there is no separate API catalogue to maintain.
 
 ## Inventory Item Browser
 
-The Item Browser calls only `Inventory.Items()` on the client. It never calls
-`Inventory.Player()` and never reads a player's inventory. It displays the
-active inventory adapter/resource, searches the shared item-definition table by
-code or label, and tries the adapter resource's common image directories.
+The Item Browser uses `Inventory.Items()` on the client to display the active
+inventory adapter/resource, search the shared item-definition table by code or
+label, and try the adapter resource's common image directories. It never calls
+`Inventory.Player()` or reads a player's inventory.
 
 Selecting an item exposes every serialization-safe top-level field. Nested
 tables are shown as JSON, and every displayed field—as well as the item code—has
-its own clipboard button.
+its own clipboard button. Authorized users can also spawn one copy of the
+selected item. The server rechecks Bridge Lab authorization, resolves the item
+against its own item registry, checks carry capacity, rate-limits grants, and
+always grants to the requesting player rather than a client-supplied target.
 
 ## Security model
 
@@ -132,6 +135,8 @@ its own clipboard button.
   `discord:` and `fivem:` identifiers.
 - The identifier allowlist never leaves the server.
 - Every server callback rechecks authorization independently.
+- Item Browser grants are validated against the server's item registry, fixed
+  to one item, carry-checked, rate-limited, and restricted to the requester.
 - Created attachment payloads are validated and formatted by the server; the
   client cannot submit raw Lua.
 - Mutation amounts, stash definitions, and other authoritative values come
@@ -170,22 +175,29 @@ Open **Developer Tools > Ped Animation Editor**. Choose `mp_m_freemode_01` or
 `mp_f_freemode_01`, then a scenario or animation dictionary/clip. The editor
 spawns a local, translucent, non-colliding ghost; your player is frozen while
 editing. Animation takes priority over scenario when both are supplied.
+Animation dictionary fields search anywhere within names in `data/animlist.lua`
+as you type. Selecting an exact dictionary changes the clip field into a
+dropdown of its known clips.
 
 - **Tab:** switch move/heading gizmos. Drag with the left mouse button; hold Ctrl for precision.
 - **Right mouse + WASD:** look and move the camera. Q/E moves down/up; Shift increases speed.
-- **Enter:** capture and print the current placement to F8, then move the same ghost to the next seat.
-- **G:** print all captured placements as a Lua table. This does not exit the editor.
-- **F:** open pose settings to change/replay the animation, resume placement, copy the Lua output, or explicitly exit.
+- **G:** commit the current ped in place and create another editable ghost with the same pose. Committed peds remain visible so completed seats and beds are easy to track.
+- **F:** open pose settings to change/replay the current ghost, resume placement, print/copy the committed Lua, clear committed peds, save the batch to a file, or explicitly exit.
 
-Backspace does not exit this editor. Captures stay in memory until cleared or
-exited (maximum 100); print/copy the batch before exiting. No server file is
-written. Exported vector4 coordinates are the ped origin, with no automatic
-chair-height offset. Animation exports include dictionary, clip and flag;
-scenario exports include `useEnterAnim = false`. Match these settings when
+Backspace does not exit this editor. Up to 100 committed placements stay visible
+until cleared, saved, or exited. **Save file** appends the server-validated batch
+to `bridge_lab/exported_data/created_ped_animation.lua`; the client never sends
+raw Lua source. Exported vector4 coordinates are the ped origin, with no
+automatic chair-height offset. Animation exports include dictionary, clip and
+flag; scenario exports include `useEnterAnim = false`. Match these settings when
 replaying placements in your script. Invalid animation dictionaries/clips are
 rejected; scenario names should be known GTA scenario types.
 
-The existing Ped Spawner keeps its separate add-ped/save-and-exit workflow.
+Ped placement, prop attachment, and box/circle zone editing all use the public
+client `Gizmo` module. Other resources can request it with
+`exports.tss_bridge:GetModules({ 'Gizmo' })`; see the root README for the simple
+entity/transform API and the advanced custom-handle API.
+
+All active Bridge Lab-generated Lua data lives under `bridge_lab/exported_data/`.
 Restart cleanup deletes the ghost and camera and restores the player's prior
-freeze/invincibility state. Automated checks: `lua tests/ped_animation_spec.lua`.
-In-game placement and animation alignment still need verification in FiveM.
+freeze/invincibility state.

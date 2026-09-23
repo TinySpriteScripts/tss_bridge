@@ -130,7 +130,7 @@ before attempting to edit a previously convar-controlled setting.
 | `VehicleKeys` | Read-only `Has` | `Has`, `Give`, `Remove` |
 | `Fuel` | `Get`, `Set` | Unavailable |
 | `UI` | Notify, progress, menu, context and input | Remote notify/progress |
-| `Blips`, `Peds`, `Props`, `Vehicles`, `World` | Client entity/world helpers | Unavailable |
+| `Blips`, `Peds`, `Props`, `Vehicles`, `World`, `Gizmo` | Client entity/world and transform-editor helpers | Unavailable |
 | `Groups` | Boss-grade lookup | Boss-grade lookup |
 | `Locale`, `Capabilities`, `Diagnostics` | Available | Available |
 | `Debug` | Debug tools | Secured debug persistence |
@@ -496,6 +496,32 @@ TSS.Blips.Remove(blip)
 blips. `Clear()` removes all its blips. Options include `hiddenOnLegend`,
 `shortRange`, `category`, `scale`, `route` and `routeColor`; false and zero values
 are preserved. Creation supports either `coords` or `entity`.
+
+## Gizmo
+
+Request `Gizmo` on the client for a reusable move/rotate editor. It can edit an
+entity directly or return raw transform data. Tab changes mode, Enter accepts,
+Backspace cancels, Ctrl enables precision, and RMB plus WASD/Q/E controls the
+optional detached camera.
+
+```lua
+local TSS = exports.tss_bridge:GetModules({ 'Gizmo' })
+
+local started, err = TSS.Gizmo.Start({
+    entity = prop,
+    space = 'world', -- use 'local' for entity-local axes
+    camera = true,
+    restoreOnCancel = true,
+}, function(result, cancelled)
+    if cancelled then return end
+    print(json.encode(result)) -- coords, rotation, heading, mode and entity
+end)
+```
+
+For data without an entity, pass `coords`, `rotation` or `heading`. Use
+`GetState()`, `Finish()` and `Stop()` when another UI owns confirmation. Advanced
+tools can call `Create()` and describe axis, point and ring handles; the Bridge
+Lab uses this route for bone-local attachments and zone resize/radius handles.
 
 ## Vehicle keys and fuel
 

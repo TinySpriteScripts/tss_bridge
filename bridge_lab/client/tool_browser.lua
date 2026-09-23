@@ -3,6 +3,7 @@ TSSBridgeLabToolBrowser = {}
 
 local Browser = TSSBridgeLabToolBrowser
 local activeClose
+local activeItemSpawn
 
 local function isCallable(value)
     if type(value) == 'function' then return true end
@@ -16,6 +17,7 @@ local function closeBrowser()
     if not activeClose then return end
     local callback = activeClose
     activeClose = nil
+    activeItemSpawn = nil
     SetNuiFocus(false, false)
     SendNUIMessage({ action = 'bridgeLabBrowser', payload = nil })
     callback()
@@ -165,9 +167,10 @@ local function normaliseItems(rawItems, resource)
     return items
 end
 
-local function open(payload, onClose)
+local function open(payload, onClose, onItemSpawn)
     if activeClose then return false, 'Another Bridge Lab browser is already open' end
     activeClose = onClose or function() end
+    activeItemSpawn = onItemSpawn
     SetNuiFocus(true, true)
     SendNUIMessage({ action = 'bridgeLabBrowser', payload = payload })
     return true
@@ -182,7 +185,7 @@ function Browser.OpenApi(onClose)
     return open(catalog, onClose)
 end
 
-function Browser.OpenItems(inventory, onClose)
+function Browser.OpenItems(inventory, onClose, onItemSpawn)
     if type(inventory) ~= 'table' or not isCallable(inventory.Items) then
         return false, 'Inventory module is unavailable'
     end
@@ -199,8 +202,32 @@ function Browser.OpenItems(inventory, onClose)
         resource = resource or 'none',
         itemCount = #items,
         items = items,
-    }, onClose)
+    }, onClose, onItemSpawn)
 end
+
+RegisterNUICallback('bridgeLabBrowserSpawnItem', function(data, callback)
+    if not activeClose or type(activeItemSpawn) ~= 'function' then
+        callback({ success = false, error = 'Item spawning is unavailable' })
+        return
+    end
+
+    local itemName = type(data) == 'table' and data.item or nil
+    itemName = type(itemName) == 'string' and itemName:match('^%s*(.-)%s*$') or ''
+    if itemName == '' or #itemName > 128 or itemName:find('%c') then
+        callback({ success = false, error = 'Invalid item code' })
+        return
+    end
+
+    local ok, response = pcall(activeItemSpawn, itemName)
+    if not ok then
+        print(('^1[bridge_lab] Item Browser spawn request failed: %s^7'):format(tostring(response)))
+        callback({ success = false, error = 'Unable to request the item from the server' })
+        return
+    end
+
+    callback(type(response) == 'table' and response
+        or { success = false, error = 'The server returned an invalid item-spawn response' })
+end)
 
 RegisterNUICallback('bridgeLabBrowserClose', function(_, callback)
     callback({ ok = true })
@@ -210,6 +237,7 @@ end)
 AddEventHandler('onClientResourceStop', function(resource)
     if resource == GetCurrentResourceName() and activeClose then
         activeClose = nil
+        activeItemSpawn = nil
         SetNuiFocus(false, false)
     end
 end)

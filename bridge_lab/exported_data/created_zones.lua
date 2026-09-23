@@ -27,3 +27,15 @@ TSSBridgeLabCreatedZones[#TSSBridgeLabCreatedZones + 1] = {
     maxZ = 42.849,
 }
 
+TSSBridgeLabCreatedZones[#TSSBridgeLabCreatedZones + 1] = {
+    type = "box",
+    name = "box_zonesayer",
+    coords = vec3(3468.300, 3683.334, 33.814),
+    size = vec3(1.000, 1.000, 1.000),
+    width = 1.000,
+    length = 1.000,
+    heading = 17.184,
+    minZ = 33.314,
+    maxZ = 34.314,
+}
+
