@@ -77,13 +77,10 @@ TSS.Resources = {
     QbInventory = 'qb-inventory',
     PsInventory = 'ps-inventory',
     LjInventory = 'lj-inventory',
-    QsInventory = 'qs-inventory',
     CoreInventory = 'core_inventory',
     CodemInventory = 'codem-inventory',
     OrigenInventory = 'origen_inventory',
     TgiannInventory = 'tgiann-inventory',
-    Ak47Inventory = 'ak47_inventory',
-    MfInventory = 'mf-inventory',
     TssInventory = 'tss-inventory',
     ChezzaInventory = 'inventory',
 }

@@ -1,45 +1,48 @@
--- core_inventory adapter owned by the Inventory module.
+-- core_inventory adapter using the vendor's documented canonical exports.
 local Utils = TSS.Inventory.Utils
+local server = TSS.IsServer()
 
 TSS.Inventory.RegisterAdapter('core', TSS.Resources.CoreInventory, {
-    -- This inventory uses the selected framework's usable-item registry.
-    registerUsable = function(_, item, callback)
+    registerUsable = server and function(_, item, callback)
         return Utils.RegisterFrameworkUsable(item, callback)
-    end,
-
-    add = function(resource, source, item, amount, metadata)
-        return Utils.TryExports(resource, { 'addItem', 'AddItem', 'AddInventoryItem' }, source, item, amount or 1, metadata)
-    end,
-
-    remove = function(resource, source, item, amount, metadata)
-        return Utils.TryExports(resource, { 'removeItem', 'RemoveItem', 'RemoveInventoryItem' }, source, item, amount or 1, metadata)
-    end,
-
+    end or nil,
+    add = server and function(resource, source, item, amount, metadata)
+        return Utils.TryExports(resource, { 'addItem' }, source, item, amount, metadata) == true
+    end or nil,
+    remove = server and function(resource, source, item, amount)
+        return Utils.TryExports(resource, { 'removeItem' }, source, item, amount) == true
+    end or nil,
     count = function(resource, source, item, metadata)
-        local count = Utils.TryExports(resource, { 'getItemCount', 'GetItemCount', 'GetItemAmount' }, source, item, metadata)
-        if count ~= nil then return count end
-
-        return Utils.CountFromItem(Utils.TryExports(resource, { 'getItem', 'GetItem', 'GetItemByName' }, source, item))
+        if metadata == nil then
+            if server then return Utils.TryExports(resource, { 'getItemCount' }, source, item) or 0 end
+            return Utils.TryExports(resource, { 'getItemCount' }, item) or 0
+        end
+        local items = server and Utils.TryExports(resource, { 'getItems' }, source, item)
+            or Utils.TryExports(resource, { 'getPlayerItems' })
+        return Utils.CountItems(items, item, metadata)
     end,
-
-    canCarry = function(resource, source, item, amount, metadata)
-        return Utils.TryExports(resource, { 'canCarryItem', 'CanCarryItem', 'CanAddItem' }, source, item, amount or 1, metadata) == true
-    end,
-
+    canCarry = server and function(resource, source, item, amount, metadata)
+        return Utils.TryExports(resource, { 'canCarry' }, source, item, amount, metadata) == true
+    end or nil,
     items = function(resource)
-        return Utils.TryExports(resource, { 'getItems', 'GetItems', 'Items' })
+        return Utils.TryExports(resource, { 'getItemsList' }) or {}
     end,
-
-    registerStash = function(resource, data)
-        data = Utils.NormaliseStash(data)
-        return Utils.TryExportOk(resource, { 'RegisterStash', 'CreateStash', 'registerStash', 'createStash' }, data.id, data.label, data.slots, data.weight, data.owner)
+    inventory = function(resource, source)
+        local inventory = server and Utils.TryExports(resource, { 'getInventory' }, source)
+            or Utils.TryExports(resource, { 'getPlayerItems' })
+        return Utils.UnwrapInventory(inventory)
     end,
-
     openInventory = function(resource, source, invType, data)
-        return Utils.TryExportOk(resource, { 'openInventory', 'OpenInventory', 'openStash', 'OpenStash' }, source, invType, data)
+        if server then
+            local id = type(data) == 'table' and (data.id or data.name or data.stash) or data
+            local label = type(data) == 'table' and data.label or nil
+            local groups = type(data) == 'table' and data.groups or nil
+            return Utils.TryExportOk(resource, { 'openInventory' }, source, id, invType, label, groups, true)
+        end
+        if invType and invType ~= 'player' then return false end
+        return Utils.TryExportOk(resource, { 'openInventory' })
     end,
-
-    close = function(resource, source)
-        return Utils.TryExportOk(resource, { 'closeInventory', 'CloseInventory' }, source)
-    end,
+    close = not server and function(resource)
+        return Utils.TryExportOk(resource, { 'closeInventory' })
+    end or nil,
 }, 60)

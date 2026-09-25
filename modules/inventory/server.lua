@@ -4,13 +4,10 @@ local files = {
     'modules/inventory/adapters/qb-inventory.lua',
     'modules/inventory/adapters/ps-inventory.lua',
     'modules/inventory/adapters/lj-inventory.lua',
-    'modules/inventory/adapters/qs-inventory.lua',
     'modules/inventory/adapters/core_inventory.lua',
     'modules/inventory/adapters/codem-inventory.lua',
     'modules/inventory/adapters/origen_inventory.lua',
     'modules/inventory/adapters/tgiann-inventory.lua',
-    'modules/inventory/adapters/ak47_inventory.lua',
-    'modules/inventory/adapters/mf-inventory.lua',
     'modules/inventory/adapters/tss-inventory.lua',
     'modules/inventory/adapters/inventory.lua',
 }
@@ -23,10 +20,20 @@ TSSModuleLoader.Define({
     server = function(context)
         ---@type TSSInventoryServerModule
         local Inventory = context.CopyFunctions(TSS.Inventory, {
-            'System', 'Supports', 'Count', 'Has', 'Player', 'Items', 'Image', 'Open', 'OpenStash', 'Close',
+            'System', 'Supports', 'Count', 'Has', 'Player', 'GetSlot', 'Find', 'Weight', 'MaxWeight',
+            'Items', 'Image', 'Open', 'OpenStash', 'Close',
         })
 
         local stopped = false
+        local function audit(action, system, resource, data)
+            data.action = action
+            data.system = system
+            data.resource = resource
+            data.caller = context.Caller
+            data.timestamp = os.time()
+            TriggerEvent('tss_bridge:server:inventoryAudit', data)
+        end
+
         context.OnStop(function()
             stopped = true
             TSS.Inventory._ClearUseableItems(context.Caller)
@@ -54,9 +61,17 @@ TSSModuleLoader.Define({
         ---@param reason? string Audit reason.
         ---@return boolean success
         function Inventory.Add(source, item, amount, metadata, slot, reason)
-            local _, resource, adapter = TSS.Inventory._GetAdapter()
-            if not adapter then return false end
-            return adapter.add(resource, source, item, amount, metadata, slot, reason) == true
+            local system, resource, adapter = TSS.Inventory._GetAdapter()
+            amount = tonumber(amount) or 1
+            if not adapter or type(adapter.add) ~= 'function' or not tonumber(source)
+                or type(item) ~= 'string' or item == '' or amount <= 0
+            then return false end
+            local success = adapter.add(resource, source, item, amount, metadata, slot, reason) == true
+            if success then audit('add', system, resource, {
+                source = tonumber(source), item = item, amount = amount, metadata = metadata,
+                slot = tonumber(slot), reason = reason,
+            }) end
+            return success
         end
 
         --- Removes an item from a player's inventory.
@@ -68,9 +83,17 @@ TSSModuleLoader.Define({
         ---@param reason? string Audit reason.
         ---@return boolean success
         function Inventory.Remove(source, item, amount, metadata, slot, reason)
-            local _, resource, adapter = TSS.Inventory._GetAdapter()
-            if not adapter then return false end
-            return adapter.remove(resource, source, item, amount, metadata, slot, reason) == true
+            local system, resource, adapter = TSS.Inventory._GetAdapter()
+            amount = tonumber(amount) or 1
+            if not adapter or type(adapter.remove) ~= 'function' or not tonumber(source)
+                or type(item) ~= 'string' or item == '' or amount <= 0
+            then return false end
+            local success = adapter.remove(resource, source, item, amount, metadata, slot, reason) == true
+            if success then audit('remove', system, resource, {
+                source = tonumber(source), item = item, amount = amount, metadata = metadata,
+                slot = tonumber(slot), reason = reason,
+            }) end
+            return success
         end
 
         --- Checks whether a player can carry an item amount.
@@ -81,7 +104,10 @@ TSSModuleLoader.Define({
         ---@return boolean canCarry
         function Inventory.CanCarry(source, item, amount, metadata)
             local _, resource, adapter = TSS.Inventory._GetAdapter()
-            if not adapter then return false end
+            amount = tonumber(amount) or 1
+            if not adapter or type(adapter.canCarry) ~= 'function' or not tonumber(source)
+                or type(item) ~= 'string' or item == '' or amount <= 0
+            then return false end
             return adapter.canCarry(resource, source, item, amount, metadata) == true
         end
 
@@ -90,7 +116,9 @@ TSSModuleLoader.Define({
         ---@return boolean registered
         function Inventory.RegisterStash(data)
             local _, resource, adapter = TSS.Inventory._GetAdapter()
-            if not adapter or type(data) ~= 'table' then return false end
+            if not adapter or type(adapter.registerStash) ~= 'function' or type(data) ~= 'table'
+                or type(data.id or data.name) ~= 'string'
+            then return false end
             data.weight = data.weight or data.maxWeight or data.maxweight
             return adapter.registerStash(resource, data) == true
         end
@@ -104,38 +132,59 @@ TSSModuleLoader.Define({
         end
 
         function Inventory.AddToStash(id, item, amount, metadata, slot, reason)
-            local _, resource, adapter = TSS.Inventory._GetAdapter()
-            if type(id) ~= 'string' or id == '' then return false end
+            local system, resource, adapter = TSS.Inventory._GetAdapter()
+            amount = tonumber(amount) or 1
+            if type(id) ~= 'string' or id == '' or type(item) ~= 'string' or item == '' or amount <= 0 then return false end
             if not adapter or not adapter.stashAdd then return false, 'unsupported_stash_add' end
-            return adapter.stashAdd(resource, id, item, amount, metadata, slot, reason) == true
+            local success = adapter.stashAdd(resource, id, item, amount, metadata, slot, reason) == true
+            if success then audit('stash_add', system, resource, {
+                inventory = id, item = item, amount = amount, metadata = metadata,
+                slot = tonumber(slot), reason = reason,
+            }) end
+            return success
         end
 
         function Inventory.RemoveFromStash(id, item, amount, metadata, slot, reason)
-            local _, resource, adapter = TSS.Inventory._GetAdapter()
-            if type(id) ~= 'string' or id == '' then return false end
+            local system, resource, adapter = TSS.Inventory._GetAdapter()
+            amount = tonumber(amount) or 1
+            if type(id) ~= 'string' or id == '' or type(item) ~= 'string' or item == '' or amount <= 0 then return false end
             if not adapter or not adapter.stashRemove then return false, 'unsupported_stash_remove' end
-            return adapter.stashRemove(resource, id, item, amount, metadata, slot, reason) == true
+            local success = adapter.stashRemove(resource, id, item, amount, metadata, slot, reason) == true
+            if success then audit('stash_remove', system, resource, {
+                inventory = id, item = item, amount = amount, metadata = metadata,
+                slot = tonumber(slot), reason = reason,
+            }) end
+            return success
         end
 
         --- Register a server-owned shop. Returns false when unsupported.
         function Inventory.RegisterShop(data)
             local _, resource, adapter = TSS.Inventory._GetAdapter()
+            if type(data) ~= 'table' or type(data.id) ~= 'string' or data.id == '' or type(data.items) ~= 'table' then
+                return false, 'invalid_shop'
+            end
             if not adapter or not adapter.registerShop then return false, 'unsupported_shop' end
             return adapter.registerShop(resource, data)
         end
 
         function Inventory.OpenShop(source, id)
             local _, resource, adapter = TSS.Inventory._GetAdapter()
+            if not tonumber(source) or type(id) ~= 'string' or id == '' then return false, 'invalid_shop' end
             if not adapter or not adapter.openShop then return false, 'unsupported_shop' end
             return adapter.openShop(resource, source, id)
         end
 
         --- Update metadata on an exact, server-verified inventory slot.
         function Inventory.SetMetadata(source, slot, metadata)
-            local _, resource, adapter = TSS.Inventory._GetAdapter()
+            local system, resource, adapter = TSS.Inventory._GetAdapter()
             if not adapter or not adapter.setMetadata then return false, 'unsupported_metadata' end
-            if type(metadata) ~= 'table' or not tonumber(slot) then return false end
-            return adapter.setMetadata(resource, source, tonumber(slot), metadata)
+            source, slot = tonumber(source), tonumber(slot)
+            if type(metadata) ~= 'table' or not source or not slot or slot < 1 then return false end
+            local success, err = adapter.setMetadata(resource, source, slot, metadata)
+            if success == true then audit('set_metadata', system, resource, {
+                source = source, slot = slot, metadata = metadata,
+            }) end
+            return success == true, err
         end
 
         return Inventory

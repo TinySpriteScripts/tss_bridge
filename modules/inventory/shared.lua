@@ -19,11 +19,107 @@ end
 
 function TSS.Inventory.Utils.TryExportOk(resource, exportsToTry, ...)
     for i = 1, #exportsToTry do
-        local ok = TSS.Inventory.Utils.CallExport(resource, exportsToTry[i], ...)
-        if ok then return true, exportsToTry[i] end
+        local ok, result = TSS.Inventory.Utils.CallExport(resource, exportsToTry[i], ...)
+        if ok then return result ~= false, exportsToTry[i], result end
     end
 
     return false
+end
+
+function TSS.Inventory.Utils.MetadataMatches(value, filter)
+    if filter == nil then return true end
+    if type(filter) == 'string' then
+        return type(value) == 'table' and value.type == filter
+    end
+    if type(filter) ~= 'table' then return false end
+    if next(filter) == nil then return true end
+    if type(value) ~= 'table' then return false end
+
+    for key, expected in pairs(filter) do
+        if value[key] ~= expected then return false end
+    end
+    return true
+end
+
+function TSS.Inventory.Utils.CountItems(items, itemName, metadata)
+    if type(items) ~= 'table' then return 0 end
+    local total = 0
+    for _, item in pairs(items) do
+        if type(item) == 'table'
+            and (itemName == nil or item.name == itemName)
+            and TSS.Inventory.Utils.MetadataMatches(item.metadata or item.info, metadata)
+        then
+            total = total + TSS.Inventory.Utils.CountFromItem(item)
+        end
+    end
+    return total
+end
+
+function TSS.Inventory.Utils.FindItems(items, itemName, metadata)
+    local found = {}
+    if type(items) ~= 'table' then return found end
+    for _, item in pairs(items) do
+        if type(item) == 'table' and item.name == itemName
+            and TSS.Inventory.Utils.MetadataMatches(item.metadata or item.info, metadata)
+        then
+            found[#found + 1] = item
+        end
+    end
+    table.sort(found, function(left, right)
+        return (tonumber(left.slot) or math.huge) < (tonumber(right.slot) or math.huge)
+    end)
+    return found
+end
+
+function TSS.Inventory.Utils.GetSlot(items, slot)
+    if type(items) ~= 'table' then return end
+    local direct = items[slot]
+    if type(direct) == 'table' and (direct.slot == nil or tonumber(direct.slot) == slot) then return direct end
+    for _, item in pairs(items) do
+        if type(item) == 'table' and tonumber(item.slot) == slot then return item end
+    end
+end
+
+function TSS.Inventory.Utils.CalculateUnitWeight(items)
+    local weight = 0
+    for _, item in pairs(type(items) == 'table' and items or {}) do
+        if type(item) == 'table' then
+            weight = weight + ((tonumber(item.weight) or 0) * TSS.Inventory.Utils.CountFromItem(item))
+        end
+    end
+    return weight
+end
+
+function TSS.Inventory.Utils.InventoryWeights(inventory)
+    if type(inventory) ~= 'table' then return nil, nil end
+    local weight = tonumber(inventory.weight or inventory.totalWeight or inventory.totalweight)
+    local maximum = tonumber(inventory.maxWeight or inventory.maxweight or inventory.maximumWeight)
+    return weight, maximum
+end
+
+function TSS.Inventory.Utils.UnwrapInventory(inventory)
+    if type(inventory) ~= 'table' then return {} end
+    return inventory.items or inventory.content or inventory.inventory or inventory
+end
+
+function TSS.Inventory.Utils.QBCore()
+    if not TSS.IsStarted(TSS.Resources.QBCore) then return end
+    local ok, core = pcall(function()
+        return exports[TSS.Resources.QBCore]:GetCoreObject()
+    end)
+    if ok then return core end
+end
+
+function TSS.Inventory.Utils.QBItems()
+    local core = TSS.Inventory.Utils.QBCore()
+    return core and core.Shared and core.Shared.Items or {}
+end
+
+function TSS.Inventory.Utils.QBPlayerItems(source)
+    local core = TSS.Inventory.Utils.QBCore()
+    if not core or not core.Functions then return {} end
+    local player = TSS.IsClient() and core.Functions.GetPlayerData() or core.Functions.GetPlayer(source)
+    return player and (player.items or (player.PlayerData and player.PlayerData.items)) or {}
 end
 
 function TSS.Inventory.Utils.CountFromItem(item)
@@ -96,7 +192,14 @@ function TSS.Inventory.Supports(feature)
         usable = 'registerUsable', useable = 'registerUsable',
         add = 'add', remove = 'remove', count = 'count', has = 'count', carry = 'canCarry',
         player = 'inventory', items = 'items', stash = 'registerStash', open = 'openInventory', close = 'close',
+        weight = 'weight', maxweight = 'maxWeight', maximumweight = 'maxWeight',
     }
+    if feature == 'slot' then
+        return adapter ~= nil and (type(adapter.getSlot) == 'function' or type(adapter.inventory) == 'function')
+    end
+    if feature == 'find' or feature == 'search' then
+        return adapter ~= nil and (type(adapter.find) == 'function' or type(adapter.inventory) == 'function')
+    end
     local method = methods[feature]
     return adapter ~= nil and method ~= nil and type(adapter[method]) == 'function'
 end
@@ -108,9 +211,11 @@ end
 ---@return integer count
 function TSS.Inventory.Count(source, item, metadata)
     source, item, metadata = normaliseItemArgs(source, item, metadata)
+    if type(item) ~= 'string' or item == '' then return 0 end
+    if TSS.IsServer() and not tonumber(source) then return 0 end
 
     local _, resource, adapter = getAdapter()
-    if not adapter then return 0 end
+    if not adapter or type(adapter.count) ~= 'function' then return 0 end
     return tonumber(adapter.count(resource, source, item, metadata)) or 0
 end
 
@@ -128,7 +233,9 @@ end
 --- ```
 function TSS.Inventory.Has(source, item, amount, metadata)
     source, item, amount, metadata = normaliseItemArgs(source, item, amount, metadata)
-    return TSS.Inventory.Count(source, item, metadata) >= (amount or 1)
+    amount = tonumber(amount) or 1
+    if amount <= 0 then return false end
+    return TSS.Inventory.Count(source, item, metadata) >= amount
 end
 
 --- Returns the normalized player inventory.
@@ -138,30 +245,68 @@ function TSS.Inventory.Player(source)
     local _, resource, adapter = getAdapter()
     if not adapter then return {} end
 
-    if not adapter.inventory then
-        local inventory = TSS.Inventory.Utils.TryExports(resource, {
-            'GetPlayerInventory',
-            'GetInventory',
-            'GetInventoryItems',
-            'GetPlayerItems',
-            'getPlayerInventory',
-            'getInventory',
-            'getInventoryItems',
-            'getPlayerItems',
-        }, source)
-
-        if inventory and inventory.items then return inventory.items end
-        return inventory or {}
-    end
+    if type(adapter.inventory) ~= 'function' then return {} end
 
     return adapter.inventory(resource, source) or {}
+end
+
+--- Returns one exact inventory slot.
+---@param source? integer Server player ID, or slot on the client.
+---@param slot? integer Slot on the server.
+---@return table? item
+function TSS.Inventory.GetSlot(source, slot)
+    if TSS.IsClient() then slot, source = source, nil end
+    slot = tonumber(slot)
+    if not slot or slot < 1 or (TSS.IsServer() and not tonumber(source)) then return nil end
+    local _, resource, adapter = getAdapter()
+    if not adapter then return nil end
+    if type(adapter.getSlot) == 'function' then return adapter.getSlot(resource, source, slot) end
+    if type(adapter.inventory) ~= 'function' then return nil end
+    return TSS.Inventory.Utils.GetSlot(adapter.inventory(resource, source), slot)
+end
+
+--- Returns every matching item stack, ordered by slot.
+---@param source integer|string Server player ID, or item name on the client.
+---@param item? string|table Item name on the server, or metadata on the client.
+---@param metadata? table|string Metadata filter.
+---@return table items
+function TSS.Inventory.Find(source, item, metadata)
+    source, item, metadata = normaliseItemArgs(source, item, metadata)
+    if type(item) ~= 'string' or item == '' or (TSS.IsServer() and not tonumber(source)) then return {} end
+    local _, resource, adapter = getAdapter()
+    if not adapter then return {} end
+    if type(adapter.find) == 'function' then
+        return TSS.Inventory.Utils.FindItems(adapter.find(resource, source, item, metadata), item, metadata)
+    end
+    if type(adapter.inventory) ~= 'function' then return {} end
+    return TSS.Inventory.Utils.FindItems(adapter.inventory(resource, source), item, metadata)
+end
+
+--- Returns current inventory weight when supported by the active provider.
+---@param source? integer Server player ID; omit on the client.
+---@return number? weight
+function TSS.Inventory.Weight(source)
+    if TSS.IsServer() and not tonumber(source) then return nil end
+    local _, resource, adapter = getAdapter()
+    if not adapter or type(adapter.weight) ~= 'function' then return nil end
+    return tonumber(adapter.weight(resource, source))
+end
+
+--- Returns maximum inventory weight when supported by the active provider.
+---@param source? integer Server player ID; omit on the client.
+---@return number? maxWeight
+function TSS.Inventory.MaxWeight(source)
+    if TSS.IsServer() and not tonumber(source) then return nil end
+    local _, resource, adapter = getAdapter()
+    if not adapter or type(adapter.maxWeight) ~= 'function' then return nil end
+    return tonumber(adapter.maxWeight(resource, source))
 end
 
 --- Returns the active inventory's shared item definitions.
 ---@return table items
 function TSS.Inventory.Items()
     local _, resource, adapter = getAdapter()
-    if not adapter then return {} end
+    if not adapter or type(adapter.items) ~= 'function' then return {} end
     return adapter.items(resource) or {}
 end
 
@@ -177,8 +322,11 @@ function TSS.Inventory.Open(source, invType, data)
         source = nil
     end
 
+    if type(invType) ~= 'string' or invType == '' then return false end
+    if TSS.IsServer() and not tonumber(source) then return false end
+
     local _, resource, adapter = getAdapter()
-    if not adapter then return false end
+    if not adapter or type(adapter.openInventory) ~= 'function' then return false end
     return adapter.openInventory(resource, source, invType, data) == true
 end
 
@@ -210,7 +358,7 @@ end
 ---@return boolean closed
 function TSS.Inventory.Close(source)
     local _, resource, adapter = getAdapter()
-    if not adapter then return false end
+    if not adapter or type(adapter.close) ~= 'function' then return false end
     return adapter.close(resource, source) == true
 end
 

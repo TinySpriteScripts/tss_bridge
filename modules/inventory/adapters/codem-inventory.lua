@@ -1,45 +1,38 @@
--- codem-inventory adapter owned by the Inventory module.
+-- CodeM mInventory adapter using the documented export surface.
 local Utils = TSS.Inventory.Utils
+local server = TSS.IsServer()
 
 TSS.Inventory.RegisterAdapter('codem', TSS.Resources.CodemInventory, {
-    -- This inventory uses the selected framework's usable-item registry.
-    registerUsable = function(_, item, callback)
+    registerUsable = server and function(_, item, callback)
         return Utils.RegisterFrameworkUsable(item, callback)
+    end or nil,
+    add = server and function(resource, source, item, amount, metadata, slot)
+        return Utils.TryExports(resource, { 'AddItem' }, source, item, amount, slot, metadata) == true
+    end or nil,
+    remove = server and function(resource, source, item, amount, _, slot)
+        return Utils.TryExports(resource, { 'RemoveItem' }, source, item, amount, slot) == true
+    end or nil,
+    count = server and function(resource, source, item, metadata)
+        if metadata == nil then
+            return Utils.TryExports(resource, { 'GetItemsTotalAmount' }, source, item) or 0
+        end
+        return Utils.CountItems(Utils.TryExports(resource, { 'GetItemsByName' }, source, item), item, metadata)
+    end or function(resource, _, item, metadata)
+        return Utils.CountItems(Utils.TryExports(resource, { 'GetClientPlayerInventory' }), item, metadata)
     end,
-
-    add = function(resource, source, item, amount, metadata, slot)
-        return Utils.TryExports(resource, { 'AddItem', 'addItem', 'AddInventoryItem' }, source, item, amount or 1, slot, metadata)
-    end,
-
-    remove = function(resource, source, item, amount, metadata, slot)
-        return Utils.TryExports(resource, { 'RemoveItem', 'removeItem', 'RemoveInventoryItem' }, source, item, amount or 1, slot, metadata)
-    end,
-
-    count = function(resource, source, item, metadata)
-        local count = Utils.TryExports(resource, { 'GetItemCount', 'getItemCount', 'GetItemAmount' }, source, item, metadata)
-        if count ~= nil then return count end
-
-        return Utils.CountFromItem(Utils.TryExports(resource, { 'GetItemByName', 'GetItem', 'getItem' }, source, item))
-    end,
-
-    canCarry = function(resource, source, item, amount, metadata)
-        return Utils.TryExports(resource, { 'CanCarryItem', 'CanAddItem', 'canCarryItem' }, source, item, amount or 1, metadata) == true
-    end,
-
     items = function(resource)
-        return Utils.TryExports(resource, { 'GetItemList', 'GetItems', 'Items' })
+        return Utils.TryExports(resource, { 'GetItemList' }) or {}
     end,
-
-    registerStash = function(resource, data)
-        data = Utils.NormaliseStash(data)
-        return Utils.TryExportOk(resource, { 'RegisterStash', 'CreateStash', 'registerStash' }, data.id, data.label, data.slots, data.weight, data.owner)
+    inventory = function(resource, source)
+        if server then
+            return Utils.UnwrapInventory(Utils.TryExports(resource, { 'GetInventory' }, nil, source))
+        end
+        return Utils.UnwrapInventory(Utils.TryExports(resource, { 'GetClientPlayerInventory' }))
     end,
-
-    openInventory = function(resource, source, invType, data)
-        return Utils.TryExportOk(resource, { 'OpenInventory', 'openInventory', 'OpenStash' }, source, invType, data)
-    end,
-
-    close = function(resource, source)
-        return Utils.TryExportOk(resource, { 'CloseInventory', 'closeInventory' }, source)
-    end,
+    stashItems = server and function(resource, id)
+        return Utils.TryExports(resource, { 'GetStashItems' }, id)
+    end or nil,
+    setMetadata = server and function(resource, source, slot, metadata)
+        return Utils.TryExports(resource, { 'SetItemMetadata' }, source, slot, metadata) == true
+    end or nil,
 }, 70)

@@ -253,6 +253,10 @@
 ---@field Count fun(item: string, metadata?: table|string): integer
 ---@field Has fun(item: string, amount?: integer, metadata?: table|string): boolean
 ---@field Player fun(): table|nil
+---@field GetSlot fun(slot: integer): table|nil
+---@field Find fun(item: string, metadata?: table|string): table
+---@field Weight fun(): number|nil
+---@field MaxWeight fun(): number|nil
 ---@field Items fun(): table
 ---@field Image fun(item: string): string? Item image URL when supported.
 ---@field Open fun(invType: string, data?: table|string|number): boolean
@@ -284,6 +288,10 @@
 ---@field Has fun(source: integer, item: string, amount?: integer, metadata?: table|string): boolean
 ---@field CanCarry fun(source: integer, item: string, amount?: integer, metadata?: table): boolean
 ---@field Player fun(source: integer): table|nil
+---@field GetSlot fun(source: integer, slot: integer): table|nil
+---@field Find fun(source: integer, item: string, metadata?: table|string): table
+---@field Weight fun(source: integer): number|nil
+---@field MaxWeight fun(source: integer): number|nil
 ---@field Items fun(): table
 ---@field Image fun(item: string): string? Item image URL when supported.
 ---@field RegisterStash fun(data: TSSStashData): boolean

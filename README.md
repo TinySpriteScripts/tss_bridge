@@ -835,6 +835,21 @@ Run lua tests/dialogue_peds_spec.lua for mocked appearance/lifecycle checks.
 
 `Inventory.Image(item)` returns an item image URL for QB Inventory and OX Inventory (including custom image filenames), preserves absolute image URLs, and returns `nil` for unknown items or unsupported image providers. OX image URLs respect its `inventory:imagepath` convar, including external CDN paths.
 
+`Inventory.GetSlot(source, slot)`, `Inventory.Find(source, item, metadata)`,
+`Inventory.Weight(source)` and `Inventory.MaxWeight(source)` provide normalized,
+read-only inspection. Omit `source` on the client. `Find` returns every matching
+stack ordered by slot. Weight methods return `nil` when the active provider does
+not expose enough information; check `Supports('weight')` or
+`Supports('maxweight')` first. Weight values remain in the provider's native
+units (normally grams).
+
+Successful server mutations emit the local event
+`tss_bridge:server:inventoryAudit`. Its payload includes `action`, `system`,
+`resource`, `caller`, `timestamp` and the relevant source/inventory, item,
+amount, metadata, slot and reason fields. Actions are `add`, `remove`,
+`stash_add`, `stash_remove` and `set_metadata`. The event is server-local and
+does not replace authorization in the consuming resource.
+
 `Peds.LookAt(target, ped?, timeout?)` turns the local player (or supplied ped) toward an entity or coordinates and looks for five seconds. The turn defaults to 1500 ms and yields only when needed. Invalid/despawned entities return `false`. `World.Face` remains a compatible alias.
 
 ### Server stash transactions

@@ -173,6 +173,28 @@ TSS.Inventory.RegisterAdapter('ox', TSS.Resources.OxInventory, {
         return Utils.TryExports(resource, { 'GetInventoryItems' }, source) or {}
     end,
 
+    getSlot = function(resource, source, slot)
+        if TSS.IsClient() then return Utils.GetSlot(Utils.TryExports(resource, { 'GetPlayerItems' }), slot) end
+        return Utils.TryExports(resource, { 'GetSlot' }, source, slot)
+    end,
+
+    find = function(resource, source, item, metadata)
+        if TSS.IsClient() then return Utils.TryExports(resource, { 'Search' }, 'slots', item, metadata) or {} end
+        return Utils.TryExports(resource, { 'GetSlotsWithItem' }, source, item, metadata, false) or {}
+    end,
+
+    weight = function(resource, source)
+        if TSS.IsClient() then return Utils.TryExports(resource, { 'GetPlayerWeight' }) end
+        local inventory = Utils.TryExports(resource, { 'GetInventory' }, source)
+        return inventory and inventory.weight
+    end,
+
+    maxWeight = function(resource, source)
+        if TSS.IsClient() then return Utils.TryExports(resource, { 'GetPlayerMaxWeight' }) end
+        local inventory = Utils.TryExports(resource, { 'GetInventory' }, source)
+        return inventory and inventory.maxWeight
+    end,
+
     registerStash = function(resource, data)
         data = Utils.NormaliseStash(data)
         return Utils.TryExportOk(resource, { 'RegisterStash' }, data.id, data.label, data.slots, data.weight, data.owner, data.groups, data.coords, data.instance)

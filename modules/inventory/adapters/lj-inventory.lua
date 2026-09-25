@@ -1,60 +1,38 @@
--- lj-inventory adapter owned by the Inventory module.
+-- lj-inventory is tied to QB-Core player inventories. Use the framework's
+-- supported player methods instead of inventing modern qb-inventory exports.
 local Utils = TSS.Inventory.Utils
+local server = TSS.IsServer()
+
+local function player(source)
+    return TSS.Framework and TSS.Framework.Player and TSS.Framework.Player(source)
+end
 
 TSS.Inventory.RegisterAdapter('lj', TSS.Resources.LjInventory, {
-    registerUsable = function(resource, item, callback)
-        return Utils.RegisterUsableExport(resource, 'CreateUsableItem', item, callback)
+    registerUsable = server and function(_, item, callback)
+        return Utils.RegisterFrameworkUsable(item, callback, { qb = true })
+    end or nil,
+    add = server and function(_, source, item, amount, metadata, slot, reason)
+        local target = player(source)
+        local add = target and target.Functions and target.Functions.AddItem
+        return type(add) == 'function' and add(item, amount, slot or false, metadata or false,
+            reason or 'tss_inventory') == true
+    end or nil,
+    remove = server and function(_, source, item, amount, _, slot, reason)
+        local target = player(source)
+        local remove = target and target.Functions and target.Functions.RemoveItem
+        return type(remove) == 'function' and remove(item, amount, slot or false,
+            reason or 'tss_inventory') == true
+    end or nil,
+    count = function(_, source, item, metadata)
+        return Utils.CountItems(Utils.QBPlayerItems(source), item, metadata)
     end,
-
-    add = function(resource, source, item, amount, metadata, slot, reason)
-        return Utils.TryExports(resource, { 'AddItem' }, source, item, amount or 1, slot or false, metadata or false, reason or 'tss_inventory')
+    items = function() return Utils.QBItems() end,
+    inventory = function(_, source) return Utils.QBPlayerItems(source) end,
+    weight = function(_, source)
+        return Utils.CalculateUnitWeight(Utils.QBPlayerItems(source))
     end,
-
-    remove = function(resource, source, item, amount, metadata, slot, reason)
-        return Utils.TryExports(resource, { 'RemoveItem' }, source, item, amount or 1, slot or false, reason or 'tss_inventory')
-    end,
-
-    count = function(resource, source, item)
-        local count = Utils.TryExports(resource, { 'GetItemCount' }, source, item)
-        if count ~= nil then return count end
-
-        return Utils.CountFromItem(Utils.TryExports(resource, { 'GetItemByName' }, source, item))
-    end,
-
-    canCarry = function(resource, source, item, amount)
-        return Utils.TryExports(resource, { 'CanAddItem' }, source, item, amount or 1) == true
-    end,
-
-    items = function()
-        if not TSS.IsStarted(TSS.Resources.QBCore) then return end
-
-        local ok, core = pcall(function()
-            return exports[TSS.Resources.QBCore]:GetCoreObject()
-        end)
-
-        if ok and core and core.Shared then
-            return core.Shared.Items
-        end
-    end,
-
-    registerStash = function(resource, data)
-        data = Utils.NormaliseStash(data)
-        return Utils.TryExportOk(resource, { 'CreateInventory' }, data.id, {
-            label = data.label,
-            maxweight = data.weight,
-            slots = data.slots,
-        })
-    end,
-
-    openInventory = function(resource, source, invType, data)
-        if invType == 'player' then
-            return Utils.TryExportOk(resource, { 'OpenInventoryById' }, source, data)
-        end
-
-        return Utils.TryExportOk(resource, { 'OpenInventory' }, source, data and (data.id or data.name) or invType, data)
-    end,
-
-    close = function(resource, source)
-        return Utils.TryExportOk(resource, { 'CloseInventory' }, source)
-    end,
+    close = not server and function()
+        TriggerEvent('qb-inventory:client:closeinv')
+        return true
+    end or nil,
 }, 40)
