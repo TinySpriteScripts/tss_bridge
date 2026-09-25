@@ -37,7 +37,6 @@ function TSS.CreateVehicle(data, coords, options)
     if TSS.Game() ~= 'rdr3' then
         SetVehicleNeedsToBeHotwired(vehicle, false)
         SetVehRadioStation(vehicle, 'OFF')
-        SetVehicleFuelLevel(vehicle, data.fuel or 100.0)
         SetVehicleModKit(vehicle, 0)
 
         if networked then

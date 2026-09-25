@@ -10,7 +10,6 @@ TSS.Config.Inventory = GetConvar('tss_inventory', TSS.Config.Inventory or 'auto'
 TSS.Config.TextUI = GetConvar('tss_textui', TSS.Config.TextUI or 'auto')
 TSS.Config.Interaction = GetConvar('tss_interaction', TSS.Config.Interaction or 'auto')
 TSS.Config.VehicleKeys = GetConvar('tss_vehiclekeys', TSS.Config.VehicleKeys or 'auto')
-TSS.Config.Fuel = GetConvar('tss_fuel', TSS.Config.Fuel or 'auto')
 TSS.Config.Banking = GetConvar('tss_banking', TSS.Config.Banking or 'auto')
 TSS.Config.Billing = GetConvar('tss_billing', TSS.Config.Billing or 'auto')
 TSS.Config.Locale = GetConvar('tss_locale', TSS.Config.Locale or 'en')
@@ -73,11 +72,6 @@ TSS.Resources = {
     -- Vehicle keys
     QbVehicleKeys = 'qb-vehiclekeys',
     QboxVehicleKeys = 'qbx_vehiclekeys',
-    -- Fuel
-    LegacyFuel = 'LegacyFuel',
-    OxFuel = 'ox_fuel',
-    PsFuel = 'ps-fuel',
-    CdnFuel = 'cdn-fuel',
     -- Inventories
     OxInventory = 'ox_inventory',
     QbInventory = 'qb-inventory',

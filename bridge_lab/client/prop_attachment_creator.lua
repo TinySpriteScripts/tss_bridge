@@ -102,10 +102,11 @@ local function createAttachmentGizmo()
             local center, axes, size = GetEntityCoords(editor.prop), boneAxes(), gizmoSize()
             local handles = {}
             for _, component in ipairs({ 'x', 'y', 'z' }) do
-                if mode == 'move' then
+                if mode == 'move' or mode == 'combined' then
                     handles[#handles + 1] = Gizmo.AxisHandle('move_' .. component, center,
                         axes[component], size, component, { size = 0.038, hoverSize = 0.055 })
-                else
+                end
+                if mode == 'rotate' or mode == 'combined' then
                     local first, second = Gizmo.RingBasis(component, axes)
                     handles[#handles + 1] = Gizmo.RingHandle('rotate_' .. component, center,
                         first, second, size * 0.82, { axis = component })
@@ -117,7 +118,7 @@ local function createAttachmentGizmo()
             local component = handle.axis
             local state = {
                 mouseX = mouseX, mouseY = mouseY, component = component,
-                original = editor.mode == 'move' and editor.offset[component] or editor.rotation[component],
+                original = handle.kind == 'axis' and editor.offset[component] or editor.rotation[component],
             }
             if handle.kind == 'axis' then
                 state.linear = Gizmo.LinearDrag(handle.origin, handle.position, mouseX, mouseY, handle.distance)
@@ -152,7 +153,7 @@ end
 
 local disabledControls = {
     1, 2, 14, 15, 16, 17, 24, 25, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 44,
-    140, 141, 142, 143, 174, 175, 177, 191, 200, 201, 239, 240, 257, 263, 264,
+    140, 141, 142, 143, 174, 175, 177, 191, 200, 201, 239, 240, 257, 263, 264, 289,
 }
 
 local function blockControls()
@@ -214,7 +215,7 @@ local function hudPayload(message)
         },
         message = message,
         help = {
-            'B opens bone and animation settings · Tab switches Move/Rotate',
+            'B opens settings · F2 cycles Move/Rotate/Combined',
             'Left-drag gizmo · Ctrl precision · Hold RMB to look',
             'WASD move camera · Q/E down/up · Enter save · Backspace cancel',
         },
@@ -344,8 +345,9 @@ local function editorLoop()
             if IsDisabledControlJustPressed(0, 29) then setSettingsOpen(true) end
             if IsDisabledControlJustPressed(0, 174) then cycleBone(-1) end
             if IsDisabledControlJustPressed(0, 175) then cycleBone(1) end
-            if IsDisabledControlJustPressed(0, 37) then
-                editor.mode = editor.mode == 'move' and 'rotate' or 'move'
+            if IsDisabledControlJustPressed(0, 289) then
+                editor.mode = editor.mode == 'move' and 'rotate'
+                    or (editor.mode == 'rotate' and 'combined' or 'move')
                 editor.gizmo:SetMode(editor.mode)
                 sendHud(true)
             end

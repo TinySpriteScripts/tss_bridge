@@ -188,7 +188,7 @@ local function zoneGizmoHandles()
         end
     end
     handles[#handles + 1] = Gizmo.RingHandle('heading', center, world.x, world.y, rotationRadius(),
-        { axis = 'z', hitRadius = 0.014 })
+        { axis = 'z', color = { 255, 190, 40 }, hitRadius = 0.014 })
     return handles
 end
 

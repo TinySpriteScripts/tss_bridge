@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   Activity, Bell, Box, Car, Check, ChevronRight, Circle, CircleDot, Clipboard, ClipboardCheck, Code2, Cpu,
-  Crosshair, FlaskConical, Fuel, ImageOff, KeyRound, Keyboard, Map, MessageSquare,
+  Crosshair, FlaskConical, ImageOff, KeyRound, Keyboard, Map, MessageSquare,
   MousePointerClick, Package, PackagePlus, Play, RotateCcw, Save, Search, Server, Settings,
   ShieldCheck, SquareMousePointer, Timer, Trash2, Type, Wrench, X, Zap,
 } from 'lucide-react';
@@ -28,6 +28,8 @@ function App() {
   const [zoneCreator, setZoneCreator] = useState(null);
   const [attachmentCreator, setAttachmentCreator] = useState(null);
   const [pedAnimationEditor, setPedAnimationEditor] = useState(null);
+  const [propSceneEditor, setPropSceneEditor] = useState(null);
+  const [gizmoOverlay, setGizmoOverlay] = useState(null);
   const [bridgeLabBrowser, setBridgeLabBrowser] = useState(null);
 
   useEffect(() => {
@@ -58,6 +60,12 @@ function App() {
       if (data.action === 'zoneCreator') setZoneCreator(data.payload || null);
       if (data.action === 'attachmentCreator') setAttachmentCreator(data.payload || null);
       if (data.action === 'pedAnimationEditor') setPedAnimationEditor(data.payload || null);
+      if (data.action === 'propSceneEditor') {
+        setPropSceneEditor((current) => data.payload
+          ? { ...current, ...data.payload, library: data.payload.library || current?.library || [] }
+          : null);
+      }
+      if (data.action === 'gizmoOverlay') setGizmoOverlay(data.payload || null);
       if (data.action === 'bridgeLabBrowser') setBridgeLabBrowser(data.payload || null);
     };
 
@@ -71,12 +79,63 @@ function App() {
       {zoneCreator?.visible && <ZoneCreatorPanel data={zoneCreator} />}
       {attachmentCreator?.visible && <AttachmentCreatorPanel data={attachmentCreator} />}
       {pedAnimationEditor?.visible && <PedAnimationEditorPanel data={pedAnimationEditor} />}
+      {propSceneEditor?.visible && <PropSceneEditorPanel data={propSceneEditor} />}
+      {gizmoOverlay?.visible && <GizmoOverlay data={gizmoOverlay} />}
       {bridgeLabBrowser?.visible && <BridgeLabBrowser data={bridgeLabBrowser} />}
       {dialog && <BridgeDialog data={dialog} onClose={() => setDialog(null)} />}
       <NoticeStack notices={notices} />
       {progress && <ProgressBar data={progress} />}
     </div>
   );
+}
+
+function GizmoOverlay({ data }) {
+  const width = window.innerWidth || 1920;
+  const height = window.innerHeight || 1080;
+  const point = (value) => ({ x: value.x * width, y: value.y * height });
+  const color = (handle) => `rgb(${(handle.color || [255, 255, 255]).join(',')})`;
+
+  return <svg className="gizmo-overlay" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+    <defs>
+      <filter id="gizmo-glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2.2" result="blur" />
+        <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+      </filter>
+    </defs>
+    {(data.handles || []).map((handle) => {
+      const stroke = color(handle);
+      const className = `gizmo-handle ${handle.active ? 'active' : ''}`;
+      if (handle.kind === 'ring') {
+        const points = (handle.points || []).map(point).map((p) => `${p.x},${p.y}`).join(' ');
+        return <polyline key={handle.id} className={`${className} gizmo-ring`} points={points} stroke={stroke} />;
+      }
+      if (handle.kind === 'axis') {
+        const start = point(handle.origin);
+        const end = point(handle.position);
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const magnitude = Math.max(Math.hypot(dx, dy), 0.001);
+        const ux = dx / magnitude;
+        const uy = dy / magnitude;
+        const head = handle.active ? 19 : 15;
+        const wing = handle.active ? 8 : 6.5;
+        const base = { x: end.x - ux * head, y: end.y - uy * head };
+        const arrow = `${end.x},${end.y} ${base.x - uy * wing},${base.y + ux * wing} ${base.x + uy * wing},${base.y - ux * wing}`;
+        return <g key={handle.id} className={className} filter={handle.active ? 'url(#gizmo-glow)' : undefined}>
+          <line className="gizmo-axis" x1={start.x} y1={start.y} x2={handle.shape === 'cube' ? end.x : base.x} y2={handle.shape === 'cube' ? end.y : base.y} stroke={stroke} />
+          {handle.shape === 'cube'
+            ? <rect className="gizmo-cube" x={end.x - (handle.active ? 8 : 6)} y={end.y - (handle.active ? 8 : 6)} width={handle.active ? 16 : 12} height={handle.active ? 16 : 12} fill={stroke} />
+            : <polygon className="gizmo-arrow" points={arrow} fill={stroke} />}
+        </g>;
+      }
+      const position = point(handle.position);
+      return <circle key={handle.id} className={className} cx={position.x} cy={position.y} r={handle.active ? 8 : 6} fill={stroke} />;
+    })}
+    {data.handles?.find((handle) => handle.kind === 'axis') && (() => {
+      const center = point(data.handles.find((handle) => handle.kind === 'axis').origin);
+      return <circle className="gizmo-center" cx={center.x} cy={center.y} r="4.5" />;
+    })()}
+  </svg>;
 }
 
 function useAnimationCatalog(dictionary, enabled = true) {
@@ -227,6 +286,121 @@ function PedAnimationEditorPanel({ data }) {
     </div>}
     <div className="zone-help">{(data.help || []).map((line) => <p key={line}><MousePointerClick size={13} />{line}</p>)}</div>
   </section>;
+}
+
+function PropSceneEditorPanel({ data }) {
+  const [model, setModel] = useState('');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [values, setValues] = useState({ x: '', y: '', z: '' });
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
+  const [dragged, setDragged] = useState(null);
+  const categories = useMemo(() => ['All', ...new Set((data.library || []).map((item) => item.category))], [data.library]);
+  const libraryItems = useMemo(() => (data.library || []).filter((item) => {
+    const query = search.trim().toLowerCase();
+    return (category === 'All' || item.category === category)
+      && (!query || item.model.toLowerCase().includes(query) || item.label.toLowerCase().includes(query));
+  }), [data.library, search, category]);
+  useEffect(() => { if (data.settingsOpen) setError(''); }, [data.settingsOpen]);
+  useEffect(() => {
+    if (!data.settingsOpen) return undefined;
+    const keydown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        postNui('propSceneAction', { action: 'resume' });
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [data.settingsOpen]);
+  useEffect(() => {
+    if (!data.libraryOpen) return undefined;
+    const keydown = (event) => {
+      if (event.key === 'F5') {
+        event.preventDefault();
+        postNui('propSceneAction', { action: 'toggleLibrary' });
+      }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, [data.libraryOpen]);
+  const send = async (action, payload = {}) => {
+    setBusy(true);
+    let result;
+    try {
+      const response = await postNui('propSceneAction', { action, ...payload });
+      result = await response?.json();
+      setError(result?.ok ? '' : result?.error || 'Editor did not respond.');
+      if (result?.ok && action === 'add') setModel('');
+    } catch { setError('Unable to update the scene.'); }
+    finally { setBusy(false); }
+    return result;
+  };
+  const editMetric = (metric) => {
+    setEditing(metric.key);
+    setValues({ x: metric.components?.x ?? '', y: metric.components?.y ?? '', z: metric.components?.z ?? '' });
+  };
+  const applyMetric = async () => {
+    const result = await send('transform', { kind: editing, ...values });
+    if (result?.ok) setEditing(null);
+  };
+  const dropProp = async (event) => {
+    event.preventDefault();
+    const item = dragged;
+    setDragged(null);
+    if (!item) return;
+    await send('libraryDrop', {
+      model: item.model,
+      screenX: event.clientX / window.innerWidth,
+      screenY: event.clientY / window.innerHeight,
+    });
+  };
+  return <>
+  <section className={`zone-creator-panel ped-animation-panel prop-scene-panel ${data.settingsOpen ? 'settings-open' : ''}`}>
+    <div className="zone-creator-accent" />
+    <header><div><span>{data.title || 'Prop Scene Editor'}</span><h2>{data.sceneName || 'Prop scene'}</h2></div><div className="zone-mode"><Box size={14} />{data.mode || 'MOVE'}</div></header>
+    <div className="zone-type"><span>{data.activeModel || 'No active prop'}</span><strong>{data.activeIndex || 0} / {data.count || 0}</strong></div>
+    <div className="zone-metrics prop-scene-metrics">{(data.metrics || []).map((metric) => <button type="button" key={metric.label} onClick={() => editMetric(metric)}><span>{metric.label}</span><strong>{metric.value}</strong></button>)}</div>
+    {editing && <div className="prop-transform-editor">
+      <strong>{editing === 'coords' ? 'Position' : editing === 'rotation' ? 'Rotation' : 'Scale'}</strong>
+      {['x', 'y', 'z'].map((axis) => <label key={axis}><span>{axis.toUpperCase()}</span><input type="number" step={editing === 'rotation' ? '1' : '0.01'} value={values[axis]} onFocus={() => postNui('propSceneAction', { action: 'uiFocus', focused: true })} onBlur={() => postNui('propSceneAction', { action: 'uiFocus', focused: false })} onChange={(event) => setValues({ ...values, [axis]: event.target.value })} /></label>)}
+      <button disabled={busy} onClick={applyMetric}>Apply</button><button disabled={busy} onClick={() => setEditing(null)}>Cancel</button>
+    </div>}
+    {data.message && <div className="zone-message">{data.message}</div>}
+    {data.settingsOpen && <div className="attachment-settings prop-scene-settings">
+      <p>Add, select, duplicate, or remove props. Resume the gizmo to continue arranging the scene.</p>
+      <label><span>Add prop model</span><div className="prop-scene-add"><input autoFocus value={model} placeholder="prop model name" onChange={(event) => setModel(event.target.value)} /><button disabled={busy || !model.trim()} onClick={() => send('add', { model })}>Add</button></div></label>
+      <div className="prop-scene-list">{(data.props || []).map((prop) => <button className={prop.index === data.activeIndex ? 'active' : ''} disabled={busy} key={`${prop.index}-${prop.model}`} onClick={() => send('select', { index: prop.index })}><span>{prop.index}</span><strong>{prop.model}</strong></button>)}</div>
+      {error && <div className="zone-message" role="alert">{error}</div>}
+      <div className="attachment-actions">
+        <button disabled={busy} onClick={() => send('duplicate')}>Duplicate active</button>
+        <button disabled={busy || data.count <= 1} onClick={() => send('delete')}>Delete active</button>
+        <button disabled={busy} onClick={() => send('resume')}>Resume gizmo</button>
+      </div>
+      <div className="attachment-actions">
+        <button className="done" disabled={busy || !(data.count > 0)} onClick={() => send('save')}>Save scene file</button>
+        <button disabled={busy} onClick={() => send('export')}>Generate Lua</button>
+      </div>
+      {data.output && <><textarea className="ped-pose-output" aria-label="Exported Lua prop scene" value={data.output} readOnly /><CopyButton value={data.output} label="Copy scene Lua" /></>}
+      <button className="ped-editor-exit" disabled={busy} onClick={() => send('exit')}>Exit editor</button>
+    </div>}
+    <div className="zone-help">{(data.help || []).map((line) => <p key={line}><MousePointerClick size={13} />{line}</p>)}</div>
+  </section>
+  {data.libraryOpen && <section className="prop-library">
+    <header><div><span>F5 PROP LIBRARY</span><strong>Drag a prop into the world or click to add beside the selection</strong></div><input value={search} placeholder="Search models..." onFocus={() => postNui('propSceneAction', { action: 'uiFocus', focused: true })} onBlur={() => postNui('propSceneAction', { action: 'uiFocus', focused: false })} onChange={(event) => setSearch(event.target.value)} /></header>
+    <nav>{categories.map((name) => <button className={category === name ? 'active' : ''} key={name} onClick={() => setCategory(name)}>{name}</button>)}</nav>
+    <div className="prop-library-grid">{libraryItems.map((item) => <button
+      draggable
+      key={item.model}
+      onDragStart={(event) => { event.dataTransfer.setData('text/plain', item.model); setDragged(item); }}
+      onDragEnd={() => setDragged(null)}
+      onClick={() => send('libraryAdd', { model: item.model })}
+    ><Box size={18} /><span>{item.label}</span><code>{item.model}</code></button>)}</div>
+  </section>}
+  {dragged && <div className="prop-library-drop-layer" onDragOver={(event) => event.preventDefault()} onDrop={dropProp}><span>Drop {dragged.label} into the scene</span></div>}
+  </>;
 }
 
 function AttachmentCreatorPanel({ data }) {

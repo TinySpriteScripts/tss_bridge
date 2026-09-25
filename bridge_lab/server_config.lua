@@ -13,9 +13,4 @@ TSSBridgeLabServerConfig = {
     },
 
     DeniedMessage = 'You are not authorized to use the TSS Bridge Lab.',
-
-    -- Mutation tests add and restore these values. Keep disabled on production.
-    EnableMutationTests = false,
-    MoneyAmount = 25,
-    ItemAmount = 1,
 }

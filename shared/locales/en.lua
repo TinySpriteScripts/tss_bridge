@@ -9,6 +9,5 @@ TSS.Locales.en = {
     no_notify = 'No supported notification system is running',
     no_textui = 'No supported text UI system is running',
     no_keys = 'No supported vehicle key system is running',
-    no_fuel = 'No supported fuel system is running',
     diagnostics_denied = 'You are not allowed to use bridge diagnostics',
 }

@@ -17,7 +17,6 @@ local moduleNames = {
     'Interaction',
     'Inventory',
     'VehicleKeys',
-    'Fuel',
     'Locale',
     'Capabilities',
     'Diagnostics',
@@ -36,6 +35,7 @@ local TSS
 local LabConfig = TSSBridgeLabConfig
 local PolyZoneCreator = TSSBridgeLabPolyZoneCreator
 local PedAnimationEditor = TSSBridgeLabPedAnimationEditor
+local PropSceneEditor = TSSBridgeLabPropSceneEditor
 local ToolBrowser = TSSBridgeLabToolBrowser
 
 local lab = {
@@ -53,7 +53,7 @@ local openConfigMenu
 local openConfigValueMenu
 local openTestMenu
 local openFeedbackMenu
-local openGameplayMenu
+local openVehicleMenu
 local openToolsMenu
 local openPolyZoneMenu
 
@@ -262,6 +262,78 @@ local function serverDeliverySuite()
     end)
 end
 
+local function selectedVehicle()
+    local occupied = GetVehiclePedIsIn(PlayerPedId(), false)
+    if occupied and occupied ~= 0 and DoesEntityExist(occupied) then return occupied end
+    if lab.vehicle and DoesEntityExist(lab.vehicle) then return lab.vehicle end
+    return nil
+end
+
+local function spawnVehicleTool()
+    TSS.UI.Input({
+        label = 'Bridge Lab / Vehicle Tools',
+        title = 'Spawn Vehicle',
+        description = 'Spawn a networked vehicle a few metres in front of you.',
+        confirmLabel = 'Spawn Vehicle',
+        fields = {
+            { name = 'model', label = 'Vehicle model', value = LabConfig.VehicleModel or 'sultan', placeholder = 'sultan' },
+        },
+    }, function(result)
+        if not result then return openVehicleMenu() end
+        local model = tostring(result.values and result.values.model or ''):lower():match('^%s*(.-)%s*$')
+        if model == '' or #model > 80 or not model:match('^[%w_%-]+$') then
+            notify('Enter a valid vehicle model name.', 'error', 'Vehicle Tools')
+            return spawnVehicleTool()
+        end
+
+        if lab.vehicle and DoesEntityExist(lab.vehicle) then TSS.Vehicles.Delete(lab.vehicle) end
+        local player = PlayerPedId()
+        local coords = GetOffsetFromEntityInWorldCoords(player, 0.0, 5.0, 0.0)
+        lab.vehicle = TSS.Vehicles.Create({
+            model = model,
+            coords = vector4(coords.x, coords.y, coords.z, GetEntityHeading(player)),
+            networked = true,
+        })
+
+        notify(lab.vehicle and ('Spawned %s.'):format(model)
+            or ('Unable to spawn %s. Check the model name.'):format(model),
+            lab.vehicle and 'success' or 'error', 'Vehicle Tools')
+        openVehicleMenu()
+    end)
+end
+
+local function giveVehicleKeysTool()
+    CreateThread(function()
+        local vehicle = selectedVehicle()
+        if not vehicle then
+            notify('Enter a vehicle or spawn one first.', 'warning', 'Vehicle Tools')
+            return openVehicleMenu()
+        end
+
+        local networkId = NetworkGetNetworkIdFromEntity(vehicle)
+        local response, callbackError = TSS.Callbacks.Await('giveVehicleKeys', 7000, networkId)
+        if type(response) == 'table' and response.success then
+            notify(response.message or 'Vehicle keys granted.', 'success', 'Vehicle Tools')
+        else
+            notify(type(response) == 'table' and response.error or callbackError or 'Unable to grant vehicle keys.',
+                'error', 'Vehicle Tools')
+        end
+        openVehicleMenu()
+    end)
+end
+
+local function deleteSpawnedVehicleTool()
+    if not lab.vehicle or not DoesEntityExist(lab.vehicle) then
+        lab.vehicle = nil
+        notify('There is no spawned test vehicle to delete.', 'warning', 'Vehicle Tools')
+        return openVehicleMenu()
+    end
+    TSS.Vehicles.Delete(lab.vehicle)
+    lab.vehicle = nil
+    notify('Spawned test vehicle deleted.', 'success', 'Vehicle Tools')
+    openVehicleMenu()
+end
+
 local function spawnLab()
     cleanupLab(true)
 
@@ -297,7 +369,6 @@ local function spawnLab()
     lab.vehicle = TSS.Vehicles.Create({
         model = LabConfig.VehicleModel,
         coords = vehicleCoords,
-        fuel = 63.0,
         networked = true,
     })
 
@@ -344,9 +415,8 @@ local function spawnLab()
             label = 'Inspect test vehicle',
             icon = 'fas fa-car',
             onSelect = function()
-                local fuel = TSS.Fuel.Get(lab.vehicle)
                 local hasKeys = TSS.VehicleKeys.Has(lab.vehicle)
-                notify(('Vehicle target passed. Fuel %.1f, local keys %s.'):format(fuel, tostring(hasKeys)), 'success')
+                notify(('Vehicle target passed. Local keys %s.'):format(tostring(hasKeys)), 'success')
             end,
         } }, 2.5)
     end
@@ -370,41 +440,9 @@ local function spawnLab()
         onSelect = function() notify('Model target selection passed.', 'success') end,
     } }, 2.0)
 
-    if lab.vehicle then
-        TSS.Fuel.Set(lab.vehicle, 63.0)
-    end
-
     lab.active = lab.ped ~= nil or lab.prop ~= nil or lab.vehicle ~= nil
     notify(lab.active and 'Bridge Lab spawned nearby. Use the technician, zones, vehicle, and toolbox targets.'
         or 'The lab could not spawn any entities; check configured models.', lab.active and 'success' or 'error')
-end
-
-local function vehicleSuite()
-    CreateThread(function()
-        if not lab.vehicle or not DoesEntityExist(lab.vehicle) then spawnLab() end
-        if not lab.vehicle or not DoesEntityExist(lab.vehicle) then
-            notify('No test vehicle is available.', 'error')
-            return
-        end
-
-        TSS.Fuel.Set(lab.vehicle, 72.5)
-        local fuel = TSS.Fuel.Get(lab.vehicle)
-        local localKeysBefore = TSS.VehicleKeys.Has(lab.vehicle)
-        local networkId = NetworkGetNetworkIdFromEntity(lab.vehicle)
-        local report, callbackError = TSS.Callbacks.Await('vehicleKeyRoundTrip', 7000, networkId)
-
-        if callbackError or not report then
-            notify(('Vehicle-key callback failed: %s'):format(callbackError or 'no report'), 'error')
-            return
-        end
-
-        local keySummary = report.skipped and 'server mutation skipped because keys already existed'
-            or ('give=%s, detected=%s, remove=%s, after=%s')
-                :format(tostring(report.gave), tostring(report.hadKeys), tostring(report.removed), tostring(report.hasAfter))
-        notify(('Fuel %.1f; local keys before=%s; %s (%s).')
-            :format(fuel, tostring(localKeysBefore), keySummary, report.system or 'none'),
-            report.success and 'success' or 'warning')
-    end)
 end
 
 local function stashSuite()
@@ -506,7 +544,6 @@ local function runAudit()
         check('Targets.System', TSS.Targets.System)
         check('Interaction.System', TSS.Interaction.System, function(value) return value ~= nil end)
         check('VehicleKeys.System', TSS.VehicleKeys.System)
-        check('Fuel.System', TSS.Fuel.System, function(value) return value ~= nil end)
         check('Locale.Language', TSS.Locale.Language, function(value) return type(value) == 'string' end)
         check('Locale.Exists', function() return TSS.Locale.Exists('callback_timeout') end,
             function(value) return value == true end)
@@ -715,32 +752,26 @@ openFeedbackMenu = function()
     end)
 end
 
-openGameplayMenu = function()
+openVehicleMenu = function()
     TSS.UI.Menu({
         label = 'Bridge Lab / Test Centre',
-        title = 'Gameplay & Data',
-        description = 'Validate adapters that interact with vehicles, inventories and player state.',
-        status = '3 SUITES',
-        previewLabel = 'Gameplay test',
+        title = 'Vehicle Tools',
+        description = 'Spawn and prepare vehicles without deploying a test yard.',
+        status = selectedVehicle() and 'VEHICLE READY' or 'NO VEHICLE',
+        previewLabel = 'Vehicle action',
         options = {
-            { label = 'Vehicle, Fuel & Keys', description = 'Checks vehicle state, fuel integration and key ownership.', value = 'vehicle', icon = 'vehicle', arrow = false },
-            { label = 'Inventory Stash', description = 'Registers a temporary lab stash and opens it through the active inventory.', value = 'stash', icon = 'stash', arrow = false },
             {
-                label = 'Reversible Mutations',
-                description = lab.mutationTests and 'Tests controlled Money and Inventory mutations, then restores them.'
-                    or 'Disabled in bridge_lab/server_config.lua',
-                value = 'mutations',
-                icon = 'mutations',
-                badge = lab.mutationTests and 'ENABLED' or 'LOCKED',
-                disabled = not lab.mutationTests,
-                arrow = false,
+                label = 'Spawn Vehicle', description = 'Spawn a networked vehicle by GTA model name.',
+                value = 'spawn_vehicle', icon = 'vehicle', badge = 'MODEL INPUT', arrow = false,
             },
+            { label = 'Give Keys', description = 'Give yourself keys for your current or spawned vehicle.', value = 'give_keys', icon = 'keys', arrow = false },
+            { label = 'Delete Spawned Vehicle', description = 'Remove the vehicle created by this tool.', value = 'delete_vehicle', icon = 'cleanup', disabled = not (lab.vehicle and DoesEntityExist(lab.vehicle)), arrow = false },
         },
     }, function(result)
         handleMenuResult(result, openTestMenu, {
-            vehicle = vehicleSuite,
-            stash = stashSuite,
-            mutations = mutationSuite,
+            spawn_vehicle = spawnVehicleTool,
+            give_keys = giveVehicleKeysTool,
+            delete_vehicle = deleteSpawnedVehicleTool,
         })
     end)
 end
@@ -749,19 +780,17 @@ openTestMenu = function()
     TSS.UI.Menu({
         label = 'Bridge Lab',
         title = 'Test Centre',
-        description = 'Run a complete health check or drill into a focused adapter group.',
-        status = '10 SUITES',
+        description = 'Run focused UI checks or prepare a vehicle for development.',
+        status = '2 CATEGORIES',
         previewLabel = 'Test category',
         options = {
-            { label = 'Full Read-only Audit', description = 'Checks client APIs, server snapshots and callback round trips in one pass.', value = 'audit', icon = 'audit', badge = 'RECOMMENDED', arrow = false },
             { label = 'UI & Feedback', description = 'Notifications, TextUI, progress, menus, input and server delivery.', value = 'feedback', icon = 'feedback', badge = '6 SUITES' },
-            { label = 'Gameplay & Data', description = 'Vehicles, fuel, keys, inventory stashes and guarded mutations.', value = 'gameplay', icon = 'gameplay', badge = '3 SUITES' },
+            { label = 'Vehicle Tools', description = 'Spawn vehicles, give keys, and clean up.', value = 'vehicles', icon = 'vehicle', badge = '3 TOOLS' },
         },
     }, function(result)
         handleMenuResult(result, openMainMenu, {
-            audit = runAudit,
             feedback = openFeedbackMenu,
-            gameplay = openGameplayMenu,
+            vehicles = openVehicleMenu,
         })
     end)
 end
@@ -878,6 +907,36 @@ local function requestPedAnimationEditor()
     end)
 end
 
+local function requestPropSceneEditor()
+    TSS.UI.Input({
+        label = 'Bridge Lab / Developer Tools', title = 'Prop Scene Editor', confirmLabel = 'Start Editor',
+        description = 'Arrange, rotate, and scale multiple props into a reusable scripted scene.',
+        fields = {
+            { name = 'name', label = 'Scene name', value = 'my_prop_scene', placeholder = 'letters, numbers, underscore or hyphen' },
+            { name = 'model', label = 'Initial prop model', value = 'prop_tool_box_04', placeholder = 'prop model name' },
+        },
+    }, function(result)
+        if not result then return openToolsMenu() end
+        local started, startError = PropSceneEditor.Start(result.values or {}, {
+            onSave = function(scene)
+                local response, callbackError = TSS.Callbacks.Await('saveCreatedPropScene', 7000, scene)
+                if type(response) == 'table' and response.success then
+                    notify(response.message, 'success', 'Prop Scene Saved')
+                else
+                    notify(type(response) == 'table' and response.error or callbackError
+                        or 'Unable to save prop scene.', 'error', 'Prop Scene Save Failed')
+                end
+                openToolsMenu()
+            end,
+            onCancel = function()
+                notify('Prop scene draft deleted. Nothing was saved.', 'inform', 'Prop Scene Editor')
+                openToolsMenu()
+            end,
+        })
+        if not started then notify(startError or 'Unable to start editor.', 'error'); openToolsMenu() end
+    end)
+end
+
 local function openApiExplorer()
     local opened, browserError = ToolBrowser.OpenApi(openToolsMenu)
     if not opened then
@@ -965,19 +1024,11 @@ openToolsMenu = function()
     TSS.UI.Menu({
         label = 'Bridge Lab',
         title = 'Developer Tools',
-        description = 'Build, inspect and clean up test environments from one workspace.',
-        status = lab.active and 'YARD ACTIVE' or 'READY',
-        statusTone = lab.active and 'success' or 'neutral',
+        description = 'Build and inspect reusable development data from one workspace.',
+        status = 'READY',
+        statusTone = 'neutral',
         previewLabel = 'Lab tool',
         options = {
-            {
-                label = lab.active and 'Rebuild Certification Yard' or 'Deploy Certification Yard',
-                description = 'Creates the lab ped, props, vehicle, blips, targets and interactions.',
-                value = 'spawn',
-                icon = 'deploy',
-                badge = lab.active and 'ACTIVE' or 'AVAILABLE',
-                arrow = false,
-            },
             {
                 label = 'PolyZone Creator',
                 description = 'Create box, circle, and polygon zones using a freecam world editor.',
@@ -989,6 +1040,11 @@ openToolsMenu = function()
                 label = 'Ped Animation Editor',
                 description = 'Pose a ghost freemode ped for seats and beds; capture multiple placements without exiting.',
                 value = 'ped_animation', icon = 'ped', badge = 'PERSISTENT',
+            },
+            {
+                label = 'Prop Scene Editor',
+                description = 'Arrange multiple props with move, rotation, and three-axis scale gizmos; export the whole scene.',
+                value = 'prop_scene', icon = 'prop', badge = 'SCENE BUILDER',
             },
             {
                 label = 'Prop Attachment Creator',
@@ -1011,26 +1067,15 @@ openToolsMenu = function()
                 icon = 'items',
                 badge = 'READ ONLY',
             },
-            {
-                label = 'Clean Up Lab Session',
-                description = lab.active and 'Removes every entity, target, interaction and blip created by the lab.'
-                    or 'There is no active certification yard to clean up.',
-                value = 'cleanup',
-                icon = 'cleanup',
-                badge = lab.active and 'READY' or 'INACTIVE',
-                disabled = not lab.active,
-                arrow = false,
-            },
         },
     }, function(result)
         handleMenuResult(result, openMainMenu, {
-            spawn = spawnLab,
             polyzone = openPolyZoneMenu,
             ped_animation = requestPedAnimationEditor,
+            prop_scene = requestPropSceneEditor,
             prop_attachment = requestPropAttachment,
             api_explorer = openApiExplorer,
             item_browser = openItemBrowser,
-            cleanup = cleanupLab,
         })
     end)
 end
@@ -1040,9 +1085,9 @@ openMainMenu = function()
     TSS.UI.Menu({
         label = 'TSS Bridge / Authorized',
         title = 'BridgeLab',
-        description = 'A focused workspace for bridge certification and developer tooling.',
-        status = lab.active and 'LAB ACTIVE' or 'SYSTEM READY',
-        statusTone = lab.active and 'success' or 'neutral',
+        description = 'A focused workspace for bridge testing and developer tooling.',
+        status = 'SYSTEM READY',
+        statusTone = 'neutral',
         previewLabel = 'Workspace',
         options = {
             {
@@ -1054,17 +1099,17 @@ openMainMenu = function()
             },
             {
                 label = 'Test Centre',
-                description = 'Run audits and focused adapter certification suites.',
+                description = 'Run focused UI checks and practical vehicle tools.',
                 value = 'tests',
                 icon = 'tests',
-                badge = '10 SUITES',
+                badge = '2 CATEGORIES',
             },
             {
                 label = 'Developer Tools',
-                description = 'Deploy the lab yard and access upcoming creation tools.',
+                description = 'Access scene, animation, attachment, zone, and data tools.',
                 value = 'tools',
                 icon = 'tools',
-                badge = lab.active and 'YARD ACTIVE' or '7 TOOLS',
+                badge = '6 TOOLS',
             },
         },
     }, function(result)
@@ -1091,7 +1136,6 @@ end)
 
 RegisterNetEvent('tss_bridge:lab:open', function(session)
     if not initialiseLab() then return end
-    lab.mutationTests = type(session) == 'table' and session.mutationTests == true
     if type(session) == 'table' and type(session.configuration) == 'table' then
         lab.configuration = session.configuration
         applyConfigurationValues(lab.configuration.values)

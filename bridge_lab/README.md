@@ -1,6 +1,6 @@
 # TSS Bridge Lab
 
-The Bridge Lab is an authorization-gated certification suite built directly
+The Bridge Lab is an authorization-gated development suite built directly
 into `tss_bridge`. It loads no bridge modules until an authorized player uses
 the configured command or F7 mapping.
 
@@ -29,22 +29,21 @@ lists empty, nobody can open the lab.
 Restart `tss_bridge` after changing either config file, then use `/bridgelab` or
 press `F7` in game. The F7 mapping only requests access from the server; both
 entry points use the same server-side identifier check. There are no direct
-client-side audit, spawn, or cleanup commands; all test actions are selected
+client-side tool commands; all actions are selected
 from the authorized menu.
 
 ## Lab interface
 
-The landing menu separates bridge certification from developer tooling:
+The landing menu separates bridge configuration, focused tests, and developer tooling:
 
-- **Configuration** edits bridge-wide framework, notification, progress,
-  target, inventory, TextUI, interaction, vehicle-key, and fuel defaults. Any
+- **Configuration** edits the exposed notification, progress, TextUI, and
+  interaction defaults. Any
   option with a matching `server.cfg` convar is read-only and displays
   **Blocked by server.cfg**.
-- **Test Centre** contains the full read-only audit plus grouped UI/feedback
-  and gameplay/data suites.
-- **Developer Tools** contains the interactive certification yard, PolyZone and
-  prop-attachment creators, API Explorer, shared-item browser, and session
-  cleanup.
+- **Test Centre** contains focused UI/feedback checks and practical vehicle
+  tools for spawning vehicles, granting keys, and cleanup.
+- **Developer Tools** contains the PolyZone, ped-animation, prop-scene, and
+  prop-attachment editors alongside the API Explorer and shared-item browser.
 
 Highlighting an entry shows its purpose, availability, and suite status in the
 detail panel. Pressing Escape in a submenu returns to its parent menu.
@@ -93,7 +92,7 @@ the current player ped.
 - The settings panel accepts an animation dictionary, clip and flag. **Play**
   previews it on the ped, **Stop** ends the preview, and **Done editing** returns
   keyboard and mouse control to the gizmo.
-- `Tab` switches between move axes and three-axis rotation rings.
+- `F2` cycles move axes, three-axis rotation rings, and a combined layout.
 - Left-drag a colored gizmo, and hold `Ctrl` for precision adjustments.
 - Hold right mouse to look around. `WASD` moves the camera and `Q`/`E` moves it
   vertically.
@@ -103,6 +102,35 @@ The server validates the model, bone, offsets, rotations, optional animation,
 authorization, file size, and save rate before appending data to
 `bridge_lab/exported_data/created_prop_attatchments.lua`. The filename retains the requested
 `attatchments` spelling. It is a data file and is not loaded automatically.
+
+## Prop Scene Editor
+
+Open **Developer Tools → Prop Scene Editor**, name the scene, and enter its first
+prop model. The editor keeps every prop visible while one active prop is edited.
+
+- **F2** cycles Move, Rotate, Scale, and a combined layout. Rotation and scale
+  expose independent red X, green Y, and blue Z handles.
+- **F3** switches world/local axes. Left/Right selects the previous/next prop,
+  **G** duplicates the active prop, and **F** opens the scene manager.
+- Click a placed prop to select it again. The Position, Rotation, and Scale cards
+  on the right are clickable and accept exact X/Y/Z values.
+- **Ctrl+Z** undoes and **Ctrl+Y** redoes transformations, additions, duplicates,
+  deletions, and direct value edits. The editor retains up to 100 scene states.
+- **F5** opens the categorized prop library along the bottom of the screen.
+  Search or filter the catalog, click a card to add it beside the selected prop,
+  or drag it onto visible world geometry to place it at the drop point. Extend
+  the curated catalog in `bridge_lab/data/prop_library.lua`.
+- The manager can add a different model, select, duplicate, or delete props,
+  resume editing, generate copyable Lua, or save the complete scene.
+- Hold right mouse to look around; use `WASD`, `Q`/`E`, Shift, the mouse wheel,
+  and Ctrl for freecam movement and precision editing.
+
+Saved scenes are server-validated and appended to
+`bridge_lab/exported_data/created_prop_scenes.lua` as model, position, full
+rotation, and three-axis scale records. GTA V has no true object-scale native,
+so the editor previews scale through `SetEntityMatrix`. This changes the visible
+model but does not resize its collision bounds; scene scripts should reproduce
+the same matrix scaling when spawning exported props.
 
 ## Bridge API Explorer
 
@@ -139,10 +167,8 @@ always grants to the requesting player rather than a client-supplied target.
   to one item, carry-checked, rate-limited, and restricted to the requester.
 - Created attachment payloads are validated and formatted by the server; the
   client cannot submit raw Lua.
-- Mutation amounts, stash definitions, and other authoritative values come
-  from bridge configuration rather than client payloads.
-- Vehicle-key tests validate network ownership and never remove existing keys.
-- Client-created entities, targets, interactions, and UI are cleaned when the
+- Vehicle-key grants validate network ownership before changing key state.
+- Client-created entities and UI are cleaned when the
   bridge stops.
 
 A client can execute arbitrary local code and display local UI, so the server
@@ -150,21 +176,9 @@ authorization checks—not the menu event—are the security boundary.
 
 ## What it exercises
 
-The menu covers all bridge module families, including framework/player data,
-money, groups, inventory, notifications, TextUI, progress, callbacks, UI,
-blips, entities, distance spawning, targets, interactions, fuel, vehicle keys,
-locale, capabilities, diagnostics, and debug formatters.
-
-The read-only audit prints concise PASS/FAIL results to F8. Optional adapters
-may report `none` without representing a bridge failure.
-
-## Mutation tests
-
-Money and item mutation tests are disabled by default in `server_config.lua`.
-When enabled, they add and immediately restore configured values, reporting
-whether the final balance/count matches its starting state. Do not enable these
-tests on production: an adapter failure between the two operations could leave
-the temporary value behind.
+The Test Centre covers notifications, TextUI, progress, callbacks, built-in UI,
+vehicle spawning, and vehicle keys. The creation tools cover
+zones, animation placements, prop scenes, and prop attachments.
 
 Shared visual/entity settings are in `config.lua`. Sensitive settings and
 identifier allowlists belong only in `server_config.lua`.
@@ -179,7 +193,7 @@ Animation dictionary fields search anywhere within names in `data/animlist.lua`
 as you type. Selecting an exact dictionary changes the clip field into a
 dropdown of its known clips.
 
-- **Tab:** switch move/heading gizmos. Drag with the left mouse button; hold Ctrl for precision.
+- **F2:** cycle Move, Rotate, and Combined gizmos. Rotate exposes red X, green Y, and blue Z rings. **F3:** switch world/local axes. Drag with the left mouse button; hold Ctrl for precision.
 - **Right mouse + WASD:** look and move the camera. Q/E moves down/up; Shift increases speed.
 - **G:** commit the current ped in place and create another editable ghost with the same pose. Committed peds remain visible so completed seats and beds are easy to track.
 - **F:** open pose settings to change/replay the current ghost, resume placement, print/copy the committed Lua, clear committed peds, save the batch to a file, or explicitly exit.
@@ -188,8 +202,9 @@ Backspace does not exit this editor. Up to 100 committed placements stay visible
 until cleared, saved, or exited. **Save file** appends the server-validated batch
 to `bridge_lab/exported_data/created_ped_animation.lua`; the client never sends
 raw Lua source. Exported vector4 coordinates are the ped origin, with no
-automatic chair-height offset. Animation exports include dictionary, clip and
-flag; scenario exports include `useEnterAnim = false`. Match these settings when
+automatic chair-height offset. A separate `rotation = vector3(x, y, z)` preserves
+all three authored axes. Animation exports include dictionary, clip and flag;
+scenario exports include `useEnterAnim = false`. Match these settings when
 replaying placements in your script. Invalid animation dictionaries/clips are
 rejected; scenario names should be known GTA scenario types.
 

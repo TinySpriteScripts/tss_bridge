@@ -27,6 +27,13 @@ local function add(a, b) return vector(a.x + b.x, a.y + b.y, a.z + b.z) end
 local function subtract(a, b) return vector(a.x - b.x, a.y - b.y, a.z - b.z) end
 local function multiply(value, scalar) return vector(value.x * scalar, value.y * scalar, value.z * scalar) end
 local function dot(a, b) return a.x * b.x + a.y * b.y + a.z * b.z end
+local function cross(a, b)
+    return vector(
+        a.y * b.z - a.z * b.y,
+        a.z * b.x - a.x * b.z,
+        a.x * b.y - a.y * b.x
+    )
+end
 local function magnitude(value) return math.sqrt(dot(value, value)) end
 local function normalise(value)
     local length = magnitude(value)
@@ -57,10 +64,54 @@ local function marker(coords, size, color, alpha)
         false, false, 2, false, nil, nil, false)
 end
 
-local function ringPoint(handle, angle)
+local function arrow(handle, active, color)
+    local direction = normalise(handle.direction)
+    local size = active and (handle.hoverSize or 0.075) or (handle.size or 0.045)
+    local headLength = handle.headLength or math.min(handle.distance * 0.32, size * 2.25)
+    local base = subtract(handle.position, multiply(direction, headLength))
+    local reference = math.abs(direction.z) < 0.9 and vector(0.0, 0.0, 1.0) or vector(0.0, 1.0, 0.0)
+    local first = normalise(cross(direction, reference))
+    local second = normalise(cross(direction, first))
+    local radius = size * 0.62
+    local segments = handle.arrowSegments or 8
+    local alpha = active and 255 or (handle.alpha or 245)
+
+    line(handle.origin, base, color, alpha)
+    for segment = 0, segments - 1 do
+        local angleA = math.pi * 2.0 * (segment / segments)
+        local angleB = math.pi * 2.0 * ((segment + 1) / segments)
+        local a = add(base, add(multiply(first, math.cos(angleA) * radius),
+            multiply(second, math.sin(angleA) * radius)))
+        local b = add(base, add(multiply(first, math.cos(angleB) * radius),
+            multiply(second, math.sin(angleB) * radius)))
+
+        -- Draw both windings so the arrow remains solid from every camera angle.
+        DrawPoly(handle.position.x, handle.position.y, handle.position.z,
+            a.x, a.y, a.z, b.x, b.y, b.z, color[1], color[2], color[3], alpha)
+        DrawPoly(handle.position.x, handle.position.y, handle.position.z,
+            b.x, b.y, b.z, a.x, a.y, a.z, color[1], color[2], color[3], alpha)
+        DrawPoly(base.x, base.y, base.z,
+            b.x, b.y, b.z, a.x, a.y, a.z, color[1], color[2], color[3], alpha)
+        DrawPoly(base.x, base.y, base.z,
+            a.x, a.y, a.z, b.x, b.y, b.z, color[1], color[2], color[3], alpha)
+    end
+end
+
+local function cube(handle, active, color)
+    local size = active and (handle.hoverSize or 0.075) or (handle.size or 0.045)
+    local half = size * 0.5
+    local position = handle.position
+    line(handle.origin, position, color, active and 255 or (handle.alpha or 245))
+    DrawBox(position.x - half, position.y - half, position.z - half,
+        position.x + half, position.y + half, position.z + half,
+        color[1], color[2], color[3], active and 255 or (handle.alpha or 235))
+end
+
+local function ringPoint(handle, angle, radiusOffset)
+    local radius = handle.radius + (radiusOffset or 0.0)
     return add(handle.center, add(
-        multiply(handle.first, math.cos(angle) * handle.radius),
-        multiply(handle.second, math.sin(angle) * handle.radius)
+        multiply(handle.first, math.cos(angle) * radius),
+        multiply(handle.second, math.sin(angle) * radius)
     ))
 end
 
@@ -103,22 +154,82 @@ local function drawHandles(handles, selected)
     for i = 1, #handles do
         local handle = handles[i]
         local active = sameHandle(selected, handle)
-        local color = handle.color or colors[handle.axis] or colors.resize
+        local color = active and (handle.hoverColor or { 255, 215, 55 })
+            or handle.color or colors[handle.axis] or colors.resize
         if handle.kind == 'ring' then
-            local previous
-            for segment = 0, (handle.segments or 48) do
-                local point = ringPoint(handle, (math.pi * 2.0) * (segment / (handle.segments or 48)))
-                if previous then line(previous, point, color, active and 255 or (handle.alpha or 190)) end
-                previous = point
+            local width = handle.width or handle.radius * (active and 0.014 or 0.008)
+            for _, offset in ipairs({ -width, 0.0, width }) do
+                local previous
+                for segment = 0, (handle.segments or 48) do
+                    local point = ringPoint(handle,
+                        (math.pi * 2.0) * (segment / (handle.segments or 48)), offset)
+                    if previous then line(previous, point, color, active and 255 or (handle.alpha or 210)) end
+                    previous = point
+                end
             end
         elseif handle.kind == 'axis' then
-            line(handle.origin, handle.position, color, handle.alpha or 245)
-            marker(handle.position, active and (handle.hoverSize or 0.075) or (handle.size or 0.045), color, 245)
+            if handle.shape == 'cube' then cube(handle, active, color) else arrow(handle, active, color) end
         else
             marker(handle.position, active and (handle.hoverSize or 0.075) or (handle.size or 0.05),
                 active and (handle.hoverColor or { 255, 210, 45 }) or color, 245)
         end
     end
+end
+
+-- Projects handle geometry for an always-on-top NUI/SVG renderer. Hit testing and
+-- dragging remain in Lua, so switching renderers does not alter gizmo behaviour.
+local function overlayHandles(handles, selected)
+    local result = {}
+    for i = 1, #handles do
+        local handle = handles[i]
+        local active = sameHandle(selected, handle)
+        local color = active and (handle.hoverColor or { 255, 215, 55 })
+            or handle.color or colors[handle.axis] or colors.resize
+        local item = {
+            id = handle.id,
+            kind = handle.kind,
+            shape = handle.shape,
+            axis = handle.axis,
+            active = active,
+            color = color,
+        }
+
+        if handle.kind == 'ring' then
+            item.points = {}
+            for segment = 0, (handle.segments or 48) do
+                local visible, x, y = project(ringPoint(handle,
+                    (math.pi * 2.0) * (segment / (handle.segments or 48))))
+                if visible then item.points[#item.points + 1] = { x = x, y = y } end
+            end
+            if #item.points > 1 then result[#result + 1] = item end
+        elseif handle.kind == 'axis' then
+            local originVisible, originX, originY = project(handle.origin)
+            local endVisible, endX, endY = project(handle.position)
+            if originVisible and endVisible then
+                item.origin = { x = originX, y = originY }
+                item.position = { x = endX, y = endY }
+                result[#result + 1] = item
+            end
+        else
+            local visible, x, y = project(handle.position)
+            if visible then
+                item.position = { x = x, y = y }
+                result[#result + 1] = item
+            end
+        end
+    end
+    return result
+end
+
+local function sendOverlay(handles, selected)
+    SendNUIMessage({
+        action = 'gizmoOverlay',
+        payload = { visible = true, handles = overlayHandles(handles, selected) },
+    })
+end
+
+local function clearOverlay()
+    SendNUIMessage({ action = 'gizmoOverlay', payload = nil })
 end
 
 --- Creates a screen-space linear drag mapped onto a world-space handle.
@@ -164,6 +275,17 @@ function Gizmo.WorldAxes()
     return { x = vector(1, 0, 0), y = vector(0, 1, 0), z = vector(0, 0, 1) }
 end
 
+--- Returns upright axes whose forward direction follows a GTA heading.
+--- X is local right, Y is local forward, and Z deliberately remains world-up.
+function Gizmo.HeadingAxes(heading)
+    local radians = math.rad(tonumber(heading) or 0.0)
+    return {
+        x = vector(math.cos(radians), math.sin(radians), 0.0),
+        y = vector(-math.sin(radians), math.cos(radians), 0.0),
+        z = vector(0.0, 0.0, 1.0),
+    }
+end
+
 function Gizmo.EntityAxes(entity)
     if not entity or not DoesEntityExist(entity) then return Gizmo.WorldAxes() end
     local forward, right, up = GetEntityMatrix(entity)
@@ -181,7 +303,9 @@ function Gizmo.AxisHandle(id, origin, direction, distance, axis, options)
     return {
         id = id, kind = 'axis', axis = axis, origin = origin, direction = direction,
         distance = distance, position = add(origin, multiply(direction, distance)),
-        color = options.color or colors[axis], size = options.size, hoverSize = options.hoverSize,
+        color = options.color or colors[axis], hoverColor = options.hoverColor,
+        size = options.size, hoverSize = options.hoverSize,
+        headLength = options.headLength, arrowSegments = options.arrowSegments, shape = options.shape,
         hitRadius = options.hitRadius, alpha = options.alpha, priority = options.priority, data = options.data,
     }
 end
@@ -200,8 +324,11 @@ function Gizmo.RingHandle(id, center, first, second, radius, options)
     options = options or {}
     return {
         id = id, kind = 'ring', center = center, first = first, second = second,
-        radius = radius, color = options.color or colors.rotate, hitRadius = options.hitRadius,
-        segments = options.segments, alpha = options.alpha, priority = options.priority,
+        radius = radius, color = options.color or colors[options.axis] or colors.rotate,
+        hoverColor = options.hoverColor,
+        hitRadius = options.hitRadius,
+        segments = options.segments, width = options.width,
+        alpha = options.alpha, priority = options.priority,
         axis = options.axis, data = options.data,
     }
 end
@@ -259,13 +386,23 @@ function Gizmo.Create(options)
         end
         if self.drag and (released or not held) then self:FinishDrag(false) end
 
-        if input.draw ~= false then drawHandles(handles, self.drag and self.drag.handle or self.hovered) end
+        if input.draw ~= false then
+            local selected = self.drag and self.drag.handle or self.hovered
+            if options.uiOverlay then sendOverlay(handles, selected) else drawHandles(handles, selected) end
+        elseif options.uiOverlay then
+            clearOverlay()
+        end
         return self.hovered, self.drag ~= nil
     end
 
     function controller:Draw()
         local handles = options.handles(self.mode) or {}
-        drawHandles(handles, self.drag and self.drag.handle or self.hovered)
+        local selected = self.drag and self.drag.handle or self.hovered
+        if options.uiOverlay then sendOverlay(handles, selected) else drawHandles(handles, selected) end
+    end
+
+    function controller:ClearOverlay()
+        if options.uiOverlay then clearOverlay() end
     end
 
     return controller
@@ -277,6 +414,7 @@ Gizmo.Add = add
 Gizmo.Subtract = subtract
 Gizmo.Multiply = multiply
 Gizmo.Dot = dot
+Gizmo.Cross = cross
 Gizmo.Magnitude = magnitude
 Gizmo.Normalise = normalise
 Gizmo.Project = project

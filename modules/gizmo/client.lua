@@ -5,7 +5,7 @@ TSSModuleLoader.Define({
         local controllers = {}
         local session
         local controls = { 1, 2, 14, 15, 16, 17, 21, 24, 25, 30, 31, 32, 33, 34, 35, 36, 37, 38, 44,
-            140, 141, 142, 143, 177, 191, 200, 201, 239, 240, 257, 263, 264 }
+            140, 141, 142, 143, 170, 177, 191, 200, 201, 239, 240, 257, 263, 264, 289 }
 
         local function create(options)
             local controller = TSS.Gizmo.Create(options)
@@ -20,6 +20,7 @@ TSSModuleLoader.Define({
                 rotation = { x = current.rotation.x, y = current.rotation.y, z = current.rotation.z },
                 heading = current.rotation.z,
                 mode = current.mode,
+                space = current.space,
             }
         end
 
@@ -91,8 +92,9 @@ TSSModuleLoader.Define({
                 coords = TSS.Gizmo.Vector(entityCoords.x, entityCoords.y, entityCoords.z),
                 rotation = { x = tonumber(entityRotation.x) or 0.0, y = tonumber(entityRotation.y) or 0.0,
                     z = tonumber(entityRotation.z or options.heading) or 0.0 },
-                mode = options.mode == 'rotate' and 'rotate' or 'move',
-                modes = options.modes or { 'move', 'rotate' },
+                mode = options.mode == 'rotate' and 'rotate'
+                    or (options.mode == 'combined' and 'combined' or 'move'),
+                modes = options.modes or { 'move', 'rotate', 'combined' },
                 space = options.space == 'local' and 'local' or 'world',
                 rotationAxes = options.rotationAxes or (options.headingOnly and { 'z' } or { 'x', 'y', 'z' }),
                 speed = tonumber(options.cameraSpeed) or 3.0,
@@ -114,9 +116,10 @@ TSSModuleLoader.Define({
                 if current.onChange then current.onChange(snapshot(current)) end
             end
 
-            local function axes()
-                return current.space == 'local' and current.entity and TSS.Gizmo.EntityAxes(current.entity)
-                    or TSS.Gizmo.WorldAxes()
+            local function axes(mode)
+                if current.space ~= 'local' then return TSS.Gizmo.WorldAxes() end
+                if mode == 'move' then return TSS.Gizmo.HeadingAxes(current.rotation.z) end
+                return current.entity and TSS.Gizmo.EntityAxes(current.entity) or TSS.Gizmo.WorldAxes()
             end
 
             local function size()
@@ -129,16 +132,19 @@ TSSModuleLoader.Define({
             current.gizmo = TSS.Gizmo.Create({
                 mode = current.mode,
                 handles = function(mode)
-                    local center, basis, length = current.coords, axes(), size()
+                    local center, length = current.coords, size()
                     local handles = {}
-                    if mode == 'rotate' then
+                    if mode == 'rotate' or mode == 'combined' then
+                        local basis = axes('rotate')
                         for i = 1, #current.rotationAxes do
                             local axis = current.rotationAxes[i]
                             local first, second = TSS.Gizmo.RingBasis(axis, basis)
                             handles[#handles + 1] = TSS.Gizmo.RingHandle('rotate_' .. axis, center,
                                 first, second, length * 0.82, { axis = axis })
                         end
-                    else
+                    end
+                    if mode == 'move' or mode == 'combined' then
+                        local basis = axes('move')
                         for _, axis in ipairs({ 'x', 'y', 'z' }) do
                             handles[#handles + 1] = TSS.Gizmo.AxisHandle('move_' .. axis, center,
                                 basis[axis], length, axis)
@@ -194,7 +200,11 @@ TSSModuleLoader.Define({
                     local looking = IsDisabledControlPressed(0, 25)
                     if looking then current.ignoreCancelUntil = GetGameTimer() + 150 end
                     current.gizmo:Tick({ enabled = not looking, cursor = not looking })
-                    if IsDisabledControlJustPressed(0, 37) and #current.modes > 1 then
+                    if not looking and IsDisabledControlJustPressed(0, 170) then
+                        current.gizmo:FinishDrag(false)
+                        current.space = current.space == 'world' and 'local' or 'world'
+                    end
+                    if IsDisabledControlJustPressed(0, 289) and #current.modes > 1 then
                         local index = 1
                         for i = 1, #current.modes do if current.modes[i] == current.mode then index = i break end end
                         current.mode = current.modes[(index % #current.modes) + 1]
@@ -230,6 +240,7 @@ TSSModuleLoader.Define({
             LinearDrag = TSS.Gizmo.LinearDrag,
             LinearDisplacement = TSS.Gizmo.LinearDisplacement,
             WorldAxes = TSS.Gizmo.WorldAxes,
+            HeadingAxes = TSS.Gizmo.HeadingAxes,
             EntityAxes = TSS.Gizmo.EntityAxes,
             RingBasis = TSS.Gizmo.RingBasis,
             AxisHandle = TSS.Gizmo.AxisHandle,

@@ -32,6 +32,14 @@ local function validate(entry)
     local x, y = finite(entry.coords.x), finite(entry.coords.y)
     local z, w = finite(entry.coords.z, 2000.0), finite(entry.coords.w, 360000.0)
     if not model or not x or not y or not z or not w then return nil, 'Invalid ped model or coordinates' end
+    local submittedRotation = type(entry.rotation) == 'table' and entry.rotation or {}
+    local rotation = {
+        x = finite(submittedRotation.x or 0.0, 360000.0),
+        y = finite(submittedRotation.y or 0.0, 360000.0),
+        z = finite(submittedRotation.z or w, 360000.0),
+    }
+    if not rotation.x or not rotation.y or not rotation.z then return nil, 'Invalid ped rotation' end
+    rotation.x, rotation.y, rotation.z = rotation.x % 360.0, rotation.y % 360.0, rotation.z % 360.0
     local scenario = safeText(entry.scenario, 96, true)
     local anim
     if entry.anim ~= nil then
@@ -44,7 +52,13 @@ local function validate(entry)
         anim = { dict = dict, clip = clip, flag = flag }
         scenario = nil
     end
-    return { model = model, coords = { x = x, y = y, z = z, w = w % 360.0 }, scenario = scenario, anim = anim }
+    return {
+        model = model,
+        coords = { x = x, y = y, z = z, w = rotation.z },
+        rotation = rotation,
+        scenario = scenario,
+        anim = anim,
+    }
 end
 
 local function formatAnimationEntry(entry)
@@ -53,6 +67,8 @@ local function formatAnimationEntry(entry)
         ('    model = %q,'):format(entry.model),
         ('    coords = vector4(%.3f, %.3f, %.3f, %.3f),')
             :format(entry.coords.x, entry.coords.y, entry.coords.z, entry.coords.w),
+        ('    rotation = vector3(%.3f, %.3f, %.3f),')
+            :format(entry.rotation.x, entry.rotation.y, entry.rotation.z),
     }
     if entry.anim then
         lines[#lines + 1] = ('    anim = { dict = %q, clip = %q, flag = %d },')

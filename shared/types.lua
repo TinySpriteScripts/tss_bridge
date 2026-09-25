@@ -305,12 +305,6 @@
 ---@field Give fun(source: integer, vehicleOrPlate: TSSEntity|string): boolean
 ---@field Remove fun(source: integer, vehicleOrPlate: TSSEntity|string): boolean
 
----@class TSSFuelModule
----@field System fun(preferred?: string): system?: string, resource?: string
----@field Supports fun(feature: string): boolean
----@field Get fun(vehicle: TSSEntity): number
----@field Set fun(vehicle: TSSEntity, amount: number): boolean
-
 ---@class TSSBlipsModule
 ---@field Exists fun(blip?: integer): boolean Checks this consumer's blips.
 ---@field Update fun(blip: integer, data: TSSBlipData): boolean Changes supplied properties only.
@@ -350,16 +344,17 @@
 ---@field coords {x: number, y: number, z: number}
 ---@field rotation {x: number, y: number, z: number}
 ---@field heading number
----@field mode 'move'|'rotate'|string
+---@field mode 'move'|'rotate'|'combined'|string
+---@field space 'world'|'local'
 
 ---@class TSSGizmoStartOptions
 ---@field entity? TSSEntity Entity to edit. Supply `coords` when editing raw transform data.
 ---@field coords? vector3|table Initial raw coordinates.
 ---@field rotation? vector3|table Initial raw Euler rotation.
 ---@field heading? number Initial raw heading when rotation.z is omitted.
----@field mode? 'move'|'rotate' Initial mode.
----@field modes? string[] Modes cycled by Tab.
----@field space? 'world'|'local' Axis orientation; local requires an entity.
+---@field mode? 'move'|'rotate'|'combined' Initial mode.
+---@field modes? string[] Modes cycled by F2.
+---@field space? 'world'|'local' Initial axis orientation; F3 switches it during an active editor.
 ---@field headingOnly? boolean Only expose the Z rotation ring.
 ---@field rotationAxes? ('x'|'y'|'z')[] Rotation rings to expose.
 ---@field camera? boolean Create and control a detached camera; defaults to true.
@@ -390,6 +385,7 @@
 ---@field LinearDrag fun(origin: vector3, endpoint: vector3, mouseX: number, mouseY: number, reference?: number): table|nil
 ---@field LinearDisplacement fun(drag: table, mouseX: number, mouseY: number, precision?: number): number
 ---@field WorldAxes fun(): table
+---@field HeadingAxes fun(heading: number): table Upright local axes with Y aligned to heading.
 ---@field EntityAxes fun(entity: TSSEntity): table
 ---@field RingBasis fun(component: 'x'|'y'|'z', axes: table): vector3, vector3
 ---@field AxisHandle fun(id: string, origin: vector3, direction: vector3, distance: number, axis: 'x'|'y'|'z', options?: table): table
@@ -483,7 +479,6 @@
 ---@field Targets? TSSTargetsModule
 ---@field Interaction? TSSInteractionModule
 ---@field VehicleKeys? TSSVehicleKeysClientModule
----@field Fuel? TSSFuelModule
 ---@field UI? TSSUIClientModule
 ---@field Blips? TSSBlipsModule
 ---@field Peds? TSSPedsModule

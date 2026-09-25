@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Activity, Bell, Box, Car, Check, ChevronRight, Circle, CircleDot, Clipboard, ClipboardCheck, Code2, Cpu,
-  Crosshair, FlaskConical, Fuel, ImageOff, KeyRound, Keyboard, Map, MessageSquare,
+  Crosshair, FlaskConical, ImageOff, KeyRound, Keyboard, Map, MessageSquare,
   MousePointerClick, Package, Play, RotateCcw, Save, Search, Server, Settings,
   ShieldCheck, SquareMousePointer, Timer, Trash2, Type, Wrench, X, Zap,
 } from 'lucide-react';
@@ -39,7 +39,6 @@ function iconFor(name) {
     deploy: Play,
     feedback: MessageSquare,
     framework: Cpu,
-    fuel: Fuel,
     gameplay: Car,
     input: Keyboard,
     items: Package,

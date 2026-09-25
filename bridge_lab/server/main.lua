@@ -234,35 +234,6 @@ local function secureCallback(name, handler)
 end
 
 local function registerCallbacks()
-secureCallback('serverSnapshot', function(source)
-    local snapshot = buildSnapshot(source)
-
-    TSS.Notify.Send(source, {
-        title = 'Bridge Lab',
-        description = 'Server callback and server notification passed.',
-        type = 'success',
-    })
-
-    TSS.Callbacks.Trigger(source, 'clientSnapshot', function(clientSnapshot, callbackError)
-        if callbackError then
-            print(('[bridge_lab] client callback failed for %s: %s'):format(source, callbackError))
-            return
-        end
-        print(('[bridge_lab] client callback passed for %s (%s / %s)')
-            :format(source, clientSnapshot.framework, clientSnapshot.inventory))
-    end, 'serverSnapshot')
-
-    return snapshot
-end)
-
-secureCallback('recordClientAudit', function(source, report)
-    if type(report) ~= 'table' then return false, 'invalid report' end
-    local passed = math.max(0, math.min(100, tonumber(report.passed) or 0))
-    local failed = math.max(0, math.min(100, tonumber(report.failed) or 0))
-    print(('[bridge_lab] client audit from %s: %d passed, %d failed'):format(source, passed, failed))
-    return true
-end)
-
 secureCallback('setConfiguration', function(source, key, value)
     local changed, message = Configuration.Set(key, value)
     return {
@@ -284,8 +255,8 @@ secureCallback('saveCreatedPedAnimations', function(source, peds)
     return TSSBridgeLabPedAnimationStorage.Save(source, peds)
 end)
 
-secureCallback('prepareStash', function(source)
-    return prepareStash(source)
+secureCallback('saveCreatedPropScene', function(source, scene)
+    return TSSBridgeLabPropSceneStorage.Save(source, scene)
 end)
 
 secureCallback('spawnBrowserItem', function(source, itemName)
@@ -325,10 +296,6 @@ secureCallback('spawnBrowserItem', function(source, itemName)
     }
 end)
 
-secureCallback('runMutations', function(source)
-    return runMutations(source)
-end)
-
 secureCallback('testServerDelivery', function(source)
     TSS.TextUI.Show(source, { text = 'Server TextUI delivery passed', icon = 'server' })
     TSS.UI.Notify({ title = 'Bridge Lab UI', message = 'Direct server UI delivery passed', type = 'success' }, source)
@@ -342,7 +309,7 @@ secureCallback('testServerDelivery', function(source)
     return true
 end)
 
-secureCallback('vehicleKeyRoundTrip', function(source, networkId)
+secureCallback('giveVehicleKeys', function(source, networkId)
     if type(networkId) ~= 'number' or networkId <= 0 then
         return { success = false, error = 'invalid network ID' }
     end
@@ -357,33 +324,15 @@ secureCallback('vehicleKeyRoundTrip', function(source, networkId)
     end
 
     local system = TSS.VehicleKeys.System()
-    if not system then return { success = false, error = 'no vehicle-key adapter detected' } end
+    if not system then return { success = false, error = 'No vehicle-key system is available.' } end
 
     local value = system == 'qbox' and vehicle or GetVehicleNumberPlateText(vehicle)
-    local hadKeysBefore = TSS.VehicleKeys.Has(source, value)
-    if hadKeysBefore then
-        return {
-            success = true,
-            skipped = true,
-            system = system,
-            hadKeysBefore = true,
-            hasAfter = true,
-        }
-    end
-
     local gave = TSS.VehicleKeys.Give(source, value)
-    local hadKeys = gave and TSS.VehicleKeys.Has(source, value) or false
-    local removed = gave and TSS.VehicleKeys.Remove(source, value) or false
-    local hasAfter = TSS.VehicleKeys.Has(source, value)
-
     return {
-        success = gave and removed,
+        success = gave == true,
         system = system,
-        hadKeysBefore = false,
-        gave = gave,
-        hadKeys = hadKeys,
-        removed = removed,
-        hasAfter = hasAfter,
+        error = gave and nil or 'The active vehicle-key system rejected the request.',
+        message = gave and ('Vehicle keys granted through %s.'):format(system) or nil,
     }
 end)
 end
@@ -434,7 +383,6 @@ local function requestOpen(playerSource)
     end
 
     TriggerClientEvent('tss_bridge:lab:open', playerSource, {
-        mutationTests = ServerConfig.EnableMutationTests == true,
         configuration = Configuration.Snapshot(),
     })
 end

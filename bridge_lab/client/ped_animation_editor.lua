@@ -1,4 +1,4 @@
--- Freemode ped animation placement editor with world-space move and heading gizmos.
+-- Freemode ped animation placement editor with switchable move and three-axis rotation gizmos.
 TSSBridgeLabPedAnimationEditor = {}
 
 local Creator = TSSBridgeLabPedAnimationEditor
@@ -44,6 +44,10 @@ local function gizmoSize()
     return math.max(0.6, math.min(2.0, distance(GetCamCoord(editor.camera), coords) * 0.09))
 end
 
+local function copyRotation(rotation)
+    return { x = rotation.x + 0.0, y = rotation.y + 0.0, z = rotation.z + 0.0 }
+end
+
 local function applyDragTransform(transform)
     if not transform or not DoesEntityExist(editor.ped) then return end
 
@@ -54,45 +58,58 @@ local function applyDragTransform(transform)
         -- scenario animation keeps playing while the attachment owns placement.
         local offset = GetOffsetFromEntityGivenWorldCoords(editor.player,
             transform.coords.x, transform.coords.y, transform.coords.z)
-        local relativeHeading = (transform.heading - GetEntityHeading(editor.player)) % 360.0
+        local relativeHeading = (transform.rotation.z - GetEntityHeading(editor.player)) % 360.0
         AttachEntityToEntity(editor.ped, editor.player, 0,
-            offset.x, offset.y, offset.z, 0.0, 0.0, relativeHeading,
+            offset.x, offset.y, offset.z, transform.rotation.x, transform.rotation.y, relativeHeading,
             false, false, false, true, 2, true)
         return
     end
 
     SetEntityCoordsNoOffset(editor.ped, transform.coords.x, transform.coords.y, transform.coords.z,
         false, false, false)
-    SetEntityHeading(editor.ped, transform.heading)
+    SetEntityRotation(editor.ped, transform.rotation.x, transform.rotation.y, transform.rotation.z, 2, true)
 end
 
 local function createPedGizmo()
-    local axes = Gizmo.WorldAxes()
     return Gizmo.Create({
         mode = editor.mode,
         handles = function(mode)
             local center = editor.dragTransform and editor.dragTransform.coords or GetEntityCoords(editor.ped)
             local size = gizmoSize()
-            if mode == 'rotate' then
-                return { Gizmo.RingHandle('heading', center, axes.x, axes.y, size * 0.65,
-                    { axis = 'z', hitRadius = 0.018, segments = 64 }) }
+            local handles = {}
+            if mode == 'rotate' or mode == 'combined' then
+                local axes = editor.space == 'local' and Gizmo.EntityAxes(editor.ped) or Gizmo.WorldAxes()
+                for _, component in ipairs({ 'x', 'y', 'z' }) do
+                    local first, second = Gizmo.RingBasis(component, axes)
+                    handles[#handles + 1] = Gizmo.RingHandle('rotate_' .. component, center,
+                        first, second, size * 0.72,
+                        { axis = component, hitRadius = 0.018, segments = 64 })
+                end
             end
-            return {
-                Gizmo.AxisHandle('move_x', center, axes.x, size, 'x', { size = 0.09, hoverSize = 0.13 }),
-                Gizmo.AxisHandle('move_y', center, axes.y, size, 'y', { size = 0.09, hoverSize = 0.13 }),
-                Gizmo.AxisHandle('move_z', center, axes.z, size, 'z', { size = 0.09, hoverSize = 0.13 }),
-            }
+            if mode == 'move' or mode == 'combined' then
+                local rotation = editor.dragTransform and editor.dragTransform.rotation or editor.rotation
+                local axes = editor.space == 'local' and Gizmo.HeadingAxes(rotation.z) or Gizmo.WorldAxes()
+                for _, component in ipairs({ 'x', 'y', 'z' }) do
+                    handles[#handles + 1] = Gizmo.AxisHandle('move_' .. component, center,
+                        axes[component], size, component, { size = 0.09, hoverSize = 0.13 })
+                end
+            end
+            return handles
         end,
         onDragStart = function(handle, mouseX, mouseY)
             local coords = GetEntityCoords(editor.ped)
-            local state = { coords = coords, heading = GetEntityHeading(editor.ped), mouseX = mouseX, mouseY = mouseY }
+            local rotation = editor.rotation
+            local state = {
+                coords = coords, rotation = copyRotation(rotation),
+                mouseX = mouseX, mouseY = mouseY,
+            }
             if handle.kind == 'axis' then
                 state.linear = Gizmo.LinearDrag(handle.origin, handle.position, mouseX, mouseY, handle.distance)
                 if not state.linear then return false end
             end
             editor.dragTransform = {
                 coords = vec(coords.x, coords.y, coords.z),
-                heading = state.heading,
+                rotation = copyRotation(state.rotation),
                 attached = editor.dict == '' and editor.scenario ~= '',
             }
             -- The attached scenario preview must remain unfrozen so its parent
@@ -103,8 +120,10 @@ local function createPedGizmo()
         end,
         onDrag = function(handle, state, mouseX, mouseY, precision)
             if handle.kind == 'ring' then
-                local heading = (state.heading + ((mouseX - state.mouseX) - (mouseY - state.mouseY)) * 360 * precision) % 360
-                editor.dragTransform.heading = heading
+                local movement = ((mouseX - state.mouseX) - (mouseY - state.mouseY)) * 360 * precision
+                local rotation = copyRotation(state.rotation)
+                rotation[handle.axis] = (rotation[handle.axis] + movement) % 360.0
+                editor.dragTransform.rotation = rotation
                 applyDragTransform(editor.dragTransform)
                 return
             end
@@ -118,17 +137,20 @@ local function createPedGizmo()
             editor.dragTransform = nil
             if transform and DoesEntityExist(editor.ped) then
                 if transform.attached then DetachEntity(editor.ped, true, true) end
+                editor.rotation = copyRotation(transform.rotation)
+                if not cancelled and editor.dict == '' and editor.scenario ~= '' then applyIdle(editor.ped) end
                 SetEntityCoordsNoOffset(editor.ped, transform.coords.x, transform.coords.y, transform.coords.z,
                     false, false, false)
-                SetEntityHeading(editor.ped, transform.heading)
+                SetEntityRotation(editor.ped, transform.rotation.x, transform.rotation.y, transform.rotation.z, 2, true)
             end
-            if not cancelled and editor.dict == '' and editor.scenario ~= '' then applyIdle(editor.ped) end
         end,
     })
 end
 
-local function spawnPed(coords, heading)
-    local ped = CreatePed(4, editor.modelHash, coords.x, coords.y, coords.z, heading, false, false)
+local function spawnPed(coords, rotation)
+    rotation = type(rotation) == 'table' and rotation
+        or { x = 0.0, y = 0.0, z = tonumber(rotation) or 0.0 }
+    local ped = CreatePed(4, editor.modelHash, coords.x, coords.y, coords.z, rotation.z, false, false)
     if not ped or ped == 0 then return nil end
     SetEntityAsMissionEntity(ped, true, true)
     SetPedDefaultComponentVariation(ped)
@@ -139,25 +161,31 @@ local function spawnPed(coords, heading)
     SetEntityInvincible(ped, true)
     SetBlockingOfNonTemporaryEvents(ped, true)
     applyIdle(ped)
+    SetEntityRotation(ped, rotation.x, rotation.y, rotation.z, 2, true)
     return ped
 end
 
 hud = function(message)
     local coords = editor.dragTransform and editor.dragTransform.coords or GetEntityCoords(editor.ped)
+    local rotation = editor.dragTransform and editor.dragTransform.rotation or editor.rotation
     SendNUIMessage({ action = 'pedAnimationEditor', payload = {
         visible = true, settingsOpen = editor.settingsOpen,
         title = 'Ped Animation Editor',
         pose = { dict = editor.dict, clip = editor.clip, scenario = editor.scenario, flag = editor.flag or 1 },
         output = editor.output or '', model = editor.model,
-        mode = editor.gizmo and editor.gizmo:IsDragging() and 'DRAGGING' or editor.mode:upper(),
+        mode = editor.gizmo and editor.gizmo:IsDragging() and 'DRAGGING'
+            or ('%s · %s'):format(editor.mode:upper(), editor.space:upper()),
         behaviour = editor.dict ~= '' and ('Anim: ' .. editor.dict .. ' / ' .. editor.clip) or (editor.scenario ~= '' and ('Scenario: ' .. editor.scenario) or 'No idle behaviour'),
         count = #editor.entries, message = message,
         metrics = {
             { label = 'X / Y / Z', value = ('%.3f  %.3f  %.3f'):format(coords.x, coords.y, coords.z) },
-            { label = 'Heading', value = ('%.2f degrees'):format(GetEntityHeading(editor.ped)) },
+            { label = 'Rotation X/Y/Z', value = ('%.1f°  %.1f°  %.1f°')
+                :format(rotation.x, rotation.y, rotation.z) },
         },
         help = {
-            'Tab Move/Rotate - Left-drag gizmo - Ctrl precision',
+            'F2 Move/Rotate/Combined · F3 World/Local axes',
+            'Left-drag gizmo · Red X · Green Y · Blue Z',
+            'Ctrl precision · Local axes follow the ped heading',
             'Hold RMB to look - WASD camera - Q/E down/up',
             'G commits this ped and creates the next editable ghost',
             'F opens pose settings, file save, copy, and Exit editor',
@@ -165,7 +193,7 @@ hud = function(message)
     } })
 end
 
-local disabled = { 23,21,1,2,14,15,16,17,24,25,29,30,31,32,33,34,35,36,37,38,44,47,140,141,142,143,177,191,200,201,239,240,257,263,264 }
+local disabled = { 23,21,1,2,14,15,16,17,24,25,29,30,31,32,33,34,35,36,37,38,44,47,140,141,142,143,170,177,191,200,201,239,240,257,263,264,289 }
 local function controls()
     for i = 1, #disabled do DisableControlAction(0, disabled[i], true) end
     DisablePlayerFiring(PlayerId(), true)
@@ -212,7 +240,9 @@ end
 local function formatPose(entry)
     local c = entry.coords
     local lines = { '{', ('    model = %q,'):format(entry.model),
-        ('    coords = vector4(%.3f, %.3f, %.3f, %.3f),'):format(c.x, c.y, c.z, c.w) }
+        ('    coords = vector4(%.3f, %.3f, %.3f, %.3f),'):format(c.x, c.y, c.z, c.w),
+        ('    rotation = vector3(%.3f, %.3f, %.3f),')
+            :format(entry.rotation.x, entry.rotation.y, entry.rotation.z) }
     if entry.anim then
         lines[#lines + 1] = ('    anim = { dict = %q, clip = %q, flag = %d },'):format(entry.anim.dict, entry.anim.clip, entry.anim.flag)
     elseif entry.scenario then
@@ -236,13 +266,17 @@ end
 
 local function addPed()
     if editor.gizmo then editor.gizmo:FinishDrag(false) end
-    local coords, heading = GetEntityCoords(editor.ped), GetEntityHeading(editor.ped)
-    local entry = { model = editor.model, coords = { x = coords.x, y = coords.y, z = coords.z, w = heading } }
+    local coords, rotation = GetEntityCoords(editor.ped), copyRotation(editor.rotation)
+    local entry = {
+        model = editor.model,
+        coords = { x = coords.x, y = coords.y, z = coords.z, w = rotation.z },
+        rotation = copyRotation(rotation),
+    }
     if editor.dict ~= '' and editor.clip ~= '' then entry.anim = { dict = editor.dict, clip = editor.clip, flag = editor.flag or 1 }
     elseif editor.scenario ~= '' then entry.scenario = editor.scenario end
     if #editor.entries >= 100 then hud('100 placements committed. Save or clear them from the F settings panel.') return end
     local placedPed = editor.ped
-    local nextPed = spawnPed(coords, heading)
+    local nextPed = spawnPed(coords, rotation)
     if not nextPed then
         hud('Unable to create the next editable ghost. This placement was not committed.')
         return
@@ -275,9 +309,15 @@ local function loop()
             applyDragTransform(editor.dragTransform)
         end
         editor.gizmo:Tick({ enabled = not looking, cursor = not looking })
-        if IsDisabledControlJustPressed(0, 37) then
+        if not looking and IsDisabledControlJustPressed(0, 170) then
             finishDrag()
-            editor.mode = editor.mode == 'move' and 'rotate' or 'move'
+            editor.space = editor.space == 'world' and 'local' or 'world'
+            hud(('Movement axes switched to %s space.'):format(editor.space))
+        end
+        if IsDisabledControlJustPressed(0, 289) then
+            finishDrag()
+            editor.mode = editor.mode == 'move' and 'rotate'
+                or (editor.mode == 'rotate' and 'combined' or 'move')
             editor.gizmo:SetMode(editor.mode)
             hud()
         end
@@ -323,11 +363,12 @@ function Creator.Start(options, callbacks)
     SetCamFov(camera, GetGameplayCamFov()); RenderScriptCams(true, true, 250, true, true)
     editor = {
         active = true, flag = 1, settingsOpen = false, model = model, modelHash = hash, scenario = scenario, dict = dict, clip = clip,
-        player = player, camera = camera, entries = {}, entities = {}, mode = 'move',
+        player = player, camera = camera, entries = {}, entities = {}, mode = 'move', space = 'world',
+        rotation = { x = 0.0, y = 0.0, z = GetEntityHeading(player) },
         wasFrozen = type(IsEntityPositionFrozen) == 'function' and IsEntityPositionFrozen(player) or false,
         wasInvincible = GetPlayerInvincible(PlayerId()), onSave = callbacks and callbacks.onSave, onCancel = callbacks and callbacks.onCancel,
     }
-    editor.ped = spawnPed(start, GetEntityHeading(player))
+    editor.ped = spawnPed(start, editor.rotation)
     if not editor.ped then RenderScriptCams(false, false, 0, true, true); DestroyCam(camera, false); editor = { active = false }; return false, 'Unable to create ped' end
     editor.entities[1] = editor.ped
     editor.gizmo = createPedGizmo()
@@ -387,6 +428,7 @@ RegisterNUICallback('pedAnimationAction', function(data, reply)
     end
     editor.dict, editor.clip, editor.scenario, editor.flag = dict, clip, scenario, flag
     applyIdle(editor.ped)
+    SetEntityRotation(editor.ped, editor.rotation.x, editor.rotation.y, editor.rotation.z, 2, true)
     hud('Pose applied. Resume gizmo to keep placing.')
     reply({ ok = true })
 end)

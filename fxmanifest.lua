@@ -30,8 +30,10 @@ client_scripts {
     'modules/**/client.lua',
     'shared/export.lua',
     'bridge_lab/data/animlist.lua',
+    'bridge_lab/data/prop_library.lua',
     'bridge_lab/client/polyzone_creator.lua',
     'bridge_lab/client/prop_attachment_creator.lua',
+    'bridge_lab/client/prop_scene_editor.lua',
     'bridge_lab/client/ped_animation_editor.lua',
     'bridge_lab/client/tool_browser.lua',
     'bridge_lab/client/main.lua',
@@ -44,6 +46,7 @@ server_scripts {
     'bridge_lab/configuration.lua',
     'bridge_lab/polyzone_storage.lua',
     'bridge_lab/attachment_storage.lua',
+    'bridge_lab/prop_scene_storage.lua',
     'bridge_lab/ped_animation_storage.lua',
     'bridge_lab/server/main.lua',
 }

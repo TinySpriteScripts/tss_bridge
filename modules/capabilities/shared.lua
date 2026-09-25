@@ -67,7 +67,6 @@ function TSS.Capabilities.Snapshot()
             TextUI = TSS.Config.TextUI,
             Interaction = TSS.Config.Interaction,
             VehicleKeys = TSS.Config.VehicleKeys,
-            Fuel = TSS.Config.Fuel,
             Locale = TSS.Config.Locale,
         },
     }

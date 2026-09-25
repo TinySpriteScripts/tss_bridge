@@ -76,7 +76,6 @@ TSS.Config.Inventory = 'auto'
 TSS.Config.TextUI = 'auto'
 TSS.Config.Interaction = 'auto'
 TSS.Config.VehicleKeys = 'auto'
-TSS.Config.Fuel = 'auto'
 TSS.Config.Locale = 'en'
 TSS.Config.CallbackTimeout = 10000
 ```
@@ -92,7 +91,6 @@ set tss_inventory qb
 set tss_textui qb
 set tss_interaction auto
 set tss_vehiclekeys qb
-set tss_fuel legacy
 set tss_locale en
 set tss_callback_timeout 10000
 set tss_debug false
@@ -128,7 +126,6 @@ before attempting to edit a previously convar-controlled setting.
 | `Targets` | Entity, model and zone targets | Unavailable |
 | `ProgressBar` | Progress UI | Unavailable |
 | `VehicleKeys` | Read-only `Has` | `Has`, `Give`, `Remove` |
-| `Fuel` | `Get`, `Set` | Unavailable |
 | `UI` | Notify, progress, menu, context and input | Remote notify/progress |
 | `Blips`, `Peds`, `Props`, `Vehicles`, `World`, `Gizmo` | Client entity/world and transform-editor helpers | Unavailable |
 | `Groups` | Boss-grade lookup | Boss-grade lookup |
@@ -172,7 +169,7 @@ modules/
         â””â”€â”€ native.lua
 ```
 
-Framework, Inventory, Banking, Billing, Groups, Fuel, Notify, ProgressBar, Targets,
+Framework, Inventory, Banking, Billing, Groups, Notify, ProgressBar, Targets,
 Interaction, TextUI and VehicleKeys all share the same adapter registry. The
 registry handles aliases, config selection, priority-based auto detection,
 availability checks and fallbacks. Public module files only normalize arguments
@@ -504,9 +501,11 @@ are preserved. Creation supports either `coords` or `entity`.
 ## Gizmo
 
 Request `Gizmo` on the client for a reusable move/rotate editor. It can edit an
-entity directly or return raw transform data. Tab changes mode, Enter accepts,
-Backspace cancels, Ctrl enables precision, and RMB plus WASD/Q/E controls the
-optional detached camera.
+entity directly or return raw transform data. F2 cycles Move, Rotate, and the
+combined Move + Rotate layout; F3 switches between world and heading-relative
+local movement. Enter accepts, Backspace
+cancels, Ctrl enables precision, and RMB plus WASD/Q/E controls the optional
+detached camera.
 
 ```lua
 local TSS = exports.tss_bridge:GetModules({ 'Gizmo' })
@@ -518,7 +517,7 @@ local started, err = TSS.Gizmo.Start({
     restoreOnCancel = true,
 }, function(result, cancelled)
     if cancelled then return end
-    print(json.encode(result)) -- coords, rotation, heading, mode and entity
+    print(json.encode(result)) -- coords, rotation, heading, mode, space and entity
 end)
 ```
 
@@ -527,7 +526,7 @@ For data without an entity, pass `coords`, `rotation` or `heading`. Use
 tools can call `Create()` and describe axis, point and ring handles; the Bridge
 Lab uses this route for bone-local attachments and zone resize/radius handles.
 
-## Vehicle keys and fuel
+## Vehicle keys
 
 Vehicle keys support `qb-vehiclekeys` and `qbx_vehiclekeys`:
 
@@ -539,14 +538,6 @@ local hasKeys = TSS.VehicleKeys.Has(vehicle)
 TSS.VehicleKeys.Give(source, plateOrVehicle)
 TSS.VehicleKeys.Remove(source, plateOrVehicle)
 local hasKeys = TSS.VehicleKeys.Has(source, plateOrVehicle)
-```
-
-Fuel supports LegacyFuel, ox_fuel, ps-fuel, cdn-fuel and native fuel levels:
-
-```lua
--- Client only: installed fuel resources own their client-side state.
-local fuel = TSS.Fuel.Get(vehicle)
-TSS.Fuel.Set(vehicle, 75.0)
 ```
 
 ## Capabilities and diagnostics
@@ -570,16 +561,17 @@ The report lists available and loaded modules, configured adapters, started reso
 
 ## Built-in Bridge Lab
 
-The bridge includes an official, lazily loaded certification lab. Configure
+The bridge includes an official, lazily loaded developer lab. Configure
 authorized Discord/FiveM identifiers in `bridge_lab/server_config.lua`, restart
 the bridge, and use `/bridgelab` or press `F7` in game. Both entry points are
 authorized by the server; the allowlist remains server-only and
 every lab callback rechecks the player's identifiers.
 
-See `bridge_lab/README.md` for setup, security, and mutation-test details.
-The built-in developer tools include a detached-freecam PolyZone Creator, a ped
-prop-attachment gizmo editor, a client/server API Explorer, and a read-only
-shared inventory item browser. Created zones and prop attachments are saved to
+See `bridge_lab/README.md` for setup, security, and tool details.
+The built-in developer tools include a detached-freecam PolyZone Creator, ped
+animation, prop-attachment, and multi-prop scene gizmo editors, a client/server
+API Explorer, and a read-only shared inventory item browser. Created zones,
+attachments, and prop scenes are saved to
 server-validated Lua data files under `bridge_lab/`.
 
 ## Localization
@@ -637,7 +629,7 @@ TSS.Debug.Print('Saved a blip')
 ```
 
 Only Target, Notify, ProgressBar, TextUI and Interaction accept these overrides.
-Inventory, Fuel and other gameplay providers remain bridge-wide. The config key
+Inventory and other gameplay providers remain bridge-wide. The config key
 is `Target` (singular); the imported module is `Targets` (plural).
 
 Selection order: explicit server convar, per-call `adapter` (where supported),
