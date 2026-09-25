@@ -33,4 +33,4 @@ TSS.Banking.RegisterAdapter('esx', TSS.Resources.EsxSociety, {
         account.addMoney(amount)
         return true
     end,
-}, { priority = 60, aliases = { 'esx_society' } })
+}, { priority = 60 })

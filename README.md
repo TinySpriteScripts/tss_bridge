@@ -340,6 +340,51 @@ TSS.Banking.AddMoney(source, 'bank', 1000, 'mission_reward')
 TSS.Banking.FundSociety('police', 1000, 'job', 'mission_reward')
 ```
 
+Society mutations automatically add provider transaction history when the
+selected adapter needs a separate history call. Providers such as QB Banking
+and FD Banking already record their own mutations, so the bridge does not add a
+duplicate. Pass transaction metadata in place of the reason string when richer
+history is useful:
+
+```lua
+TSS.Banking.FundSociety('police', 1000, 'job', {
+    reason = 'vehicle_sale',
+    message = 'Sale of vehicle ABC 123',
+    issuer = 'Premium Deluxe Motorsport',
+    receiver = 'LSPD',
+    source = source,
+})
+```
+
+Renewed Banking and okokBanking support both explicit transaction recording
+and history retrieval. QB Banking supports explicit bank-statement creation,
+but does not expose history retrieval. Check the capability before using an
+optional operation:
+
+```lua
+if TSS.Banking.Supports('transactions') then
+    local transactions = TSS.Banking.GetTransactions('police', 25)
+end
+
+if TSS.Banking.Supports('recordtransaction') then
+    local recorded = TSS.Banking.RecordTransaction('checking', {
+        amount = 500,
+        type = 'withdraw',
+        reason = 'shop_purchase',
+        issuer = 'John Doe',
+        receiver = '24/7 Supermarket',
+        source = source,
+        accountType = 'player',
+    })
+end
+```
+
+`RecordTransaction` records history only; it never changes a balance. Do not
+call it after a QB/FD society mutation unless a second, intentional record is
+required. Returned history uses normalized `account`, `id`, `amount`, `type`,
+`reason`, `issuer`, `receiver`, and `time` fields while retaining fields supplied
+by the provider. History limits default to 50 and are capped at 200.
+
 Client player-account calls omit `source`:
 
 ```lua
@@ -608,6 +653,7 @@ The loader test exercises both mocked realms and asserts that client projections
 ```powershell
 lua tests/module_loader_spec.lua client <resource-path>
 lua tests/module_loader_spec.lua server <resource-path>
+lua tests/banking_transactions_spec.lua <resource-path>
 ```
 
 ### Per-resource presentation settings

@@ -17,7 +17,7 @@ TSS.Banking.RegisterPlayerAdapter('qb', TSS.Resources.QBCore, {
     removeMoney = function(_, source, accountType, amount, reason)
         return qbMutate('RemoveMoney', source, accountType, amount, reason)
     end,
-}, { priority = 20, aliases = { 'qb-core' } })
+}, { priority = 20, aliases = { 'qbcore' } })
 
 TSS.Banking.RegisterPlayerAdapter('qbox', TSS.Resources.Qbox, {
     getAccount = function(resource, source, accountType)
@@ -39,23 +39,39 @@ TSS.Banking.RegisterPlayerAdapter('qbox', TSS.Resources.Qbox, {
         local ok, result = TSS.CallExport(resource, 'RemoveMoney', source, accountType, amount, reason)
         return ok and result == true
     end,
-}, { priority = 10, aliases = { 'qbx_core' } })
+}, { priority = 10, aliases = { 'qbx' } })
 
 local function esxAccount(accountType)
     return accountType == 'cash' and 'money' or accountType
 end
 
+local function esxAccountData(player, account)
+    if TSS.IsCallable(player.getAccount) then
+        local value = player.getAccount(account)
+        if value then return value end
+    end
+
+    if type(player.accounts) == 'table' then
+        for _, candidate in pairs(player.accounts) do
+            if type(candidate) == 'table' and candidate.name == account then return candidate end
+        end
+    end
+end
+
+local function esxBalance(player, account)
+    if account == 'money' then
+        return tonumber(TSS.IsServer() and TSS.IsCallable(player.getMoney) and player.getMoney()
+            or player.money) or 0
+    end
+
+    local value = esxAccountData(player, account)
+    return value and tonumber(value.money or value.amount) or 0
+end
+
 local function esxGet(_, source, accountType)
     local player = TSS.Framework.Player(source)
     if not player then return 0 end
-
-    local account = esxAccount(accountType)
-    if account == 'money' then
-        return TSS.IsServer() and player.getMoney and player.getMoney() or player.money or 0
-    end
-
-    local value = player.getAccount and player.getAccount(account)
-    return value and (value.money or value.amount) or 0
+    return esxBalance(player, esxAccount(accountType))
 end
 
 local function esxMutate(action, _, source, accountType, value, reason)
@@ -63,6 +79,9 @@ local function esxMutate(action, _, source, accountType, value, reason)
     if not player then return false end
 
     local account = esxAccount(accountType)
+    if account ~= 'money' and not esxAccountData(player, account) then return false end
+    if action == 'remove' and esxBalance(player, account) < value then return false end
+
     local fn = account == 'money' and player[action .. 'Money'] or player[action .. 'AccountMoney']
     if not TSS.IsCallable(fn) then return false end
 
@@ -80,4 +99,4 @@ TSS.Banking.RegisterPlayerAdapter('esx', TSS.Resources.ESX, {
     removeMoney = function(...)
         return esxMutate('remove', ...)
     end,
-}, { priority = 30, aliases = { 'es_extended' } })
+}, { priority = 30 })

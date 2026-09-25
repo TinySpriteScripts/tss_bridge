@@ -177,15 +177,40 @@
 ---@field Supports fun(feature: string, preferred?: string): boolean
 ---@field GetAccount fun(accountType?: TSSMoneyType): number
 
+---@class TSSBankTransactionMetadata
+---@field reason? string Short machine-readable or display reason.
+---@field message? string Longer transaction description.
+---@field title? string Transaction title; defaults to the account name.
+---@field issuer? string Display name issuing the transaction.
+---@field receiver? string Display name receiving the transaction.
+---@field senderIdentifier? string Provider account or character identifier for the sender.
+---@field receiverIdentifier? string Provider account or character identifier for the receiver.
+---@field senderName? string Sender display name.
+---@field receiverName? string Receiver display name.
+---@field source? integer Online player source, required when manually creating a QB bank statement and optional elsewhere.
+---@field transactionId? string Caller-supplied transaction identifier when supported.
+---@field accountType? 'player'|'job'|'gang'|'shared' QB statement account type; defaults to player.
+
+---@class TSSBankTransactionData: TSSBankTransactionMetadata
+---@field amount number Positive transaction amount.
+---@field type 'deposit'|'withdraw' Transaction direction. Credit/fund/add and debit/charge/remove aliases are accepted.
+
+---@class TSSBankTransaction: TSSBankTransactionData
+---@field account string
+---@field id? string|number
+---@field time? string|number
+
 ---@class TSSBankingServerModule
 ---@field System fun(preferred?: string): system?: string, resource?: string
 ---@field Supports fun(feature: string, preferred?: string): boolean
 ---@field GetAccount fun(source: integer, accountType?: TSSMoneyType): number
----@field AddMoney fun(source: integer, accountType: TSSMoneyType, amount: number, reason?: string): boolean
----@field RemoveMoney fun(source: integer, accountType: TSSMoneyType, amount: number, reason?: string): boolean
+---@field AddMoney fun(source: integer, accountType: TSSMoneyType, amount: number, reason?: string|TSSBankTransactionMetadata): boolean
+---@field RemoveMoney fun(source: integer, accountType: TSSMoneyType, amount: number, reason?: string|TSSBankTransactionMetadata): boolean
 ---@field GetSociety fun(society: string, kind?: 'job'|'gang', preferred?: string): number
----@field ChargeSociety fun(society: string, amount: number, kind?: 'job'|'gang', reason?: string, preferred?: string): boolean
----@field FundSociety fun(society: string, amount: number, kind?: 'job'|'gang', reason?: string, preferred?: string): boolean
+---@field ChargeSociety fun(society: string, amount: number, kind?: 'job'|'gang', reason?: string|TSSBankTransactionMetadata, preferred?: string): boolean
+---@field FundSociety fun(society: string, amount: number, kind?: 'job'|'gang', reason?: string|TSSBankTransactionMetadata, preferred?: string): boolean
+---@field RecordTransaction fun(account: string, transaction: TSSBankTransactionData, preferred?: string): success: boolean, transaction?: TSSBankTransaction
+---@field GetTransactions fun(account: string, limit?: integer, preferred?: string): TSSBankTransaction[]|nil Returns nil when unsupported or invalid; limit defaults to 50 and is capped at 200.
 
 ---@class TSSBillingModule
 ---@field System fun(preferred?: string): system?: string, resource?: string

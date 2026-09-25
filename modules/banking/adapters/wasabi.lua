@@ -15,4 +15,4 @@ TSS.Banking.RegisterAdapter('wasabi', TSS.Resources.WasabiBanking, {
         local ok, result = TSS.CallExport(resource, 'AddMoney', 'society', society, amount)
         return ok and result ~= false
     end,
-}, { priority = 70, aliases = { 'wasabi_banking' } })
+}, { priority = 70 })

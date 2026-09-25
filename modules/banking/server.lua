@@ -16,6 +16,7 @@ TSSModuleLoader.Define({
         return context.CopyFunctions(TSS.Banking, {
             'System', 'Supports', 'GetAccount', 'AddMoney', 'RemoveMoney',
             'GetSociety', 'ChargeSociety', 'FundSociety',
+            'RecordTransaction', 'GetTransactions',
         })
     end,
 })

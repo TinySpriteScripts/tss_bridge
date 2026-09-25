@@ -1,25 +1,32 @@
-local function accountBalance(account)
-    if type(account) == 'table' then
-        return account.balance or account.amount or account.money or 0
-    end
-    return account or 0
+local function isGang(kind, society)
+    if kind == 'gang' then return true end
+    if kind == 'job' then return false end
+    return TSS.Framework.Jobs()[society] == nil and TSS.Framework.Gangs()[society] ~= nil
+end
+
+local function exportName(kind, society, jobExport, gangExport)
+    return isGang(kind, society) and gangExport or jobExport
 end
 
 TSS.Banking.RegisterAdapter('fd', TSS.Resources.FdBanking, {
-    supports = { society = true },
+    supports = { society = true, gangs = true },
+    mutationRecordsTransaction = true,
 
-    getSociety = function(resource, society)
-        local ok, account = TSS.CallExport(resource, 'GetAccount', society)
-        return ok and accountBalance(account) or 0
+    getSociety = function(resource, society, kind)
+        local ok, balance = TSS.CallExport(resource,
+            exportName(kind, society, 'GetAccount', 'GetGangAccount'), society)
+        return ok and tonumber(balance) or 0
     end,
 
-    chargeSociety = function(resource, society, amount)
-        local ok, result = TSS.CallExport(resource, 'RemoveMoney', society, amount)
-        return ok and result ~= false
+    chargeSociety = function(resource, society, amount, kind, reason)
+        local ok, result = TSS.CallExport(resource,
+            exportName(kind, society, 'RemoveMoney', 'RemoveGangMoney'), society, amount, reason)
+        return ok and result == true
     end,
 
-    fundSociety = function(resource, society, amount)
-        local ok, result = TSS.CallExport(resource, 'AddMoney', society, amount)
-        return ok and result ~= false
+    fundSociety = function(resource, society, amount, kind, reason)
+        local ok, result = TSS.CallExport(resource,
+            exportName(kind, society, 'AddMoney', 'AddGangMoney'), society, amount, reason)
+        return ok and result == true
     end,
-}, { priority = 20, aliases = { 'fd_banking' } })
+}, { priority = 20 })

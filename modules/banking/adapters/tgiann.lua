@@ -24,4 +24,4 @@ TSS.Banking.RegisterAdapter('tgiann', TSS.Resources.TgiannBank, {
         local ok, result = TSS.CallExport(resource, exportName, society, amount)
         return ok and result ~= false
     end,
-}, { priority = 40, aliases = { 'tgiann-bank' } })
+}, { priority = 40 })
