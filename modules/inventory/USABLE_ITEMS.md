@@ -22,17 +22,20 @@ successful registration is not an in-game compatibility certification.
 | mf-inventory | ESX registry, adapt `(source, removeCallback, item)` | [Provider wiki](https://github.com/meta-hub/mf-inventory/wiki/Examples). Consumer receives `(source, item, removeCallback)`; removal is opt-in. |
 | tss-inventory | `CreateUseableItem` export | Verified directly in the local `sixties/.../[inventory]/tss-inventory/server/main.lua`: `registerUsableItemCallback` and its exported aliases. |
 | inventory (Chezza) | ESX registry | Legacy ESX compatibility route. Current first-party Chezza registration documentation/source could not be retrieved; this adapter's item-use behavior remains unverified on a real Chezza server. No guessed inventory export is used. |
-| ox_inventory | ESX or Qbox registry | [OX item guide](https://overextended.dev/docs/ox_inventory/Guides/creatingItems), [OX server dispatch source](https://github.com/overextended/ox_inventory/blob/main/server.lua), plus installed Qbox/OX source. Native consume/export handlers take precedence and are rejected by this API. |
+| ox_inventory | `usingItem` hook filtered to the registered item | [OX item guide](https://overextended.dev/docs/ox_inventory/Guides/creatingItems), [OX hook documentation](https://overextended.dev/docs/ox_inventory/Functions/Server/Hooks), and [OX server dispatch source](https://github.com/overextended/ox_inventory/blob/main/server.lua). Supports QB-Core, ESX and Qbox without depending on their usable-item registries. Consuming/native server handlers are rejected by this API. |
 
 Framework routes use `QBCore.Functions.CreateUseableItem`,
 [`exports.qbx_core:CreateUseableItem`](https://docs.qbox.re/resources/qbx_core/exports/server#createuseableitem),
 or `ESX.RegisterUsableItem` on the **selected** framework. The bridge does not
 register the same handler into several systems simultaneously.
 
-The OX path requires an existing plain item without `consume`, a native server
-callback, or client use actions that cause OX to set `consume`. Even `consume = 0`
-selects its native use pipeline. This route does not consume the item. Stock OX's
-documented framework callbacks support ESX/Qbox; QB forks are not assumed compatible.
+The OX path requires an existing item with `consume = 0` (or a plain item with
+`consume` omitted/false, which the bridge changes to `0` in OX's live server
+definition). It dispatches from OX's documented `usingItem` hook and does not
+consume the item. This avoids the framework callback limitation—stock OX only
+documents that legacy route for ESX/Qbox—and also supports QB-Core. Native server
+exports and positive/consuming values conflict and are rejected. Do not combine
+the bridge callback with a native client use action for the same item.
 
 The bridge tests load the real module loader and adapters with mocked providers,
 checking export names, framework selection, normalization, errors, duplicate

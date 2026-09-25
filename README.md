@@ -382,7 +382,8 @@ inventory or framework. Register after those dependencies have started.
 feature. Registration still checks the actual framework/provider and can fail.
 Registration methods are absent from the client API.
 
-For **OX + ESX/Qbox**, use a plain item definition:
+For **OX** (including QB-Core, ESX and Qbox), use a non-consuming item
+definition:
 
 ```lua
 ['gps_beacon'] = {
@@ -390,13 +391,16 @@ For **OX + ESX/Qbox**, use a plain item definition:
     weight = 100,
     stack = false,
     close = true,
+    consume = 0,
 },
 ```
 
-Omit `consume` (including `consume = 0`), native client use actions and server
-exports when using the framework callback path. Those settings select OX's own
-use pipeline instead. Stock OX with QBCore or no framework is not supported by
-this registration route; a QB-compatible OX fork requires separate verification.
+`consume = 0` is OX's documented reusable-item setting. For compatibility with
+older bridge item definitions, an omitted/false `consume` is changed to `0` in
+OX's live server item definition when the callback is registered. Do not also
+configure a native client use action or server export for the same item; consuming
+items and native server handlers are rejected to avoid duplicate effects. The
+bridge uses OX's `usingItem` hook and removes it when the consumer stops.
 
 See [adapter routes and research notes](modules/inventory/USABLE_ITEMS.md) for
 all 13 providers, version limitations and source references.

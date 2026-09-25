@@ -2,6 +2,14 @@
 local Utils = TSS.Inventory.Utils
 local registrations = {}
 
+local function cleanupRegistration(entry)
+    if not entry or not entry.cleanup then return end
+    local cleanup = entry.cleanup
+    entry.cleanup = nil
+    local ok, err = pcall(cleanup)
+    if not ok then TSS.Warn(('Usable item cleanup failed: %s'):format(tostring(err))) end
+end
+
 -- Registration exports commonly return nothing. Only explicit false is rejection.
 -- Invoke once: retrying a registration can overwrite a provider callback twice.
 function Utils.RegisterUsableExport(resource, exportName, item, callback)
@@ -58,17 +66,23 @@ function TSS.Inventory._CreateUseableItem(owner, item, callback)
     end
     -- Reserve before entering provider code, which may yield.
     registrations[item] = entry
-    local ok, registered, err = pcall(adapter.registerUsable, resource, item, dispatch)
+    local ok, registered, err, cleanup = pcall(adapter.registerUsable, resource, item, dispatch)
     if not ok or registered ~= true then
+        if TSS.IsCallable(cleanup) then pcall(cleanup) end
         if registrations[item] == entry then registrations[item] = previous end
         entry.callback = nil
         return false, not ok and tostring(registered) or err or 'provider_rejected_registration'
     end
+    entry.cleanup = TSS.IsCallable(cleanup) and cleanup or nil
     if registrations[item] ~= entry then
+        cleanupRegistration(entry)
         entry.callback = nil
         return false, 'registration_superseded_or_consumer_stopped'
     end
-    if previous then previous.callback = nil end
+    if previous then
+        previous.callback = nil
+        cleanupRegistration(previous)
+    end
     return true
 end
 
@@ -76,6 +90,7 @@ function TSS.Inventory._ClearUseableItems(owner)
     for item, entry in pairs(registrations) do
         if entry.owner == owner then
             entry.callback = nil
+            cleanupRegistration(entry)
             registrations[item] = nil
         end
     end
