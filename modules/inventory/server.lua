@@ -90,7 +90,7 @@ TSSModuleLoader.Define({
         ---@return boolean registered
         function Inventory.RegisterStash(data)
             local _, resource, adapter = TSS.Inventory._GetAdapter()
-            if not adapter then return false end
+            if not adapter or type(data) ~= 'table' then return false end
             data.weight = data.weight or data.maxWeight or data.maxweight
             return adapter.registerStash(resource, data) == true
         end

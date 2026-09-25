@@ -42,6 +42,7 @@ function TSS.Inventory.Utils.NormaliseStash(data)
         owner = data.owner,
         groups = data.groups,
         coords = data.coords,
+        instance = data.instance,
     }
 end
 

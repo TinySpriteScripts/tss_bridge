@@ -66,6 +66,7 @@
 ---@field owner? string|number|boolean Owner passed to the inventory adapter.
 ---@field groups? table<string, integer> Allowed groups and minimum grades.
 ---@field coords? vector3|table Access coordinates.
+---@field instance? string|number OX routing-bucket/instance restriction when supported.
 
 ---@class TSSTargetOption
 ---@field label string Display label.

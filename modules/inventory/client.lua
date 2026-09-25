@@ -30,3 +30,9 @@ RegisterNetEvent('tss_bridge:client:openRegisteredShop', function(id)
         TSS.Inventory.Open('shop', { type = id, id = 1 })
     end
 end)
+
+RegisterNetEvent('tss_bridge:client:openInventory', function(invType, data)
+    if type(invType) == 'string' and TSSModuleLoader.Ensure('Inventory') then
+        TSS.Inventory.Open(invType, data)
+    end
+end)

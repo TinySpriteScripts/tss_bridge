@@ -766,6 +766,11 @@ false with unsupported_shop or unsupported_metadata. Supports('shop') and
 Supports('metadata') advertise availability on the server. Consumers must validate
 shop access and exact bag ownership before calling these methods.
 
+The OX shop adapter accepts both native `count`/`metadata` fields and the shared
+QB-style `amount`/`info` aliases without mutating the caller's shop table. OX
+metadata updates verify that the requested slot exists before reporting success.
+OX stash definitions also forward the optional `instance` restriction.
+
 Server Player.SetDuty(source, boolean) uses QB/Qbox SetJobDuty or ESX tss_duty
 metadata. Player.AddNeeds(source, { hunger=delta, thirst=delta, stress=delta }) applies
 server-authorized changes, clamped to 0..100 for QB/Qbox; ESX hunger/thirst use
@@ -790,7 +795,7 @@ consumers can remove targets and close UI. Repeated remove calls are harmless;
 peds finishing model loading after cancellation or leaving range are discarded.
 Run lua tests/dialogue_peds_spec.lua for mocked appearance/lifecycle checks.
 
-`Inventory.Image(item)` returns an item image URL for QB Inventory and OX Inventory (including custom image filenames), preserves absolute image URLs, and returns `nil` for unknown items or unsupported image providers.
+`Inventory.Image(item)` returns an item image URL for QB Inventory and OX Inventory (including custom image filenames), preserves absolute image URLs, and returns `nil` for unknown items or unsupported image providers. OX image URLs respect its `inventory:imagepath` convar, including external CDN paths.
 
 `Peds.LookAt(target, ped?, timeout?)` turns the local player (or supplied ped) toward an entity or coordinates and looks for five seconds. The turn defaults to 1500 ms and yields only when needed. Invalid/despawned entities return `false`. `World.Face` remains a compatible alias.
 
