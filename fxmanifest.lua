@@ -40,6 +40,7 @@ client_scripts {
 }
 server_scripts {
     'modules/**/server.lua',
+    'server/version_check.lua',
     'shared/export.lua',
     'bridge_lab/server_config.lua',
     'bridge_lab/authorization.lua',

@@ -41,6 +41,44 @@ Module names are case-insensitive and returned under their canonical names. An u
 
 The old `@tss_bridge/starter.lua` injection entry point no longer exists.
 
+### Automatic version checks
+
+Any resource that calls `exports.tss_bridge:GetModules(...)` is checked once by
+the bridge. No version-check module or extra script is required. By default the
+bridge reads:
+
+```text
+https://github.com/TinySpriteScripts/version_check
+```
+
+and requests `<resource-name>-version.txt` from its `main` branch. A version
+file contains the latest version, expected resource name, and support link:
+
+```text
+1.2.2
+tss-comicbook
+https://discord.gg/example
+```
+
+Third-party resources can select another public repository in their manifest:
+
+```lua
+version '1.2.2'
+version_check_repo 'https://github.com/example/public-versions'
+```
+
+Normal GitHub repository links, GitHub `/tree/<branch>` links, raw HTTPS base
+URLs, and direct `.txt` URLs are supported. A direct URL may contain
+`{resource}` (or `%s`), which is replaced with the invoking resource name. Repository and
+base URLs have `<resource-name>-version.txt` appended. The resource name must
+match line two of the version file so renamed installations are reported.
+
+To disable checking for one resource, add:
+
+```lua
+suppress_updates 'true'
+```
+
 ### LuaLS autocomplete
 
 The bridge includes documentation types in `shared/types.lua`. Add the realm type

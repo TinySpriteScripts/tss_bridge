@@ -5,6 +5,7 @@ local realm = IsDuplicityVersion() and 'server' or 'client'
 local definitions = {}
 local loaded = {}
 local requestedBy = {}
+local versionCheckReported = {}
 
 TSSModuleLoader = {
     Realm = realm,
@@ -184,6 +185,20 @@ local function availableModules()
     return table.concat(TSSModuleLoader.ListAvailable(), ', ')
 end
 
+local function reportVersionConsumer(caller)
+    if versionCheckReported[caller] then return end
+    versionCheckReported[caller] = true
+
+    if realm == 'server' then
+        if TSS.VersionCheck and TSS.VersionCheck.Register then
+            TSS.VersionCheck.Register(caller)
+        end
+        return
+    end
+
+    TriggerServerEvent('tss_bridge:server:registerVersionConsumer', caller)
+end
+
 local function createContext(caller, options)
     local function preference(key, preferred)
         return preferred or options[key]
@@ -295,6 +310,7 @@ local function getModules(requested, options)
 
     local caller = GetInvokingResource()
     if not caller or caller == '' then caller = bridgeResource end
+    reportVersionConsumer(caller)
 
     local public = {}
     local seen = {}
