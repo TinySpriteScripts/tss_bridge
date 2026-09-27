@@ -4,13 +4,18 @@ local DEFAULT_REPOSITORY = 'https://github.com/TinySpriteScripts/version_check'
 local VERSION_EVENT = 'tss_bridge:server:registerVersionConsumer'
 local checks = {}
 
+-- local TSS_BANNER = [[
+-- ^2  _______   _____   _____ ^7
+-- ^2 |__   __| / ____| / ____|^7
+-- ^2    | |   | (___  | (___  ^7
+-- ^2    | |    \___ \  \___ \ ^7
+-- ^2    | |    ____) | ____) |^7
+-- ^2    |_|   |_____/ |_____/ ^7]]
+
 local TSS_BANNER = [[
-^2  _______   _____   _____ ^7
-^2 |__   __| / ____| / ____|^7
-^2    | |   | (___  | (___  ^7
-^2    | |    \___ \  \___ \ ^7
-^2    | |    ____) | ____) |^7
-^2    |_|   |_____/ |_____/ ^7]]
+    |||^2  |‾‾‾|/‾‾‾\ /‾‾‾\  ^7|||
+    |||^2    |  \__‾‾\\__‾‾\ ^7|||
+    |||^2    |   |___/ |___/ ^7|||]]
 
 local function trim(value)
     return type(value) == 'string' and value:match('^%s*(.-)%s*$') or nil
@@ -80,7 +85,7 @@ end
 local function printBanner(resource)
     print('^5------------------------------------------------------------^7')
     print(TSS_BANNER)
-    print(('^2TinySprite Scripts^7 | ^5Version Check^7 | %s'):format(resource))
+    print(('^2TinySprite.dev^7 | ^5Version Check^7 | %s'):format(resource))
 end
 
 local function printCheckError(resource, message)

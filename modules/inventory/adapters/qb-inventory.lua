@@ -17,11 +17,6 @@ local function saveStash(resource, id)
 end
 
 TSS.Inventory.RegisterAdapter('qb', TSS.Resources.QbInventory, {
-    -- This inventory uses the selected framework's usable-item registry.
-    registerUsable = server and function(_, item, callback)
-        return Utils.RegisterFrameworkUsable(item, callback)
-    end or nil,
-
     stashItems = function(resource, id)
         local inventory = Utils.TryExports(resource, { 'GetInventory' }, id)
         return inventory and inventory.items

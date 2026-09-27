@@ -4,9 +4,6 @@ local Utils = TSS.Inventory.Utils
 local server = TSS.IsServer()
 
 TSS.Inventory.RegisterAdapter('tgiann', TSS.Resources.TgiannInventory, {
-    registerUsable = server and function(_, item, callback)
-        return Utils.RegisterFrameworkUsable(item, callback)
-    end or nil,
     add = server and function(resource, source, item, amount, metadata, slot)
         return Utils.TryExports(resource, { 'AddItem' }, source, item, amount, slot, metadata) == true
     end or nil,

@@ -445,45 +445,24 @@ end)
 if not registered then error(('GPS registration failed: %s'):format(err)) end
 ```
 
-`CreateUsableItem` is an alias with the alternate spelling. The item name is
-normalized to lowercase. This registers behavior; it does not create an item
-definition or remove an item. The callback receives a numeric player source and
-an item table with `name`, `metadata`/`info`, plus `slot` and `count`/`amount` when
-the provider supplies them. Other provider fields are retained. Callback return
-values are forwarded to the provider; their meaning remains provider-specific.
+`CreateUsableItem` is an alias. Item names are lowercased. Registration calls
+the selected framework directly: QB-Core's `Functions.CreateUseableItem`,
+Qbox's `CreateUseableItem` export, or ESX's `RegisterUsableItem`.
 
-Each item has one bridge consumer owner. A second resource cannot overwrite it;
-the same resource can replace its own callback. Stopping the consumer disables
-its callbacks and releases ownership. Providers without an unregister API may
-retain an inert bridge wrapper. Restart consumers after restarting the bridge,
-inventory or framework. Register after those dependencies have started.
+The original callback is passed unchanged. Its arguments, return values,
+replacement and lifetime follow the framework. The bridge does not normalize
+item data, track ownership, create definitions or consume items. Register after
+the framework starts and re-register after restarting it.
 
-`TSS.Inventory.Supports('usable')` reports whether the adapter implements this
-feature. Registration still checks the actual framework/provider and can fail.
-Registration methods are absent from the client API.
+`TSS.Inventory.Supports('usable')` reports whether a supported framework is
+started on the server. Registration methods are absent from the client API.
+The inventory must use the selected framework's usable-item registry;
+successful registration alone does not guarantee inventory dispatch.
 
-For **OX** (including QB-Core, ESX and Qbox), use a non-consuming item
-definition:
-
-```lua
-['gps_beacon'] = {
-    label = 'GPS Beacon',
-    weight = 100,
-    stack = false,
-    close = true,
-    consume = 0,
-},
-```
-
-`consume = 0` is OX's documented reusable-item setting. For compatibility with
-older bridge item definitions, an omitted/false `consume` is changed to `0` in
-OX's live server item definition when the callback is registered. Do not also
-configure a native client use action or server export for the same item; consuming
-items and native server handlers are rejected to avoid duplicate effects. The
-bridge uses OX's `usingItem` hook and removes it when the consumer stops.
-
-See [adapter routes and research notes](modules/inventory/USABLE_ITEMS.md) for
-all 13 providers, version limitations and source references.
+For OX, the bridge now relies on its framework integration, without installing
+`usingItem` hooks or changing item definitions. In the installed OX dispatch,
+framework callbacks require `consume` omitted/false and a working
+`server.UseItem` integration. `consume = 0` takes the native use path instead.
 
 ## TextUI and Interaction
 

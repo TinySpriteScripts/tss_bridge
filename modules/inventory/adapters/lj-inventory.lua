@@ -8,9 +8,6 @@ local function player(source)
 end
 
 TSS.Inventory.RegisterAdapter('lj', TSS.Resources.LjInventory, {
-    registerUsable = server and function(_, item, callback)
-        return Utils.RegisterFrameworkUsable(item, callback, { qb = true })
-    end or nil,
     add = server and function(_, source, item, amount, metadata, slot, reason)
         local target = player(source)
         local add = target and target.Functions and target.Functions.AddItem

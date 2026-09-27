@@ -3,9 +3,6 @@ local Utils = TSS.Inventory.Utils
 local server = TSS.IsServer()
 
 TSS.Inventory.RegisterAdapter('ps', TSS.Resources.PsInventory, {
-    registerUsable = server and function(resource, item, callback)
-        return Utils.RegisterUsableExport(resource, 'CreateUsableItem', item, callback)
-    end or nil,
     add = server and function(resource, source, item, amount, metadata, slot, reason)
         return Utils.TryExports(resource, { 'AddItem' }, source, item, amount, slot or false, metadata or false,
             reason or 'tss_inventory') == true

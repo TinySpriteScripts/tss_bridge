@@ -181,15 +181,19 @@ end
 ---@param feature 'add'|'remove'|'count'|'has'|'carry'|'player'|'items'|'stash'|'open'|'close'|'usable'|string
 ---@return boolean supported
 function TSS.Inventory.Supports(feature)
-    local _, _, adapter = getAdapter()
     feature = tostring(feature or ''):lower()
-    if TSS.IsClient() and (feature == 'stashitems' or feature == 'stashadd' or feature == 'stashremove' or feature == 'shop' or feature == 'metadata' or feature == 'add' or feature == 'remove' or feature == 'carry' or feature == 'stash' or feature == 'usable' or feature == 'useable') then
+    if feature == 'usable' or feature == 'useable' then
+        if TSS.IsClient() then return false end
+        local system, resource = TSS.Framework.System()
+        return (system == 'qb' or system == 'qbox' or system == 'esx') and TSS.IsStarted(resource)
+    end
+    local _, _, adapter = getAdapter()
+    if TSS.IsClient() and (feature == 'stashitems' or feature == 'stashadd' or feature == 'stashremove' or feature == 'shop' or feature == 'metadata' or feature == 'add' or feature == 'remove' or feature == 'carry' or feature == 'stash') then
         return false
     end
     local methods = {
         stashitems = 'stashItems', stashadd = 'stashAdd', stashremove = 'stashRemove',
         shop = 'registerShop', metadata = 'setMetadata',
-        usable = 'registerUsable', useable = 'registerUsable',
         add = 'add', remove = 'remove', count = 'count', has = 'count', carry = 'canCarry',
         player = 'inventory', items = 'items', stash = 'registerStash', open = 'openInventory', close = 'close',
         weight = 'weight', maxweight = 'maxWeight', maximumweight = 'maxWeight',

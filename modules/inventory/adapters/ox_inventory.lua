@@ -32,55 +32,6 @@ local function normaliseShopItems(resource, items)
 end
 
 TSS.Inventory.RegisterAdapter('ox', TSS.Resources.OxInventory, {
-    registerUsable = function(resource, item, callback)
-        local ok, definition = Utils.CallExport(resource, 'Items', item)
-        if not ok or type(definition) ~= 'table' then return false, 'item_not_defined' end
-
-        -- OX only reaches framework usable-item callbacks when consume is nil/false.
-        -- That excludes QB-Core and also makes `consume = 0` (OX's documented
-        -- reusable-item setting) impossible to register through the old route.
-        -- Use OX's supported hook pipeline instead and make a plain item enter it
-        -- without consuming the item.
-        if definition.cb or (definition.consume ~= nil and definition.consume ~= false and definition.consume ~= 0) then
-            return false, 'ox_item_uses_native_handler: remove consuming/client use actions/server export or set consume to 0'
-        end
-
-        local originalConsume = definition.consume
-        local changedConsume = originalConsume ~= 0
-        if changedConsume then
-            definition.consume = 0
-
-            -- The official Items export currently returns the live definition.
-            -- Verify that behaviour so forks returning a copy fail safely instead
-            -- of reporting a registration that can never dispatch.
-            local verified, current = Utils.CallExport(resource, 'Items', item)
-            if not verified or type(current) ~= 'table' or current.consume ~= 0 then
-                definition.consume = originalConsume
-                return false, 'ox_item_requires_consume_zero'
-            end
-        end
-
-        local hooked, hookId = Utils.CallExport(resource, 'registerHook', 'usingItem', function(payload)
-            if type(payload) ~= 'table' or type(payload.item) ~= 'table' then return end
-            return callback(payload.source, payload.item)
-        end, {
-            itemFilter = { [item] = true },
-        })
-        if not hooked or not hookId then
-            if changedConsume then definition.consume = originalConsume end
-            return false, hooked and 'ox_hook_registration_failed' or tostring(hookId)
-        end
-
-        local removed = false
-        local function cleanup()
-            if removed then return end
-            removed = true
-            Utils.CallExport(resource, 'removeHooks', hookId)
-        end
-
-        return true, nil, cleanup
-    end,
-
     stashItems = function(resource, id)
         return Utils.TryExports(resource, { 'GetInventoryItems' }, id)
     end,

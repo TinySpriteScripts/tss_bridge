@@ -16,7 +16,6 @@ TSSModuleLoader.Define({
     name = 'Inventory',
     dependencies = { 'Framework' },
     files = files,
-    serverFiles = { 'modules/inventory/usable.lua', 'modules/inventory/framework_usable.lua' },
     server = function(context)
         ---@type TSSInventoryServerModule
         local Inventory = context.CopyFunctions(TSS.Inventory, {
@@ -24,7 +23,6 @@ TSSModuleLoader.Define({
             'Items', 'Image', 'Open', 'OpenStash', 'Close',
         })
 
-        local stopped = false
         local function audit(action, system, resource, data)
             data.action = action
             data.system = system
@@ -34,19 +32,36 @@ TSSModuleLoader.Define({
             TriggerEvent('tss_bridge:server:inventoryAudit', data)
         end
 
-        context.OnStop(function()
-            stopped = true
-            TSS.Inventory._ClearUseableItems(context.Caller)
-        end)
-
-        --- Registers an existing item for server-side use; does not consume it.
-        ---@param item string Existing inventory item name.
-        ---@param callback fun(source: integer, item: TSSUsedItem) Runs when the inventory uses the item.
+        --- Registers an existing item with the selected framework.
+        ---@param item string Existing item name.
+        ---@param callback fun(source: integer, ...: any) Receives the framework's native arguments.
         ---@return boolean registered
         ---@return string? error Registration failure reason.
         function Inventory.CreateUseableItem(item, callback)
-            if stopped then return false, 'consumer_stopped' end
-            return TSS.Inventory._CreateUseableItem(context.Caller, item, callback)
+            if type(item) ~= 'string' or item == '' or item:find('%s') then
+                return false, 'invalid_item_name'
+            end
+            if not TSS.IsCallable(callback) then return false, 'invalid_callback' end
+
+            local system, resource = TSS.Framework.System()
+            if not system or not TSS.IsStarted(resource) then return false, 'framework_unavailable' end
+            item = item:lower()
+
+            local ok, result
+            if system == 'qbox' then
+                ok, result = pcall(function()
+                    return exports[resource]:CreateUseableItem(item, callback)
+                end)
+            else
+                local core = TSS.Framework.Object()
+                local register = system == 'qb' and core and core.Functions and core.Functions.CreateUseableItem
+                    or system == 'esx' and core and core.RegisterUsableItem
+                if not TSS.IsCallable(register) then return false, 'framework_registration_unavailable' end
+                ok, result = pcall(register, item, callback)
+            end
+            if not ok then return false, tostring(result) end
+            if result == false then return false, 'framework_rejected_registration' end
+            return true
         end
 
         --- Alternate spelling of CreateUseableItem.

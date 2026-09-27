@@ -263,14 +263,6 @@
 ---@field OpenStash fun(id: string, data?: TSSStashData): boolean
 ---@field Close fun(): boolean
 
----@class TSSUsedItem
----@field name string Registered item name.
----@field metadata table Metadata (normalized from metadata or info).
----@field info table Alias of metadata.
----@field slot? integer Provider slot, when supplied.
----@field count? number Provider count, when supplied.
----@field amount? number Alias of count.
-
 ---@class TSSInventoryServerModule
 ---@field Stash fun(id: string): table?, string?
 ---@field AddToStash fun(id: string, item: string, amount: integer, metadata?: table, slot?: integer, reason?: string): boolean
@@ -278,8 +270,8 @@
 ---@field RegisterShop fun(data: table): boolean, string?
 ---@field OpenShop fun(source: integer, id: string): boolean, string?
 ---@field SetMetadata fun(source: integer, slot: integer, metadata: table): boolean, string?
----@field CreateUseableItem fun(item: string, callback: fun(source: integer, item: TSSUsedItem)): registered: boolean, error: string?
----@field CreateUsableItem fun(item: string, callback: fun(source: integer, item: TSSUsedItem)): registered: boolean, error: string?
+---@field CreateUseableItem fun(item: string, callback: fun(source: integer, ...: any)): registered: boolean, error: string?
+---@field CreateUsableItem fun(item: string, callback: fun(source: integer, ...: any)): registered: boolean, error: string?
 ---@field System fun(): system?: string, resource?: string
 ---@field Supports fun(feature: string): boolean
 ---@field Add fun(source: integer, item: string, amount?: integer, metadata?: table, slot?: integer, reason?: string): boolean

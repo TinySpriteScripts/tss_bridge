@@ -7,9 +7,6 @@ local function player(source)
 end
 
 TSS.Inventory.RegisterAdapter('chezza', TSS.Resources.ChezzaInventory, {
-    registerUsable = server and function(_, item, callback)
-        return Utils.RegisterFrameworkUsable(item, callback, { esx = true })
-    end or nil,
     add = server and function(resource, source, item, amount, metadata, slot)
         if metadata ~= nil or slot ~= nil then return false, 'metadata_and_slot_unsupported' end
         return Utils.TryExports(resource, { 'AddItemToPlayer' }, source, item, amount) == true
