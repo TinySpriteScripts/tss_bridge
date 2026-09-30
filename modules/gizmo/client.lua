@@ -50,6 +50,16 @@ TSSModuleLoader.Define({
             return true
         end
 
+        local function limitCamera(current, coords)
+            if not current.cameraMaxDistance then return coords end
+            local anchor = current.cameraAnchor
+            local dx, dy, dz = coords.x - anchor.x, coords.y - anchor.y, coords.z - anchor.z
+            local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+            if distance <= current.cameraMaxDistance then return coords end
+            local scale = current.cameraMaxDistance / distance
+            return TSS.Gizmo.Vector(anchor.x + dx * scale, anchor.y + dy * scale, anchor.z + dz * scale)
+        end
+
         local function updateCamera(current)
             local rotation, coords = GetCamRot(current.camera, 2), GetCamCoord(current.camera)
             if IsDisabledControlPressed(0, 25) then
@@ -69,6 +79,7 @@ TSSModuleLoader.Define({
             if IsDisabledControlPressed(0, 34) then coords = TSS.Gizmo.Add(coords, TSS.Gizmo.Multiply(right, -speed)) end
             if IsDisabledControlPressed(0, 38) then coords = TSS.Gizmo.Add(coords, TSS.Gizmo.Vector(0, 0, speed)) end
             if IsDisabledControlPressed(0, 44) then coords = TSS.Gizmo.Add(coords, TSS.Gizmo.Vector(0, 0, -speed)) end
+            coords = limitCamera(current, coords)
             SetCamCoord(current.camera, coords.x, coords.y, coords.z)
             SetCamRot(current.camera, rotation.x, 0.0, rotation.z, 2)
             SetFocusPosAndVel(coords.x, coords.y, coords.z, 0.0, 0.0, 0.0)
@@ -98,6 +109,9 @@ TSSModuleLoader.Define({
                 space = options.space == 'local' and 'local' or 'world',
                 rotationAxes = options.rotationAxes or (options.headingOnly and { 'z' } or { 'x', 'y', 'z' }),
                 speed = tonumber(options.cameraSpeed) or 3.0,
+                cameraMaxDistance = tonumber(options.cameraMaxDistance) and tonumber(options.cameraMaxDistance) > 0
+                    and tonumber(options.cameraMaxDistance) or nil,
+                cameraAnchor = options.cameraAnchor or entityCoords,
                 restoreOnCancel = options.restoreOnCancel ~= false,
                 callback = callback,
                 onChange = options.onChange,
@@ -183,6 +197,7 @@ TSSModuleLoader.Define({
             if options.camera ~= false then
                 local camera = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
                 local cameraCoords, cameraRotation = GetGameplayCamCoord(), GetGameplayCamRot(2)
+                cameraCoords = limitCamera(current, cameraCoords)
                 SetCamCoord(camera, cameraCoords.x, cameraCoords.y, cameraCoords.z)
                 SetCamRot(camera, cameraRotation.x, 0.0, cameraRotation.z, 2)
                 SetCamFov(camera, GetGameplayCamFov())
