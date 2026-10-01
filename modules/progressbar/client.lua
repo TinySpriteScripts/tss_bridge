@@ -11,7 +11,12 @@ TSSModuleLoader.Define({
     client = function(context)
         local public = context.ProviderAPI(TSS.Progress, 'ProgressBar')
         function public.Start(data)
-            return TSS.Progress.Start(context.ProviderData('ProgressBar', data), context.Caller)
+            local request = context.ProviderData('ProgressBar', data)
+            if context.Options.Debug == true then
+                request.duration = context.Options.DebugProgressDuration or 1000
+                request.time = request.duration
+            end
+            return TSS.Progress.Start(request, context.Caller)
         end
         function public.Stop() return TSS.Progress.Stop(context.Caller) end
         context.OnStop(public.Stop)

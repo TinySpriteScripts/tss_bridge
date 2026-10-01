@@ -14,6 +14,8 @@
 ---@field ProgressBar? string Progress provider for this resource.
 ---@field TextUI? string Text UI provider for this resource.
 ---@field Interaction? string Interaction mode for this resource (target/textui/auto).
+---@field Debug? boolean Shorten this resource's progress bars for debugging.
+---@field DebugProgressDuration? integer Duration in milliseconds while Debug is true (default 1000).
 
 ---@class TSSModuleContext
 ---@field Caller string Resource that requested the module.

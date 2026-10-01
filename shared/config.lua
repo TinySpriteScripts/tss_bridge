@@ -72,6 +72,7 @@ TSS.Resources = {
     -- Vehicle keys
     QbVehicleKeys = 'qb-vehiclekeys',
     QboxVehicleKeys = 'qbx_vehiclekeys',
+    NewbVehicleKeys = 'MrNewbVehicleKeys',
     -- Inventories
     OxInventory = 'ox_inventory',
     QbInventory = 'qb-inventory',

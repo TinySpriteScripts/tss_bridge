@@ -40,7 +40,11 @@ TSSModuleLoader.Define({
                 if cancelled and current.restoreOnCancel then
                     local coords, rotation = current.original.coords, current.original.rotation
                     SetEntityCoordsNoOffset(current.entity, coords.x, coords.y, coords.z, false, false, false)
-                    SetEntityRotation(current.entity, rotation.x, rotation.y, rotation.z, 2, true)
+                    if current.headingOnly then
+                        SetEntityHeading(current.entity, rotation.z)
+                    else
+                        SetEntityRotation(current.entity, rotation.x, rotation.y, rotation.z, 2, true)
+                    end
                 end
                 FreezeEntityPosition(current.entity, current.wasFrozen == true)
             end
@@ -101,13 +105,16 @@ TSSModuleLoader.Define({
                 active = true,
                 entity = entity,
                 coords = TSS.Gizmo.Vector(entityCoords.x, entityCoords.y, entityCoords.z),
-                rotation = { x = tonumber(entityRotation.x) or 0.0, y = tonumber(entityRotation.y) or 0.0,
-                    z = tonumber(entityRotation.z or options.heading) or 0.0 },
+                rotation = { x = options.headingOnly and 0.0 or (tonumber(entityRotation.x) or 0.0),
+                    y = options.headingOnly and 0.0 or (tonumber(entityRotation.y) or 0.0),
+                    z = options.headingOnly and entity and GetEntityHeading(entity)
+                        or (tonumber(entityRotation.z or options.heading) or 0.0) },
                 mode = options.mode == 'rotate' and 'rotate'
                     or (options.mode == 'combined' and 'combined' or 'move'),
                 modes = options.modes or { 'move', 'rotate', 'combined' },
                 space = options.space == 'local' and 'local' or 'world',
                 rotationAxes = options.rotationAxes or (options.headingOnly and { 'z' } or { 'x', 'y', 'z' }),
+                headingOnly = options.headingOnly == true,
                 speed = tonumber(options.cameraSpeed) or 3.0,
                 cameraMaxDistance = tonumber(options.cameraMaxDistance) and tonumber(options.cameraMaxDistance) > 0
                     and tonumber(options.cameraMaxDistance) or nil,
@@ -125,7 +132,11 @@ TSSModuleLoader.Define({
                 if current.entity and DoesEntityExist(current.entity) then
                     SetEntityCoordsNoOffset(current.entity, current.coords.x, current.coords.y, current.coords.z,
                         false, false, false)
-                    SetEntityRotation(current.entity, current.rotation.x, current.rotation.y, current.rotation.z, 2, true)
+                    if current.headingOnly then
+                        SetEntityHeading(current.entity, current.rotation.z)
+                    else
+                        SetEntityRotation(current.entity, current.rotation.x, current.rotation.y, current.rotation.z, 2, true)
+                    end
                 end
                 if current.onChange then current.onChange(snapshot(current)) end
             end

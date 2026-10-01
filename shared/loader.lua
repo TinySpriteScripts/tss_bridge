@@ -306,6 +306,19 @@ local function getModules(requested, options)
             settings[key] = value
         end
     end
+    if options and options.Debug ~= nil then
+        if type(options.Debug) ~= 'boolean' then
+            error('[tss_bridge] GetModules option Debug must be a boolean', 2)
+        end
+        settings.Debug = options.Debug
+    end
+    if options and options.DebugProgressDuration ~= nil then
+        local duration = tonumber(options.DebugProgressDuration)
+        if not duration or duration < 1 or duration % 1 ~= 0 then
+            error('[tss_bridge] GetModules option DebugProgressDuration must be a positive whole number', 2)
+        end
+        settings.DebugProgressDuration = duration
+    end
     options = settings
 
     local caller = GetInvokingResource()

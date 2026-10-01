@@ -10,7 +10,9 @@ TSS.Progress.RegisterAdapter('qb', TSS.Resources.ProgressBar, {
         if not ok or not core or not core.Functions or not core.Functions.Progressbar then return false end
         local pending = promise.new()
         core.Functions.Progressbar(
-            data.name or 'tss_progress', data.label or 'Working...', data.duration or data.time or 5000,
+            data.name or 'tss_progress', 
+            data.label or 'Working...', 
+            data.duration or data.time or 5000,
             data.useWhileDead or data.dead or false, bool(data.canCancel, bool(data.cancel, true)),
             {
                 disableMovement = data.disableMovement or false,
