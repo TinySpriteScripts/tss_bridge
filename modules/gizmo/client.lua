@@ -10,7 +10,20 @@ TSSModuleLoader.Define({
         local function create(options)
             local controller = TSS.Gizmo.Create(options)
             controllers[#controllers + 1] = controller
-            return controller
+            -- Exported controller tables are copied between resources. Bind each
+            -- method to the bridge-owned controller instead of mutating the
+            -- caller's serialized `self`, which loses drag state every frame.
+            local proxy = {}
+            for _, name in ipairs({ 'Tick', 'Draw', 'SetMode', 'GetMode', 'IsDragging',
+                'GetHandle', 'SetEnabled', 'FinishDrag', 'ClearOverlay' }) do
+                local method = controller[name]
+                if type(method) == 'function' then
+                    proxy[name] = function(_, ...)
+                        return method(controller, ...)
+                    end
+                end
+            end
+            return proxy
         end
 
         local function snapshot(current)
