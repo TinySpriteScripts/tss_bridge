@@ -40,6 +40,7 @@ TSS.Resources = {
     QBCore = 'qb-core',
     Qbox = 'qbx_core',
     ESX = 'es_extended',
+    StreetKings = 'streetkings',
     -- Management
     TssBossMenu = 'tss-bossmenu',
     QbManagement = 'qb-management',

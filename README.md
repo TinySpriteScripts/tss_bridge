@@ -874,3 +874,71 @@ does not replace authorization in the consuming resource.
 `Inventory.Stash(id)`, `Inventory.RemoveFromStash(id, item, amount, metadata, slot, reason)` and `Inventory.AddToStash(...)` operate on non-player stashes. These are server-only operations; validate the stash ID and player access in the consuming resource. Check `Supports('stashitems')`, `Supports('stashremove')` and `Supports('stashadd')` first. Unsupported adapters return nil/false explicitly.
 
 Currently implemented for ox_inventory and qb-inventory. QB mutations also persist the live stash through oxmysql because its normal stash save occurs on UI close. Failed persistence is logged. Exact slots and metadata are preserved for refunds.
+
+
+## StreetKings
+
+StreetKings is an additive framework adapter. Existing Qbox, QB and ESX adapters
+remain installed and retain their automatic detection priority. StreetKings is
+detected when its resource is started; optionally use `setr tss_framework streetkings`.
+Start `streetkings`, then `tss_bridge`, then the consuming resources. The bridge
+does not have a mandatory StreetKings dependency on other framework servers.
+
+`Framework.System()` returns `streetkings`. On the server, `Player.Data`, `Name`,
+`Identifier`, `Metadata` and `IsLoaded` use the active save. Metadata contains
+progression, stats and gameState. `Banking.GetAccount(source, 'cash')`, `AddMoney`
+and `RemoveMoney` use StreetKings cash exports. Bank/crypto/society accounts,
+jobs, gangs, duty, needs, inventory and vehicle-key ownership are not supplied
+by StreetKings. Existing independently installed providers remain available.
+
+StreetKings does not export client save documents or active save IDs. Normalized
+client player data is therefore nil and client cash reads return zero. Server
+`identifier`/`license` identify the account, not the save slot; no citizenid is
+fabricated. For per-save progress, use `StreetKings.ReadSaveData/WriteSaveData`
+rather than account identifiers. `Framework.Object()` is nil; `Framework.Player()`
+is a snapshot, not a mutable QB/ESX player object.
+
+Notifications automatically use StreetKings toasts while StreetKings is available.
+Provider overrides still apply, e.g. `setr tss_notify ox` or `streetkings`.
+
+Request the dedicated realm-specific module for native gameplay features:
+
+```lua
+local TSS = exports.tss_bridge:GetModules({ 'StreetKings', 'Banking', 'Player' })
+-- server
+if TSS.StreetKings.HasActiveSave(source) then
+    local found = TSS.StreetKings.ReadSaveData(source, 'myScript.found') or {}
+    -- Validate actions and rewards on the server before writing progress.
+    TSS.StreetKings.WriteSaveData(source, 'myScript.found', found)
+end
+```
+
+```lua
+local TSS = exports.tss_bridge:GetModules({ 'StreetKings', 'Notify' })
+-- client
+if TSS.StreetKings.IsAvailable() and TSS.StreetKings.GetGameState() == 'freeroam' then
+    TSS.Notify.Send({ title = 'Challenge', message = 'Ready to start' })
+end
+```
+
+The module preserves native argument signatures and all return values, including
+false and nil. It exposes only the native exports listed below in their original
+realm, plus `IsAvailable()` in both realms and client `CheckpointCleared()` for
+the native nitrous checkpoint event. Calls fail with a descriptive error when
+StreetKings is unavailable or an export fails. No client network event for save
+writes, rewards or arbitrary export invocation is introduced.
+
+`tss_carcollectibles` and `tss_speedzones` now request this module and declare a
+bridge dependency; their gameplay, validation and reward rules are unchanged.
+They remain StreetKings gameplay resources, not generic RP scripts.
+
+### Native API inventory
+
+**Client**
+
+`AllowLeaveVehicle`, `ClosePhone`, `CreateWaypoint`, `DisableChaseCam`, `EnableChaseCam`, `GetAllVehicleData`, `GetCurrentTime`, `GetCurrentTrack`, `GetCurrentWeather`, `GetGameState`, `GetPlayerVehicle`, `GetVehicleAvailability`, `GetVehicleData`, `GetWantedLevel`, `IsChaseCamEnabled`, `IsCinematicMode`, `IsInFreeroam`, `IsNearPolice`, `IsPhoneOpen`, `IsPlayerWasted`, `IsPoliceChasing`, `IsRaceEditorFreecamEnabled`, `LoadAnimDict`, `LoadAnimSet`, `LoadModel`, `LoadPtfxAsset`, `OpenPhone`, `RaceEditorFreecamRaycast`, `RegisterGameState`, `RemoveAllWaypoints`, `RemoveWaypoint`, `SetCinematicMode`, `SetGameState`, `SetSoundtrackEnabled`, `SetSpeedometerEnabled`, `SetupTestJump`, `ShowNotification`, `StartRaceEditorFreecam`, `StopRaceEditorFreecam`, `TeardownTestJump`, `UnloadModel`, `WarpPlayer`, `WarpToWaypoint`, `awaitDebugToolsPermission`.
+
+**Server**
+
+`AddPlayerCash`, `AwardPlayerXp`, `AwardVehicleXp`, `BroadcastPhoneMessage`, `CreateServerWaypoint`, `GetActiveVehicle`, `GetOwnedVehicles`, `GetPlayerCash`, `GetPlayerGameState`, `GetPlayerLevel`, `GetServerWaypoints`, `HasActiveSave`, `IncrementStat`, `IsPlayerInHangoutZone`, `PersistSave`, `ReadSaveData`, `RecordActivityBest`, `RegisterStat`, `RemovePlayerCash`, `RemoveServerWaypoint`, `SendPhoneMessage`, `SetStatMax`, `SetTime`, `SetWeather`, `WriteSaveData`.
+

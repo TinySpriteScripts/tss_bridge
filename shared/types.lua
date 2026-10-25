@@ -3,7 +3,7 @@
 -- This file is intentionally documentation-only. LuaLS indexes it to provide
 -- completion and parameter help for tables returned by the GetModules export.
 
----@alias TSSFrameworkName 'qb'|'qbox'|'esx'
+---@alias TSSFrameworkName 'qb'|'qbox'|'esx'|'streetkings'
 ---@alias TSSNotifyType 'inform'|'success'|'warning'|'error'
 ---@alias TSSMoneyType 'cash'|'bank'|'crypto'|string
 ---@alias TSSEntity number
@@ -493,6 +493,7 @@
 ---@field Refresh fun() Refreshes command suggestions after permission/debug changes.
 
 ---@class TSSClientModules
+---@field StreetKings? TSSStreetKingsClientModule
 ---@field Commands? TSSCommandsModule
 ---@field Framework? TSSFrameworkModule
 ---@field Player? TSSPlayerClientModule
@@ -520,6 +521,7 @@
 ---@field Debug? TSSDebugModule
 
 ---@class TSSServerModules
+---@field StreetKings? TSSStreetKingsServerModule
 ---@field Commands? TSSCommandsModule
 ---@field Framework? TSSFrameworkModule
 ---@field Player? TSSPlayerServerModule
@@ -535,3 +537,79 @@
 ---@field Diagnostics? TSSDiagnosticsModule
 ---@field Groups? TSSGroupsModule
 ---@field Debug? TSSDebugModule
+
+---@class TSSStreetKingsClientModule
+---@field IsAvailable fun(): boolean Reports whether the native resource is started.
+---@field AllowLeaveVehicle fun(...: any): any Native StreetKings signature; see modules/core/vehicle_lock_c.lua.
+---@field ClosePhone fun(...: any): any Native StreetKings signature; see modules/phone/phone_c.lua.
+---@field CreateWaypoint fun(...: any): any Native StreetKings signature; see modules/waypoints/waypoints_c.lua.
+---@field DisableChaseCam fun(...: any): any Native StreetKings signature; see modules/freeroam/camera_c.lua.
+---@field EnableChaseCam fun(...: any): any Native StreetKings signature; see modules/freeroam/camera_c.lua.
+---@field GetAllVehicleData fun(...: any): any Native StreetKings signature; see modules/core/sk_helpers_c.lua.
+---@field GetCurrentTime fun(...: any): any Native StreetKings signature; see modules/environment/environment_c.lua.
+---@field GetCurrentTrack fun(...: any): any Native StreetKings signature; see modules/soundtrack/soundtrack_c.lua.
+---@field GetCurrentWeather fun(...: any): any Native StreetKings signature; see modules/environment/environment_c.lua.
+---@field GetGameState fun(...: any): any Native StreetKings signature; see modules/core/game_state_c.lua.
+---@field GetPlayerVehicle fun(...: any): any Native StreetKings signature; see modules/freeroam/freeroam_c.lua.
+---@field GetVehicleAvailability fun(...: any): any Native StreetKings signature; see modules/progression/progression_c.lua.
+---@field GetVehicleData fun(...: any): any Native StreetKings signature; see modules/core/sk_helpers_c.lua.
+---@field GetWantedLevel fun(...: any): any Native StreetKings signature; see modules/freeroam/police_c.lua.
+---@field IsChaseCamEnabled fun(...: any): any Native StreetKings signature; see modules/freeroam/camera_c.lua.
+---@field IsCinematicMode fun(...: any): any Native StreetKings signature; see modules/freeroam/camera_c.lua.
+---@field IsInFreeroam fun(...: any): any Native StreetKings signature; see modules/freeroam/freeroam_c.lua.
+---@field IsNearPolice fun(...: any): any Native StreetKings signature; see modules/freeroam/police_c.lua.
+---@field IsPhoneOpen fun(...: any): any Native StreetKings signature; see modules/phone/phone_c.lua.
+---@field IsPlayerWasted fun(...: any): any Native StreetKings signature; see modules/freeroam/freeroam_c.lua.
+---@field IsPoliceChasing fun(...: any): any Native StreetKings signature; see modules/freeroam/police_c.lua.
+---@field IsRaceEditorFreecamEnabled fun(...: any): any Native StreetKings signature; see modules/devtools/race_editor_freecam_c.lua.
+---@field LoadAnimDict fun(...: any): any Native StreetKings signature; see modules/core/sk_helpers_c.lua.
+---@field LoadAnimSet fun(...: any): any Native StreetKings signature; see modules/core/sk_helpers_c.lua.
+---@field LoadModel fun(...: any): any Native StreetKings signature; see modules/core/sk_helpers_c.lua.
+---@field LoadPtfxAsset fun(...: any): any Native StreetKings signature; see modules/core/sk_helpers_c.lua.
+---@field OpenPhone fun(...: any): any Native StreetKings signature; see modules/phone/phone_c.lua.
+---@field RaceEditorFreecamRaycast fun(...: any): any Native StreetKings signature; see modules/devtools/race_editor_freecam_c.lua.
+---@field RegisterGameState fun(...: any): any Native StreetKings signature; see modules/core/game_state_c.lua.
+---@field RemoveAllWaypoints fun(...: any): any Native StreetKings signature; see modules/waypoints/waypoints_c.lua.
+---@field RemoveWaypoint fun(...: any): any Native StreetKings signature; see modules/waypoints/waypoints_c.lua.
+---@field SetCinematicMode fun(...: any): any Native StreetKings signature; see modules/freeroam/camera_c.lua.
+---@field SetGameState fun(...: any): any Native StreetKings signature; see modules/core/game_state_c.lua.
+---@field SetSoundtrackEnabled fun(...: any): any Native StreetKings signature; see modules/soundtrack/soundtrack_c.lua.
+---@field SetSpeedometerEnabled fun(...: any): any Native StreetKings signature; see modules/speedometer/speedometer_c.lua.
+---@field SetupTestJump fun(...: any): any Native StreetKings signature; see modules/stunts/stunt_jump_c.lua.
+---@field ShowNotification fun(...: any): any Native StreetKings signature; see modules/notify/notify_c.lua.
+---@field StartRaceEditorFreecam fun(...: any): any Native StreetKings signature; see modules/devtools/race_editor_freecam_c.lua.
+---@field StopRaceEditorFreecam fun(...: any): any Native StreetKings signature; see modules/devtools/race_editor_freecam_c.lua.
+---@field TeardownTestJump fun(...: any): any Native StreetKings signature; see modules/stunts/stunt_jump_c.lua.
+---@field UnloadModel fun(...: any): any Native StreetKings signature; see modules/core/sk_helpers_c.lua.
+---@field WarpPlayer fun(...: any): any Native StreetKings signature; see modules/core/warp_c.lua.
+---@field WarpToWaypoint fun(...: any): any Native StreetKings signature; see modules/core/warp_c.lua.
+---@field awaitDebugToolsPermission fun(...: any): any Native StreetKings signature; see modules/settings/settings_c.lua.
+---@field CheckpointCleared fun(): boolean Emits the native nitrous checkpoint event.
+
+---@class TSSStreetKingsServerModule
+---@field IsAvailable fun(): boolean Reports whether the native resource is started.
+---@field AddPlayerCash fun(...: any): any Native StreetKings signature; see modules/storage/saves_s.lua.
+---@field AwardPlayerXp fun(...: any): any Native StreetKings signature; see modules/progression/progression_s.lua.
+---@field AwardVehicleXp fun(...: any): any Native StreetKings signature; see modules/progression/progression_s.lua.
+---@field BroadcastPhoneMessage fun(...: any): any Native StreetKings signature; see modules/messages/messages_s.lua.
+---@field CreateServerWaypoint fun(...: any): any Native StreetKings signature; see modules/waypoints/waypoints_s.lua.
+---@field GetActiveVehicle fun(...: any): any Native StreetKings signature; see modules/garage/garage_s.lua.
+---@field GetOwnedVehicles fun(...: any): any Native StreetKings signature; see modules/garage/garage_s.lua.
+---@field GetPlayerCash fun(...: any): any Native StreetKings signature; see modules/storage/saves_s.lua.
+---@field GetPlayerGameState fun(...: any): any Native StreetKings signature; see modules/core/game_state_s.lua.
+---@field GetPlayerLevel fun(...: any): any Native StreetKings signature; see modules/progression/progression_s.lua.
+---@field GetServerWaypoints fun(...: any): any Native StreetKings signature; see modules/waypoints/waypoints_s.lua.
+---@field HasActiveSave fun(...: any): any Native StreetKings signature; see modules/storage/saves_s.lua.
+---@field IncrementStat fun(...: any): any Native StreetKings signature; see modules/stats/stats_s.lua.
+---@field IsPlayerInHangoutZone fun(...: any): any Native StreetKings signature; see modules/hangoutzones/hangoutzones_s.lua.
+---@field PersistSave fun(...: any): any Native StreetKings signature; see modules/storage/saves_s.lua.
+---@field ReadSaveData fun(...: any): any Native StreetKings signature; see modules/storage/saves_s.lua.
+---@field RecordActivityBest fun(...: any): any Native StreetKings signature; see modules/progression/progression_s.lua.
+---@field RegisterStat fun(...: any): any Native StreetKings signature; see modules/stats/stats_s.lua.
+---@field RemovePlayerCash fun(...: any): any Native StreetKings signature; see modules/storage/saves_s.lua.
+---@field RemoveServerWaypoint fun(...: any): any Native StreetKings signature; see modules/waypoints/waypoints_s.lua.
+---@field SendPhoneMessage fun(...: any): any Native StreetKings signature; see modules/messages/messages_s.lua.
+---@field SetStatMax fun(...: any): any Native StreetKings signature; see modules/stats/stats_s.lua.
+---@field SetTime fun(...: any): any Native StreetKings signature; see modules/environment/environment_s.lua.
+---@field SetWeather fun(...: any): any Native StreetKings signature; see modules/environment/environment_s.lua.
+---@field WriteSaveData fun(...: any): any Native StreetKings signature; see modules/storage/saves_s.lua.

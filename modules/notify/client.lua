@@ -5,6 +5,7 @@ TSSModuleLoader.Define({
         'modules/notify/adapters/ox.lua',
         'modules/notify/adapters/qbox.lua',
         'modules/notify/adapters/qb.lua',
+        'modules/notify/adapters/streetkings.lua',
         'modules/notify/adapters/okok.lua',
         'modules/notify/adapters/wasabi.lua',
         'modules/notify/adapters/mythic.lua',

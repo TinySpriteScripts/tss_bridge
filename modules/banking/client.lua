@@ -4,6 +4,7 @@ TSSModuleLoader.Define({
     files = {
         'modules/banking/shared.lua',
         'modules/banking/adapters/players.lua',
+        'modules/banking/adapters/streetkings.lua',
         'modules/banking/adapters/renewed.lua',
         'modules/banking/adapters/fd.lua',
         'modules/banking/adapters/okok.lua',
