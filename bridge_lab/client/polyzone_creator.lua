@@ -511,7 +511,7 @@ local function editorLoop()
                 if hoveredPoint then
                     editor.polyDrag = hoveredPoint
                     editor.message = ('Moving point %d'):format(hoveredPoint)
-                elseif editor.rayHit then
+                elseif editor.rayHit and #editor.zone.points < 128 then
                     editor.zone.points[#editor.zone.points + 1] = copy(editor.rayHit)
                     recalculatePolygonGround()
                     editor.message = nil
@@ -558,6 +558,31 @@ function Creator.Start(zoneType, name, callbacks)
     if editor.active then return false end
     if zoneType ~= 'box' and zoneType ~= 'circle' and zoneType ~= 'poly' then return false end
 
+    if callbacks ~= nil and type(callbacks) ~= 'table' then return false end
+    local initial = callbacks and callbacks.initialZone
+    if initial ~= nil and type(initial) ~= 'table' then return false end
+    local function validPoint(point)
+        if type(point) ~= 'table' and type(point) ~= 'vector3' and type(point) ~= 'vector2' then return false end
+        for _, axis in ipairs({ 'x', 'y' }) do
+            if type(point[axis]) ~= 'number' or point[axis] ~= point[axis] or math.abs(point[axis]) > 100000 then return false end
+        end
+        if type(point) == 'vector2' then return true end
+        return point.z == nil or type(point.z) == 'number' and point.z == point.z and math.abs(point.z) < 100000
+    end
+    if initial and zoneType == 'poly' then
+        if type(initial.points) ~= 'table' or #initial.points > 128 then return false end
+        for _, point in ipairs(initial.points) do if not validPoint(point) then return false end end
+    end
+    if callbacks and callbacks.cameraCoords and (not validPoint(callbacks.cameraCoords) or callbacks.cameraCoords.z == nil) then return false end
+    if callbacks and callbacks.cameraRotation and (not validPoint(callbacks.cameraRotation) or callbacks.cameraRotation.z == nil) then return false end
+
+    if initial then
+        if initial.coords and (not validPoint(initial.coords) or initial.coords.z == nil) then return false end
+        for _, field in ipairs({ 'minZ', 'maxZ', 'radius', 'width', 'length', 'height', 'heading' }) do
+            local value = initial[field]
+            if value ~= nil and (type(value) ~= 'number' or value ~= value or math.abs(value) > 100000) then return false end
+        end
+    end
     local ped = PlayerPedId()
     local camera = CreateCam('DEFAULT_SCRIPTED_CAMERA', true)
     local cameraCoords = GetGameplayCamCoord()
@@ -580,6 +605,32 @@ function Creator.Start(zoneType, name, callbacks)
         zone = { points = {}, height = 0.0 }
     end
 
+    if initial then
+        if zoneType == 'poly' then
+            for _, point in ipairs(initial.points or {}) do
+                zone.points[#zone.points + 1] = vector(point.x, point.y, point.z or initial.minZ or playerCoords.z)
+            end
+            zone.height = math.max(0.0, (initial.maxZ or initial.minZ or playerCoords.z) - (initial.minZ or playerCoords.z))
+        elseif zoneType == 'circle' then
+            zone.coords = copy(initial.coords or zone.coords)
+            zone.radius = math.max(minimumSize, initial.radius or zone.radius)
+        elseif zoneType == 'box' then
+            zone.coords = copy(initial.coords or zone.coords)
+            zone.width = math.max(minimumSize, initial.width or zone.width)
+            zone.length = math.max(minimumSize, initial.length or zone.length)
+            zone.height = math.max(minimumSize, initial.height or zone.height)
+            zone.heading = initial.heading or zone.heading
+        end
+    end
+    if callbacks and callbacks.cameraCoords then
+        local position = callbacks.cameraCoords
+        SetCamCoord(camera, position.x, position.y, position.z)
+    end
+    if callbacks and callbacks.cameraRotation then
+        local rotation = callbacks.cameraRotation
+        SetCamRot(camera, rotation.x, rotation.y, rotation.z, 2)
+    end
+
     editor = {
         active = true,
         type = zoneType,
@@ -591,8 +642,9 @@ function Creator.Start(zoneType, name, callbacks)
         wasInvincible = GetPlayerInvincible(PlayerId()),
         onSave = callbacks and callbacks.onSave,
         onCancel = callbacks and callbacks.onCancel,
+        owner = callbacks and callbacks.owner,
     }
-    if zoneType ~= 'poly' then editor.gizmo = createZoneGizmo() end
+    if zoneType ~= 'poly' then editor.gizmo = createZoneGizmo() else recalculatePolygonGround() end
 
     FreezeEntityPosition(ped, true)
     SetPlayerInvincible(PlayerId(), true)
@@ -611,4 +663,28 @@ end
 
 AddEventHandler('onClientResourceStop', function(resource)
     if resource == GetCurrentResourceName() and editor.active then stopEditor(false) end
+end)
+
+-- Consumer resources receive drafts through callbacks; only Bridge Lab chooses to write Lua files.
+exports('StartZoneCreator', function(zoneType, name, options)
+    if options ~= nil and type(options) ~= 'table' then return false end
+    local settings = {}
+    for key, value in pairs(options or {}) do settings[key] = value end
+    settings.owner = GetInvokingResource() or GetCurrentResourceName()
+    return Creator.Start(zoneType, name, settings)
+end)
+
+exports('IsZoneCreatorActive', function()
+    return Creator.IsActive()
+end)
+
+exports('StopZoneCreator', function()
+    local owner = GetInvokingResource() or GetCurrentResourceName()
+    if editor.active and editor.owner ~= owner then return false end
+    Creator.Stop()
+    return true
+end)
+
+AddEventHandler('onClientResourceStop', function(resource)
+    if editor.active and editor.owner == resource then stopEditor(false) end
 end)
