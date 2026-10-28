@@ -1,10 +1,10 @@
 TSSModuleLoader.Define({
     name = 'Vehicles',
-    files = { 'modules/vehicles/shared.lua' },
+    files = { 'modules/vehicles/shared.lua', 'modules/vehicles/access/shared.lua' },
     client = function(context)
         local owned = {}
         ---@type TSSVehiclesModule
-        local public = {}
+        local public = context.CopyFunctions(TSSVehicleAccess, { 'FromNetworkId', 'Current', 'Inspect', 'Nearby', 'TrunkPosition' })
 
         function public.Create(data, coords, options)
             local vehicle = TSS.CreateVehicle(data, coords, options)

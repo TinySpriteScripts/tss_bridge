@@ -1,5 +1,6 @@
 local files = {
     'modules/inventory/shared.lua',
+    'modules/inventory/adapters/tss-inventory.lua',
     'modules/inventory/adapters/ox_inventory.lua',
     'modules/inventory/adapters/qb-inventory.lua',
     'modules/inventory/adapters/ps-inventory.lua',

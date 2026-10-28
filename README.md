@@ -165,7 +165,8 @@ before attempting to edit a previously convar-controlled setting.
 | `ProgressBar` | Progress UI | Unavailable |
 | `VehicleKeys` | Read-only `Has` | `Has`, `Give`, `Remove` |
 | `UI` | Notify, progress, menu, context and input | Remote notify/progress |
-| `Blips`, `Peds`, `Props`, `Vehicles`, `World`, `Gizmo` | Client entity/world and transform-editor helpers | Unavailable |
+| `Blips`, `Peds`, `Props`, `World`, `Gizmo` | Client entity/world and transform-editor helpers | Unavailable |
+| `Vehicles` | Create/Delete/Clear plus Inspect, Current, FromNetworkId, Nearby, TrunkPosition | Inspect, Current(source), FromNetworkId |
 | `Groups` | Boss-grade lookup | Boss-grade lookup |
 | `Locale`, `Capabilities`, `Diagnostics` | Available | Available |
 | `Debug` | Debug tools | Secured debug persistence |
@@ -942,3 +943,13 @@ They remain StreetKings gameplay resources, not generic RP scripts.
 
 `AddPlayerCash`, `AwardPlayerXp`, `AwardVehicleXp`, `BroadcastPhoneMessage`, `CreateServerWaypoint`, `GetActiveVehicle`, `GetOwnedVehicles`, `GetPlayerCash`, `GetPlayerGameState`, `GetPlayerLevel`, `GetServerWaypoints`, `HasActiveSave`, `IncrementStat`, `IsPlayerInHangoutZone`, `PersistSave`, `ReadSaveData`, `RecordActivityBest`, `RegisterStat`, `RemovePlayerCash`, `RemoveServerWaypoint`, `SendPhoneMessage`, `SetStatMax`, `SetTime`, `SetWeather`, `WriteSaveData`.
 
+
+## TSS Inventory adapter
+
+The Inventory module now includes `tss` (`tss-inventory`, `tss_inventory`) for the grid resource. Auto detection prefers it when started; use `setr tss_inventory tss` before startup to force it. The inventory resource depends on this bridge for world peds, targets, notifications and Banking player payments; the bridge does not depend on tss-inventory. Start bridge before inventory and inventory before consumers. Restart consumers after restarting the bridge.
+
+The adapter supports standard inventory reads, item add/remove/carry checks, exact metadata updates, native usable callbacks, unrestricted server stashes and registered shop opening. Instance IDs are stable bridge slots. Explicit add slots can fill an existing compatible stack; new preferred-slot insertions fail. Missing item definitions remain errors. Arbitrary client stash opening is blocked. Stash owner/groups/coords restrictions and shop groups fail explicitly in this first version, rather than being discarded. Shops require server coordinates and enforce proximity. Existing direct calls to other inventories are not emulated. See tss-inventory/SHOPS_AND_BRIDGE.md for current coverage and setup.
+
+### Vehicle inspection
+
+GetModules({'Vehicles'}) provides read-only vehicle access on both sides. Inspect(entity) returns entity, networkId, model, normalized plate, coordinates, lock status and vehicle type. Current(source) and FromNetworkId(id) resolve live vehicles. Server inspection includes routing bucket, client inspection includes class. Client also exposes Nearby(distance) and TrunkPosition(entity). Validate storage with server inspection; never trust client-provided plates, classes or sizes. Creation/deletion helpers remain client-only.

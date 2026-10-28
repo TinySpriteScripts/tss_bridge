@@ -1,5 +1,6 @@
 local files = {
     'modules/inventory/shared.lua',
+    'modules/inventory/adapters/tss-inventory.lua',
     'modules/inventory/adapters/ox_inventory.lua',
     'modules/inventory/adapters/qb-inventory.lua',
     'modules/inventory/adapters/ps-inventory.lua',
@@ -42,6 +43,10 @@ TSSModuleLoader.Define({
                 return false, 'invalid_item_name'
             end
             if not TSS.IsCallable(callback) then return false, 'invalid_callback' end
+            local _, inventoryResource, inventoryAdapter = TSS.Inventory._GetAdapter()
+            if inventoryAdapter and inventoryAdapter.registerUsable then
+                return inventoryAdapter.registerUsable(inventoryResource, item:lower(), callback, context.Caller)
+            end
 
             local system, resource = TSS.Framework.System()
             if not system or not TSS.IsStarted(resource) then return false, 'framework_unavailable' end

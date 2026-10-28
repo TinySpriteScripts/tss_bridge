@@ -184,6 +184,8 @@ function TSS.Inventory.Supports(feature)
     feature = tostring(feature or ''):lower()
     if feature == 'usable' or feature == 'useable' then
         if TSS.IsClient() then return false end
+        local _, _, native = getAdapter()
+        if native and type(native.registerUsable) == 'function' then return true end
         local system, resource = TSS.Framework.System()
         return (system == 'qb' or system == 'qbox' or system == 'esx') and TSS.IsStarted(resource)
     end

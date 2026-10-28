@@ -355,7 +355,23 @@
 ---@field Delete fun(prop: TSSEntity)
 ---@field Clear fun()
 
+---@class TSSVehicleInfo
+---@field entity integer
+---@field networkId integer
+---@field model integer
+---@field plate string Trimmed uppercase plate.
+---@field coords {x:number,y:number,z:number}
+---@field bucket? integer Server only.
+---@field locked boolean
+---@field vehicleType string
+---@field class? integer Client only.
+
 ---@class TSSVehiclesModule
+---@field Inspect fun(vehicle:integer): TSSVehicleInfo? Client and server.
+---@field Current fun(playerSource?:integer): integer? Source required on server.
+---@field FromNetworkId fun(networkId:integer): integer? Client and server.
+---@field Nearby fun(distance:number): integer[] Client only.
+---@field TrunkPosition fun(vehicle:integer): vector3? Client only.
 ---@field Create fun(data: TSSEntityCreateData|string|integer, coords?: vector3|vector4|table, options?: TSSEntityCreateOptions): vehicle?: TSSEntity
 ---@field Delete fun(vehicle: TSSEntity)
 ---@field Clear fun()
