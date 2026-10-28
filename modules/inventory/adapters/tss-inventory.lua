@@ -9,7 +9,7 @@ end
 local function normalise(item,resource)
     local d=item.definition or call(resource,'GetItemDefinition',item.name) or {}
     local out={};for k,v in pairs(item) do out[k]=v end
-    out.slot=item.id;out.count=item.amount;out.info=item.metadata;out.weight=d.weight or 0;out.label=d.label or item.name
+    out.slot=item.id;out.count=item.amount;out.info=item.metadata;out.weight=d.weight or 0;out.label=item.label or (item.metadata and item.metadata.label) or d.label or item.name
     return out
 end
 local function items(resource,source)
