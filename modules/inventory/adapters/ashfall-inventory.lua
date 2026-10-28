@@ -1,7 +1,7 @@
--- tss-inventory adapter owned by the Inventory module.
+-- ashfall-inventory adapter owned by the Inventory module.
 local Utils = TSS.Inventory.Utils
 
-TSS.Inventory.RegisterAdapter('tss', TSS.Resources.TssInventory, {
+TSS.Inventory.RegisterAdapter('tss', TSS.Resources.AshfallInventory, {
     add = function(resource, source, item, amount, metadata, slot, reason)
         return Utils.TryExports(resource, { 'AddItem', 'addItem' }, source, item, amount or 1, metadata, slot, reason)
     end,

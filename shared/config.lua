@@ -83,6 +83,6 @@ TSS.Resources = {
     CodemInventory = 'codem-inventory',
     OrigenInventory = 'origen_inventory',
     TgiannInventory = 'tgiann-inventory',
-    TssInventory = 'tss-inventory',
+    AshfallInventory = 'ashfall-inventory',
     ChezzaInventory = 'inventory',
 }

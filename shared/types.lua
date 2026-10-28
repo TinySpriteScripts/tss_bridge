@@ -249,7 +249,7 @@
 ---@field Await fun(source: integer, name: string, timeout?: integer, ...): ...
 ---@field Trigger fun(source: integer, name: string, callback: fun(...), ...): boolean
 
----@class TSSInventoryClientModule
+---@class AshfallInventoryClientModule
 ---@field System fun(): system?: string, resource?: string
 ---@field Supports fun(feature: string): boolean
 ---@field Count fun(item: string, metadata?: table|string): integer
@@ -265,7 +265,7 @@
 ---@field OpenStash fun(id: string, data?: TSSStashData): boolean
 ---@field Close fun(): boolean
 
----@class TSSInventoryServerModule
+---@class AshfallInventoryServerModule
 ---@field Stash fun(id: string): table?, string?
 ---@field AddToStash fun(id: string, item: string, amount: integer, metadata?: table, slot?: integer, reason?: string): boolean
 ---@field RemoveFromStash fun(id: string, item: string, amount: integer, metadata?: table, slot?: integer, reason?: string): boolean
@@ -502,7 +502,7 @@
 ---@field Notify? TSSNotifyModule
 ---@field TextUI? TSSTextUIClientModule
 ---@field Callbacks? TSSCallbacksClientModule
----@field Inventory? TSSInventoryClientModule
+---@field Inventory? AshfallInventoryClientModule
 ---@field ProgressBar? TSSProgressBarModule
 ---@field Targets? TSSTargetsModule
 ---@field Interaction? TSSInteractionModule
@@ -529,7 +529,7 @@
 ---@field Notify? TSSNotifyModule
 ---@field TextUI? TSSTextUIServerModule
 ---@field Callbacks? TSSCallbacksServerModule
----@field Inventory? TSSInventoryServerModule
+---@field Inventory? AshfallInventoryServerModule
 ---@field VehicleKeys? TSSVehicleKeysServerModule
 ---@field UI? TSSUIServerModule
 ---@field Locale? TSSLocaleModule

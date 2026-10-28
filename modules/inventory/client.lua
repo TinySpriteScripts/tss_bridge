@@ -8,7 +8,7 @@ local files = {
     'modules/inventory/adapters/codem-inventory.lua',
     'modules/inventory/adapters/origen_inventory.lua',
     'modules/inventory/adapters/tgiann-inventory.lua',
-    'modules/inventory/adapters/tss-inventory.lua',
+    'modules/inventory/adapters/ashfall-inventory.lua',
     'modules/inventory/adapters/inventory.lua',
 }
 

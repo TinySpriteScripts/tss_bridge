@@ -8,7 +8,7 @@ local files = {
     'modules/inventory/adapters/codem-inventory.lua',
     'modules/inventory/adapters/origen_inventory.lua',
     'modules/inventory/adapters/tgiann-inventory.lua',
-    'modules/inventory/adapters/tss-inventory.lua',
+    'modules/inventory/adapters/ashfall-inventory.lua',
     'modules/inventory/adapters/inventory.lua',
 }
 
@@ -17,7 +17,7 @@ TSSModuleLoader.Define({
     dependencies = { 'Framework' },
     files = files,
     server = function(context)
-        ---@type TSSInventoryServerModule
+        ---@type AshfallInventoryServerModule
         local Inventory = context.CopyFunctions(TSS.Inventory, {
             'System', 'Supports', 'Count', 'Has', 'Player', 'GetSlot', 'Find', 'Weight', 'MaxWeight',
             'Items', 'Image', 'Open', 'OpenStash', 'Close',
