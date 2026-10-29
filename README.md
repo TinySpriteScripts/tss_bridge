@@ -166,7 +166,7 @@ before attempting to edit a previously convar-controlled setting.
 | `VehicleKeys` | Read-only `Has` | `Has`, `Give`, `Remove` |
 | `UI` | Notify, progress, menu, context and input | Remote notify/progress |
 | `Blips`, `Peds`, `Props`, `World`, `Gizmo` | Client entity/world and transform-editor helpers | Unavailable |
-| `Vehicles` | Create/Delete/Clear plus Inspect, Current, FromNetworkId, Nearby, TrunkPosition | Inspect, Current(source), FromNetworkId |
+| `Vehicles` | Create/Delete/Clear plus Inspect, Current, FromNetworkId, Nearby, TrunkPosition, SetTrunkOpen | Inspect, Current(source), FromNetworkId |
 | `Groups` | Boss-grade lookup | Boss-grade lookup |
 | `Locale`, `Capabilities`, `Diagnostics` | Available | Available |
 | `Debug` | Debug tools | Secured debug persistence |
@@ -952,4 +952,6 @@ The adapter supports standard inventory reads, item add/remove/carry checks, exa
 
 ### Vehicle inspection
 
-GetModules({'Vehicles'}) provides read-only vehicle access on both sides. Inspect(entity) returns entity, networkId, model, normalized plate, coordinates, lock status and vehicle type. Current(source) and FromNetworkId(id) resolve live vehicles. Server inspection includes routing bucket, client inspection includes class. Client also exposes Nearby(distance) and TrunkPosition(entity). Validate storage with server inspection; never trust client-provided plates, classes or sizes. Creation/deletion helpers remain client-only.
+GetModules({'Vehicles'}) provides vehicle queries on both sides. Inspect(entity) returns entity, networkId, model, normalized plate, coordinates, lock status and vehicle type. Current(source) and FromNetworkId(id) resolve live vehicles. Server inspection includes routing bucket, client inspection includes class. Client also exposes Nearby(distance), TrunkPosition(entity) and SetTrunkOpen(entity, shouldOpen). SetTrunkOpen animates a valid boot door and returns success and its previous open state. Validate storage with server inspection; never trust client-provided plates, classes or sizes. Creation/deletion and door helpers remain client-only.
+
+For vehicle bone targets, use `Targets.Bone({'boot'}, options, distance)` and `Targets.RemoveBone({'boot'})`. Check `Targets.Supports('bones')` first. Bone targets are supported by ox_target, qb-target and tss-interactions, and scoped registrations are removed by `Targets.Clear()`.

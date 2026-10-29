@@ -14,8 +14,8 @@ TSSModuleLoader.Define({
         local groups = {}
         ---@type TSSTargetsModule
         local public = context.CopyFunctions(target, {
-            'System', 'Supports', 'Entity', 'Model', 'Box', 'Circle',
-            'RemoveEntity', 'RemoveModel', 'RemoveZone',
+            'System', 'Supports', 'Entity', 'Bone', 'Model', 'Box', 'Circle',
+            'RemoveEntity', 'RemoveBone', 'RemoveModel', 'RemoveZone',
         })
 
         local function removeGroup(name)

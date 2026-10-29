@@ -1,7 +1,18 @@
 local utils = TSS.Target.Utils
 
 TSS.Target.RegisterAdapter('ox', TSS.Resources.OxTarget, {
-    supports = { entity = true, model = true, box = true, circle = true, groups = true, items = true },
+    supports = { entity = true, bones = true, model = true, box = true, circle = true, groups = true, items = true },
+    bone = function(resource, bones, options, distance)
+        local registration = utils.BoneRegistration(bones, options)
+        local normalized = utils.NormaliseOxOptions(options, distance)
+        for optionIndex, option in ipairs(normalized) do
+            option.bones = registration.bones
+            option.name = registration.names[optionIndex]
+        end
+        utils.Call(resource, 'addGlobalVehicle', normalized)
+        return registration
+    end,
+    removeBone = function(resource, registration) return utils.Call(resource, 'removeGlobalVehicle', registration.names) end,
     entity = function(resource, entity, options, distance)
         return utils.Call(resource, 'addLocalEntity', entity, utils.NormaliseOxOptions(options, distance))
     end,

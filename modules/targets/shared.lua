@@ -57,6 +57,7 @@ local function normaliseOxOptions(options, distance)
             items = option.items or option.item,
             groups = option.groups or option.job or option.gang,
             distance = option.distance or distance,
+            bones = option.bones,
             canInteract = option.canInteract,
             onSelect = option.onSelect or option.action,
         }
@@ -188,6 +189,15 @@ end
 
 TSS.Target.Utils.First = first
 TSS.Target.Utils.NormaliseOxOptions = normaliseOxOptions
+TSS.Target.Utils.NormaliseQbOptions = normaliseQbOptions
+TSS.Target.Utils.BoneRegistration = function(bones, options)
+    local registration = { bones = type(bones) == 'table' and bones or { bones }, names = {}, labels = {} }
+    for _, option in ipairs(asArray(options)) do
+        registration.names[#registration.names + 1] = option.name or option.label
+        registration.labels[#registration.labels + 1] = option.label
+    end
+    return registration
+end
 TSS.Target.Utils.GetBoxData = getBoxData
 TSS.Target.Utils.GetCircleData = getCircleData
 TSS.Target.Utils.Call = callTarget
@@ -199,7 +209,7 @@ TSS.Target.Utils.AddQbCircle = addQbCircle
 -- Each imported API owns its registrations and remembers the creating provider.
 function TSS.Target.CreateAPI(preferred)
     local public = {}
-    local tracked = { entities = {}, models = {}, zones = {} }
+    local tracked = { entities = {}, models = {}, zones = {}, bones = {} }
     -- Arrays cross resource exports by value, so table identity cannot identify them.
     local function registrationKey(value)
         if type(value) ~= 'table' then return value end
@@ -238,6 +248,17 @@ function TSS.Target.CreateAPI(preferred)
         return entry.adapter[method](entry.resource, entry.value)
     end
     function public.Entity(entity, options, distance) return add('entities', 'entity', entity, options, distance) end
+    function public.Bone(bones, options, distance)
+        local _, resource, adapter = registry:Resolve(preferred)
+        if not adapter or not adapter.bone then return false end
+        local key = registrationKey(bones)
+        if tracked.bones[key] then public.RemoveBone(bones) end
+        local registration = adapter.bone(resource, bones, options, distance)
+        if not registration then return false end
+        tracked.bones[key] = { adapter = adapter, resource = resource, value = registration, bones = bones }
+        return true
+    end
+    function public.RemoveBone(bones) return remove('bones', 'removeBone', bones) end
     function public.Model(models, options, distance) return add('models', 'model', models, options, distance) end
     function public.Box(data, options, distance) return add('zones', 'box', data, options, distance) end
     function public.Circle(data, options, distance) return add('zones', 'circle', data, options, distance) end
@@ -245,6 +266,7 @@ function TSS.Target.CreateAPI(preferred)
     function public.RemoveModel(models) return remove('models', 'removeModel', models) end
     function public.RemoveZone(zone) return remove('zones', 'removeZone', zone) end
     function public.Clear()
+        for _, entry in pairs(tracked.bones) do public.RemoveBone(entry.bones) end
         for _, entry in pairs(tracked.entities) do public.RemoveEntity(entry.value) end
         for _, entry in pairs(tracked.models) do public.RemoveModel(entry.value) end
         for _, entry in pairs(tracked.zones) do public.RemoveZone(entry.value) end

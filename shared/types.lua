@@ -303,6 +303,8 @@
 ---@field System fun(): system?: string, resource?: string
 ---@field Supports fun(feature: string): boolean
 ---@field Entity fun(entity: TSSEntity|TSSEntity[], options: TSSTargetOption[]|TSSTargetOption, distance?: number): any
+---@field Bone fun(bones: string|string[], options: TSSTargetOption[]|TSSTargetOption, distance?: number): boolean
+---@field RemoveBone fun(bones: string|string[]): any
 ---@field Model fun(models: string|integer|(string|integer)[], options: TSSTargetOption[]|TSSTargetOption, distance?: number): any
 ---@field Box fun(data: TSSTargetZoneData, options: TSSTargetOption[], distance?: number): string|number|nil
 ---@field Circle fun(data: TSSTargetZoneData, options: TSSTargetOption[], distance?: number): string|number|nil
@@ -372,6 +374,7 @@
 ---@field FromNetworkId fun(networkId:integer): integer? Client and server.
 ---@field Nearby fun(distance:number): integer[] Client only.
 ---@field TrunkPosition fun(vehicle:integer): vector3? Client only.
+---@field SetTrunkOpen fun(vehicle:integer, shouldOpen:boolean): boolean, boolean? Client only; returns success and previous open state.
 ---@field Create fun(data: TSSEntityCreateData|string|integer, coords?: vector3|vector4|table, options?: TSSEntityCreateOptions): vehicle?: TSSEntity
 ---@field Delete fun(vehicle: TSSEntity)
 ---@field Clear fun()

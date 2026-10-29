@@ -57,7 +57,13 @@ local function point(resource, data, options, distance)
 end
 
 TSS.Target.RegisterAdapter('tss_interact', TSS.Resources.TssInteract, {
-    supports = { entity = true, model = true, box = true, circle = true, groups = true, items = true },
+    supports = { entity = true, bones = true, model = true, box = true, circle = true, groups = true, items = true },
+    bone = function(resource, bones, options, distance)
+        local registration = utils.BoneRegistration(bones, options)
+        utils.Call(resource, 'AddBone', registration.bones, { options = normalise(options), distance = distance or 2.0 })
+        return registration
+    end,
+    removeBone = function(resource, registration) return utils.Call(resource, 'RemoveBone', registration.bones, registration.names) end,
     entity = function(resource, entity, options, distance)
         return utils.Call(resource, 'AddEntity', entity, { options = normalise(options), distance = distance or 2.0 })
     end,

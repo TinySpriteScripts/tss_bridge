@@ -4,7 +4,7 @@ TSSModuleLoader.Define({
     client = function(context)
         local owned = {}
         ---@type TSSVehiclesModule
-        local public = context.CopyFunctions(TSSVehicleAccess, { 'FromNetworkId', 'Current', 'Inspect', 'Nearby', 'TrunkPosition' })
+        local public = context.CopyFunctions(TSSVehicleAccess, { 'FromNetworkId', 'Current', 'Inspect', 'Nearby', 'TrunkPosition', 'SetTrunkOpen' })
 
         function public.Create(data, coords, options)
             local vehicle = TSS.CreateVehicle(data, coords, options)

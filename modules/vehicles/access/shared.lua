@@ -1,4 +1,4 @@
--- Read-only vehicle queries shared by bridge consumers on client and server.
+-- Vehicle queries shared by both sides, plus client-only compartment animation.
 TSSVehicleAccess = {}
 local vehicleAccess = TSSVehicleAccess
 local isServer = IsDuplicityVersion()
@@ -52,4 +52,13 @@ function vehicleAccess.TrunkPosition(vehicle)
     if bootBone ~= -1 then return GetWorldPositionOfEntityBone(vehicle, bootBone) end
     local minimumDimensions = GetModelDimensions(GetEntityModel(vehicle))
     return GetOffsetFromEntityInWorldCoords(vehicle, 0.0, minimumDimensions.y - 0.25, 0.0)
+end
+
+function vehicleAccess.SetTrunkOpen(vehicle, shouldOpen)
+    if isServer or not vehicle or not DoesEntityExist(vehicle) or GetEntityType(vehicle) ~= 2
+        or not GetIsDoorValid(vehicle, 5) or IsVehicleDoorDamaged(vehicle, 5) then return false end
+    local wasOpen = GetVehicleDoorAngleRatio(vehicle, 5) > 0.1
+    if shouldOpen then SetVehicleDoorOpen(vehicle, 5, false, false)
+    else SetVehicleDoorShut(vehicle, 5, false) end
+    return true, wasOpen
 end
