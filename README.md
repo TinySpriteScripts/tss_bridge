@@ -955,3 +955,24 @@ The adapter supports standard inventory reads, item add/remove/carry checks, exa
 GetModules({'Vehicles'}) provides vehicle queries on both sides. Inspect(entity) returns entity, networkId, model, normalized plate, coordinates, lock status and vehicle type. Current(source) and FromNetworkId(id) resolve live vehicles. Server inspection includes routing bucket, client inspection includes class. Client also exposes Nearby(distance), TrunkPosition(entity) and SetTrunkOpen(entity, shouldOpen). SetTrunkOpen animates a valid boot door and returns success and its previous open state. Validate storage with server inspection; never trust client-provided plates, classes or sizes. Creation/deletion and door helpers remain client-only.
 
 For vehicle bone targets, use `Targets.Bone({'boot'}, options, distance)` and `Targets.RemoveBone({'boot'})`. Check `Targets.Supports('bones')` first. Bone targets are supported by ox_target, qb-target and tss-interactions, and scoped registrations are removed by `Targets.Clear()`.
+
+## GitHub releases
+
+Push a stable version tag such as `v1.0.0` to create a GitHub Release with
+that title and automatically generated release notes:
+
+```sh
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Commit and push the release workflow before tagging; the tagged commit must
+include `.github/workflows/release.yml`. GitHub Actions builds the UI using
+`npm ci` and `npm run build`, then attaches `tss_bridge-v1.0.0.zip`.
+Extract the ZIP into your resources directory and `ensure tss_bridge`.
+The ZIP includes the Lua modules, Bridge Lab, and compiled UI, without UI
+source files or development dependencies. Its manifest version is set from
+the tag (`1.0.0`); the repository manifest is not changed by the workflow.
+Only stable `vMAJOR.MINOR.PATCH` tags are accepted. The workflow uses the
+built-in GitHub token and requires no additional secrets. The separate
+`version_check` repository is not updated by this workflow.
