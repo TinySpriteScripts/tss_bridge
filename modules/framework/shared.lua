@@ -67,3 +67,17 @@ end
 function TSS.Framework.Supports(feature)
     return registry:Supports(feature)
 end
+
+--- Returns the current framework-owned item callback on the server, or nil.
+---@param itemName string
+---@return function|table|nil callback
+function TSS.Framework.GetUsableItem(itemName)
+    if not TSS.IsServer() or type(itemName) ~= 'string' or itemName == '' then return nil end
+    local _, resource, adapter = resolve()
+    if not adapter or not adapter.getUsableItem then return nil end
+    local callback = adapter.getUsableItem(resource, itemName:lower())
+    if type(callback) == 'table' and not TSS.IsCallable(callback) then
+        callback = callback.func or callback.cb or callback.callback
+    end
+    return TSS.IsCallable(callback) and callback or nil
+end

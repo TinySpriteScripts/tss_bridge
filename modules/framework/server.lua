@@ -9,7 +9,7 @@ TSSModuleLoader.Define({
     },
     server = function(context)
         return context.CopyFunctions(TSS.Framework, {
-            'System', 'Object', 'Player', 'PlayerData', 'Jobs', 'Gangs', 'Supports',
+            'System', 'Object', 'Player', 'PlayerData', 'Jobs', 'Gangs', 'Supports', 'GetUsableItem',
         })
     end,
 })

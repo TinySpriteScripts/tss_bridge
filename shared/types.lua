@@ -150,6 +150,7 @@
 ---@field Jobs fun(): table
 ---@field Gangs fun(): table
 ---@field Supports fun(feature: string): boolean
+---@field GetUsableItem? fun(itemName: string): function|table|nil Server-only framework item callback lookup.
 
 ---@class TSSPlayerClientModule
 ---@field Data fun(): table|nil
