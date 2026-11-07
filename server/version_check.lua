@@ -125,13 +125,16 @@ local function register(resource)
         return false
     end
 
-    local url, urlError = versionFileUrl(resource, metadata(resource, 'version_check_repo'))
+    local configuredRepository = metadata(resource, 'version_check_repo')
+    local url, urlError = versionFileUrl(resource, configuredRepository)
     if not url then
         printCheckError(resource, urlError .. '.')
         return false
     end
 
     PerformHttpRequest(url, function(status, body)
+        -- The shared catalogue is optional. Resources without an entry have no update to check.
+        if status == 404 and (not configuredRepository or configuredRepository == '') then return end
         if status ~= 200 or type(body) ~= 'string' or #body > 16384 then
             printCheckError(resource, ('Could not retrieve version information (HTTP %s).'):format(tostring(status)))
             return

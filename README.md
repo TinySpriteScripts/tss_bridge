@@ -60,6 +60,9 @@ tss-comicbook
 https://discord.gg/example
 ```
 
+If a resource has no file in the default catalogue, the bridge skips its check.
+A missing file at a configured `version_check_repo` URL still reports an error.
+
 Third-party resources can select another public repository in their manifest:
 
 ```lua
