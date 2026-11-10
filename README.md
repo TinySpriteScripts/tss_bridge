@@ -979,3 +979,34 @@ the tag (`1.0.0`); the repository manifest is not changed by the workflow.
 Only stable `vMAJOR.MINOR.PATCH` tags are accepted. The workflow uses the
 built-in GitHub token and requires no additional secrets. The separate
 `version_check` repository is not updated by this workflow.
+
+## Shared UI
+
+`TSS.Config.DefaultTheme` at the top of `shared/config.lua` sets the default preset (it must match a preset name; unknown names fall back to TinySprite Studio). `ui/theme.json` owns the `themes` registry. All 11 presets are included: TinySprite Studio, Retro Executive, Coastal Ledger, Warm Arcade, Midnight Studio, Glass Horizon, Burger Shot, Tequi-la-la Nights, Bean Machine Roast, Up N Atom Burst, and Onion Terminal. Edit a preset here to update every resource that selects it. `styleVariant` chooses Studio, classic, slate, or glass styling; `graphVariant` chooses line or pie charts.
+
+In bossmenu, each entry in `configs/business.lua` and `configs/groups.lua` can set `theme = "Burger Shot"`, for example. Omit it or use `theme = "default"` to follow the bridge default. Unknown names also fall back to that default. `Label` in these configs controls the Business/Group header. Palette definitions no longer live in bossmenu.
+
+After changing theme configuration, restart `tss_bridge` and any dependent resources that stop, including `tss-bossmenu`. Reopen the menu. No web build is needed for palette changes.
+
+### Integrating another UI
+
+Add `dependency 'tss_bridge'` to its manifest, then load these before its app bundle:
+
+```html
+<link rel="stylesheet" href="https://cfx-nui-tss_bridge/ui/components.css">
+<link rel="stylesheet" href="https://cfx-nui-tss_bridge/ui/studio.css">
+<script src="https://cfx-nui-tss_bridge/ui/theme.js"></script>
+<script src="https://cfx-nui-tss_bridge/ui/components.js"></script>
+```
+
+Call `window.TSSUI.createComponents(React)` with the consumer's React instance. The shared kit supplies Shell, Panel, SectionHeader, Chart, InfoCard, Metric, TerminalIdle, ConfirmDialog, Button, Table, and Pill. Shell accepts `title`, `pages` (`id`, `label`, optional `badge`, and `render` callback), `summary` entries, `activePage`, `onPageChange`, and `onClose`. Consumers supply page content and callbacks; the bridge owns reusable markup and styling. `ui/types.d.ts` defines the contract without bundling another React runtime.
+
+`window.TSSTheme.select(name)` selects a preset; `ready` resolves with the initial theme; `tss:theme` events provide the current tokens in `event.detail`. `refresh()` reloads the registry while preserving the current selection. Bossmenu sends only a theme name and mirrors that selection to nearby computer viewers. Browser previews must route the `cfx-nui-tss_bridge/ui/` URLs to this resource's `ui/` directory.
+
+Edit shared components in `ui/src/components.jsx`, then run `npm run build:shared` from `html` after installing that directory's dependencies. The shipped `ui/components.js` is the runtime file; consumers do not bundle copies. CSS and theme edits need no compilation. Bossmenu retains its business data/actions, page content/layouts, and FiveM computer transport.
+
+### Plain NUI consumers
+
+Resources without a React bundle can load `https://cfx-nui-tss_bridge/ui/runtime.js` before their page script. It supplies `window.TSSUIRuntime.React` and `createRoot`; pass that React instance to `TSSUI.createComponents`. The runtime is bundled locally with the bridge, without a CDN. `build:shared` rebuilds it alongside the component kit. Existing React consumers such as bossmenu keep using their own instance.
+
+`tss-busjob` uses this runtime and supplies its management, route-selection and HUD content. Its optional `Config.UITheme` selects a registry preset; `default` follows the bridge default.

@@ -677,7 +677,7 @@ function BridgeDialog({ data, onClose }) {
             <i />
           </header>
         )}
-        <div className={data.kind === 'menu' ? 'bridge-menu-body' : undefined}>
+        <div className={data.kind === 'menu' ? 'bridge-menu-body' : 'bridge-context-body'}>
           <div className="bridge-options">
             {items.map((option, index) => {
 

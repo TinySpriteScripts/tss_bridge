@@ -775,7 +775,30 @@ body,
 }
 
 .menu-panel { width: min(680px, 48vw); min-width: 560px; padding-top: 22px; overflow: hidden; }
-.context-panel { width: 378px; padding: 18px 16px; }
+.context-panel {
+  width: 378px;
+  max-height: min(70vh, 640px);
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+}
+.bridge-context-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.context-panel .bridge-options {
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 42, 42, .55) rgba(255,255,255,.04);
+}
+.context-panel .bridge-options::-webkit-scrollbar { width: 4px; }
+.context-panel .bridge-options::-webkit-scrollbar-track { background: rgba(255,255,255,.04); }
+.context-panel .bridge-options::-webkit-scrollbar-thumb { background: rgba(255, 42, 42, .55); }
 
 .bridge-menu-header { padding: 12px 28px 22px; }
 .bridge-menu-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }

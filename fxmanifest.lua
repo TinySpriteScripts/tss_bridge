@@ -8,6 +8,10 @@ games { 'gta5', 'rdr3' }
 lua54 'yes'
 
 files {
+    'ui/*.css',
+    'ui/*.js',
+    'ui/theme.json',
+    'ui/runtime-LICENSE.txt',
     'shared/*.lua',
     'shared/locales/*.lua',
     'modules/**/shared.lua',

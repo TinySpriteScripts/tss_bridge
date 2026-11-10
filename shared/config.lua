@@ -1,6 +1,13 @@
 TSS = TSS or {}
 TSS.Config = TSS.Config or {}
 
+-- UI theme used by every tss_bridge NUI/DUI consumer (e.g. tss-bossmenu) unless it picks its own.
+-- Must match a preset name in ui/theme.json: 'TinySprite Studio', 'Midnight Studio', 'Retro Executive',
+-- 'Burger Shot', 'Up N Atom Burst', 'Glass Horizon', 'Warm Arcade', 'Onion Terminal',
+-- 'Bean Machine Roast', 'Tequi-la-la Nights', 'Coastal Ledger'.
+-- Keep this on a single line; the UI reads it directly from this file.
+TSS.Config.DefaultTheme = 'TinySprite Studio'
+
 TSS.Config.Debug = TSS.Config.Debug or GetConvar('tss_debug', 'false') == 'true'
 TSS.Config.Framework = GetConvar('tss_framework', TSS.Config.Framework or 'auto')
 TSS.Config.Notify = GetConvar('tss_notify', TSS.Config.Notify or 'auto')

@@ -1,0 +1,31 @@
+/* Reusable Studio components. Consumer styles own content layout only. */
+:root[data-ui-style="studio"] { font-family: "Segoe UI", Arial, sans-serif; color: var(--text); color-scheme: normal; background: transparent; }
+/* Keep the NUI canvas transparent; dark native controls belong inside the UI. */
+:root[data-ui-style="studio"] :is(.tss-window, input, select, textarea) { color-scheme: dark; }
+:root[data-ui-style="studio"] .tss-window { background: var(--shell); border: 1px solid var(--border-dark); border-radius: 8px; box-shadow: 0 24px 70px #0006; }
+:root[data-ui-style="studio"] .tss-titlebar { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: var(--shell); border-bottom: 1px solid var(--border-dark); color: var(--title-text); font-size: 12px; }
+:root[data-ui-style="studio"] .tss-brand { color: var(--title-text); letter-spacing: 2px; font-size: 10px; margin-right: 14px; padding-right: 20px; border-right: 1px solid var(--border-light); }
+:root[data-ui-style="studio"] .tss-workspace { display: grid; grid-template-columns: 180px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 20px; padding: 20px; min-height: 0; }
+:root[data-ui-style="studio"] .tss-nav { display: flex; flex-direction: column; align-items: stretch; gap: 6px; border: 0; border-right: 1px solid var(--border-dark); padding: 0 16px 0 0; overflow: auto; }
+:root[data-ui-style="studio"] .tss-nav-item { width: 100%; min-width: 0; padding: 12px; text-align: left; background: transparent; color: var(--muted); border: 1px solid transparent; border-radius: 5px; cursor: pointer; box-shadow: none; }
+:root[data-ui-style="studio"] .tss-nav-item.active { color: var(--text); background: var(--accent-soft); border-color: var(--border-light); box-shadow: inset 2px 0 var(--accent); }
+:root[data-ui-style="studio"] .tss-panel { background: var(--panel); border: 1px solid var(--border-dark); border-radius: 6px; box-shadow: none; min-width: 0; overflow: hidden; }
+:root[data-ui-style="studio"] .tss-panel-head { padding: 12px 16px; border-bottom: 1px solid var(--border-dark); }
+:root[data-ui-style="studio"] .tss-panel-head h2 { color: var(--text); font-size: 13px; font-weight: 600; }
+:root[data-ui-style="studio"] .tss-panel-head h2::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 8px; border-radius: 50%; background: var(--accent); }
+:root[data-ui-style="studio"] .tss-button { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border-light); border-radius: 5px; padding: 8px 12px; box-shadow: none; cursor: pointer; }
+:root[data-ui-style="studio"] .tss-button-primary { background: var(--accent); color: var(--title-text); border-color: var(--accent); }
+:root[data-ui-style="studio"] .tss-button-danger { color: var(--danger); }
+:root[data-ui-style="studio"] :is(.tss-button, .tss-nav-item):hover { filter: brightness(1.15); }
+:root[data-ui-style="studio"] :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:root[data-ui-style="studio"] :is(input, select, textarea) { background: var(--field); color: var(--field-text); border: 1px solid var(--border-light); border-radius: 5px; box-shadow: none; }
+:root[data-ui-style="studio"] button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 900px) {
+  :root[data-ui-style="studio"] .tss-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  :root[data-ui-style="studio"] .tss-nav { flex-direction: row; border-right: 0; border-bottom: 1px solid var(--border-dark); padding: 0 0 10px; }
+  :root[data-ui-style="studio"] .tss-nav-item { width: auto; flex-shrink: 0; }
+}
+
+:root[data-ui-style="studio"] .tss-table { background: var(--panel); border-collapse: collapse; }
+:root[data-ui-style="studio"] .tss-table th { background: var(--panel-alt); color: var(--muted); font-size: 12px; font-weight: 500; }
+:root[data-ui-style="studio"] .tss-table td { background: var(--panel); border-bottom: 1px solid var(--border-dark); }
