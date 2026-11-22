@@ -407,6 +407,7 @@
 ---@field camera? boolean Create and control a detached camera; defaults to true.
 ---@field cameraSpeed? number Detached camera movement speed.
 ---@field size? number Fixed world-space gizmo size.
+---@field uiOverlay? boolean Draw handles over the world; defaults to true.
 ---@field freeze? boolean Freeze an edited entity during the session; defaults to true.
 ---@field restoreOnCancel? boolean Restore an entity's initial transform when cancelled; defaults to true.
 ---@field onChange? fun(state: TSSGizmoState)
@@ -420,6 +421,7 @@
 ---@field GetHandle fun(self: TSSGizmoController): table|nil
 ---@field SetEnabled fun(self: TSSGizmoController, state: boolean)
 ---@field FinishDrag fun(self: TSSGizmoController, cancelled?: boolean)
+---@field ClearOverlay fun(self: TSSGizmoController) Clears this controller's foreground handles.
 
 ---@class TSSGizmoModule
 ---@field Start fun(options: TSSGizmoStartOptions, callback?: fun(result?: TSSGizmoState, cancelled: boolean)): boolean, error?: string

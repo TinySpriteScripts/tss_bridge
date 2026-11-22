@@ -43,6 +43,7 @@ TSSModuleLoader.Define({
             session = nil
             current.active = false
             current.gizmo:FinishDrag(true)
+            current.gizmo:ClearOverlay()
 
             if current.camera and DoesCamExist(current.camera) then
                 RenderScriptCams(false, true, 250, true, true)
@@ -169,6 +170,7 @@ TSSModuleLoader.Define({
 
             current.gizmo = TSS.Gizmo.Create({
                 mode = current.mode,
+                uiOverlay = options.uiOverlay ~= false,
                 handles = function(mode)
                     local center, length = current.coords, size()
                     local handles = {}
@@ -262,7 +264,10 @@ TSSModuleLoader.Define({
 
         local function stopAll(cancelled)
             if session then finishSession(cancelled ~= false) end
-            for i = 1, #controllers do controllers[i]:FinishDrag(cancelled == true) end
+            for i = 1, #controllers do
+                controllers[i]:FinishDrag(cancelled == true)
+                controllers[i]:ClearOverlay()
+            end
             controllers = {}
         end
 

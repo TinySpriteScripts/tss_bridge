@@ -72,6 +72,7 @@ end
 
 local function createPedGizmo()
     return Gizmo.Create({
+        uiOverlay = true,
         mode = editor.mode,
         handles = function(mode)
             local center = editor.dragTransform and editor.dragTransform.coords or GetEntityCoords(editor.ped)
@@ -221,7 +222,10 @@ end
 
 local function cleanup(cancelled)
     if not editor.active then return end
-    if editor.gizmo then editor.gizmo:FinishDrag(true) end
+    if editor.gizmo then
+        editor.gizmo:FinishDrag(true)
+        editor.gizmo:ClearOverlay()
+    end
     local callback = cancelled and editor.onCancel or editor.onSave
     local entries, entities, camera, player = editor.entries, editor.entities, editor.camera, editor.player
     editor.active = false

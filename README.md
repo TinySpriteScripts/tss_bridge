@@ -587,10 +587,12 @@ local started, err = TSS.Gizmo.Start({
 end)
 ```
 
-For data without an entity, pass `coords`, `rotation` or `heading`. Use
-`GetState()`, `Finish()` and `Stop()` when another UI owns confirmation. Advanced
-tools can call `Create()` and describe axis, point and ring handles; the Bridge
-Lab uses this route for bone-local attachments and zone resize/radius handles.
+For data without an entity, pass `coords`, `rotation` or `heading`. `Start()`
+draws handles in front of world objects by default. Set `uiOverlay = false` to
+use world-space drawing. Use `GetState()`, `Finish()` and `Stop()` when another
+UI owns confirmation. Embedded controllers created with `Create()` can enable
+foreground drawing with `uiOverlay = true` and call `controller:ClearOverlay()`
+when their editor closes.
 
 ## Vehicle keys
 

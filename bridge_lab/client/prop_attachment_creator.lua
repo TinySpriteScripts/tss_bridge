@@ -97,6 +97,7 @@ end
 
 local function createAttachmentGizmo()
     return Gizmo.Create({
+        uiOverlay = true,
         mode = editor.mode,
         handles = function(mode)
             local center, axes, size = GetEntityCoords(editor.prop), boneAxes(), gizmoSize()
@@ -282,7 +283,10 @@ end
 
 local function stopEditor(cancelled)
     if not editor.active then return end
-    if editor.gizmo then editor.gizmo:FinishDrag(true) end
+    if editor.gizmo then
+        editor.gizmo:FinishDrag(true)
+        editor.gizmo:ClearOverlay()
+    end
     local onCancel, props, prop = editor.onCancel, editor.props, editor.prop
     local camera, ped = editor.camera, editor.ped
     local wasFrozen, wasInvincible = editor.wasFrozen, editor.wasInvincible

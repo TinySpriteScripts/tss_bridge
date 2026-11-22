@@ -194,6 +194,7 @@ end
 
 local function createZoneGizmo()
     return Gizmo.Create({
+        uiOverlay = true,
         mode = 'transform',
         handles = zoneGizmoHandles,
         onDragStart = function(handle, mouseX, mouseY)
@@ -459,7 +460,10 @@ end
 
 local function stopEditor(cancelled)
     if not editor.active then return end
-    if editor.gizmo then editor.gizmo:FinishDrag(true) end
+    if editor.gizmo then
+        editor.gizmo:FinishDrag(true)
+        editor.gizmo:ClearOverlay()
+    end
     local onCancel = editor.onCancel
     editor.active = false
 

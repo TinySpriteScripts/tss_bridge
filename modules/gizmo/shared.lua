@@ -221,14 +221,19 @@ local function overlayHandles(handles, selected)
     return result
 end
 
-local function sendOverlay(handles, selected)
+local overlayOwner
+
+local function sendOverlay(controller, handles, selected)
+    overlayOwner = controller
     SendNUIMessage({
         action = 'gizmoOverlay',
         payload = { visible = true, handles = overlayHandles(handles, selected) },
     })
 end
 
-local function clearOverlay()
+local function clearOverlay(controller)
+    if overlayOwner ~= controller then return end
+    overlayOwner = nil
     SendNUIMessage({ action = 'gizmoOverlay', payload = nil })
 end
 
@@ -388,9 +393,9 @@ function Gizmo.Create(options)
 
         if input.draw ~= false then
             local selected = self.drag and self.drag.handle or self.hovered
-            if options.uiOverlay then sendOverlay(handles, selected) else drawHandles(handles, selected) end
+            if options.uiOverlay then sendOverlay(self, handles, selected) else drawHandles(handles, selected) end
         elseif options.uiOverlay then
-            clearOverlay()
+            clearOverlay(self)
         end
         return self.hovered, self.drag ~= nil
     end
@@ -398,11 +403,11 @@ function Gizmo.Create(options)
     function controller:Draw()
         local handles = options.handles(self.mode) or {}
         local selected = self.drag and self.drag.handle or self.hovered
-        if options.uiOverlay then sendOverlay(handles, selected) else drawHandles(handles, selected) end
+        if options.uiOverlay then sendOverlay(self, handles, selected) else drawHandles(handles, selected) end
     end
 
     function controller:ClearOverlay()
-        if options.uiOverlay then clearOverlay() end
+        if options.uiOverlay then clearOverlay(self) end
     end
 
     return controller
