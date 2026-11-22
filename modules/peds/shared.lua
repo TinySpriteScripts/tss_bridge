@@ -76,7 +76,7 @@ function TSS.CreatePed(data, coords, options)
 
     local pedType = data.pedType or options.pedType or 0
     local networked = options.networked or data.networked or false
-    local ped = CreatePed(pedType, model, coords.x, coords.y, coords.z, coords.w or 0.0, networked, false)
+    local ped = CreatePed(pedType, model, coords.x, coords.y, coords.z - 1.0, coords.w or 0.0, networked, false)
 
     if not ped or ped == 0 or not DoesEntityExist(ped) then
         SetModelAsNoLongerNeeded(model)
